@@ -6,18 +6,40 @@
     <description>Recent content in Posts on Laika</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Sat, 16 May 2020 18:02:00 +0800</lastBuildDate>
+    <lastBuildDate>Sun, 17 May 2020 20:14:50 +0800</lastBuildDate>
     
 	<atom:link href="/posts/index.xml" rel="self" type="application/rss+xml" />
     
     
     <item>
-      <title>关于DMA(直接内存访问)</title>
+      <title>Linux进程调度与定时器</title>
+      <link>/posts/sched-and-timer/</link>
+      <pubDate>Sun, 17 May 2020 20:14:50 +0800</pubDate>
+      
+      <guid>/posts/sched-and-timer/</guid>
+      <description>由于Linux是属于抢占式(preemptoin)多任务(multitasking)分时操作系统，因此进程的调度同定时器必然存在联系，本篇日志是记录Linux进程调度与定时器的关系。
+ Linux与Microsoft Windows等操作系统不同，并没有单独的线程机制，一组线程仅仅是共享了虚拟内存地址空间、打开的文件等资源的进程。
+ Linux进程调度 操作系统的一个重要职责是将有限的资源通过特定的机制分配给多个用户使用，这里的资源包括CPU、内存、IO等，用户既可以指操作计算机的人，而人是给计算机下达任务的，因此更宽泛地指任务，也就是进程。
+由于实际场景中，进程的数量是大于CPU处理器数量，多任务就是指同时并发地让进程交替使用CPU资源，让进程产生自己独占CPU的错觉，虚拟内存也是同理。
+抢占(preemptoin)就是指不需要经过进程主动出让，内核调度器可以强制让进程让出CPU资源，然后去执行其他进程。
+ 与抢占式多任务相对应的，叫做协作式(cooperative)多任务，Go的goroutine便是一个应用范例。
+ 由于本篇日志的主题是进程调度与定时器的关系，所以抢占(preemptoin)便是这里的切入点。
+由于进程正在执行代码，内核如果要去执行抢占操作，比如执行 schedule()，那必然需要去执行内核代码，而这里触发执行内核代码的其中之一，便是定时器中断。
+不论是最早的Unix调度算法，2.5内核版本的O(1)调度算法，以及2.6之后出现的CFS完全公平调度算法，其中计算进程已经消耗的时间片(timeslice)都依赖于计算机的时间概念，而计算机的时间概念也是通过定时器实现的。
+定时器 系统定时器是一种可编程硬件芯片，它能以固定的频率产生中断，这就是定时器中断。如果该中断信号没有被屏蔽，CPU便会去执行对应的中断处理程序，就可以去执行一些需要定时执行的代码，包括：
+ 更新系统运行的时间 更新实际时间 在SMP(对称多处理器)系统上，均衡各个处理器上的运行队列 检查当前进程是否用尽了时间片，如果用尽了则重新调度 运行已经超时的动态定时器 更新资源消耗、处理器时间的统计信息  系统在启动时，便会根据系统定时器的节拍率设置硬件。在x86体系结构中，系统定时器的默认节拍率是100HZ，也就是说每秒会触发100次定时器中断。该值可以自定义，越高产生中断的频率就越高，时钟中断的解析度也越高，像poll()和select()等系统调用的精度也越高，同理进程消耗的时间片计算和调度时机也更精确。
+但是高节拍率也会带来副作用，意味着执行定时器中断处理程序的次数更多，这不但减少了执行其他任务的时间，同时还会打乱处理器的高速缓存（高速缓存依赖于空间和时间局部性）和增加耗电。</description>
+    </item>
+    
+    <item>
+      <title>DMA(直接内存访问)和零拷贝</title>
       <link>/posts/dma/</link>
       <pubDate>Sat, 16 May 2020 18:02:00 +0800</pubDate>
       
       <guid>/posts/dma/</guid>
-      <description></description>
+      <description> 许多设备都可以临时控制总线。这些设备可以执行涉及主内存和其他设备的数据传送。由于设备执行这些操作的过程中无需借助于 CPU，因此该类型的数据传送称为直接内存访问 (direct memory access, DMA)。1
+   第 9 章 直接内存访问 (Direct Memory Access, DMA) - docs.oracle.com &amp;#x21a9;&amp;#xfe0e;
+   </description>
     </item>
     
   </channel>

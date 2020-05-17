@@ -2,12 +2,14 @@
 <html lang="en">
 <head>
   
-    <title>关于DMA(直接内存访问) :: Laika — Just blog</title>
+    <title>DMA(直接内存访问)和零拷贝 :: Laika — Just blog</title>
   
   <meta http-equiv="content-type" content="text/html; charset=utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
-<meta name="description" content="" />
-<meta name="keywords" content="linux, kernel" />
+<meta name="description" content=" 许多设备都可以临时控制总线。这些设备可以执行涉及主内存和其他设备的数据传送。由于设备执行这些操作的过程中无需借助于 CPU，因此该类型的数据传送称为直接内存访问 (direct memory access, DMA)。1
+   第 9 章 直接内存访问 (Direct Memory Access, DMA) - docs.oracle.com &amp;#x21a9;&amp;#xfe0e;
+   " />
+<meta name="keywords" content="linux, kernel, memory, zero copy" />
 <meta name="robots" content="noodp" />
 <link rel="canonical" href="/posts/dma/" />
 
@@ -36,10 +38,12 @@
 
 <meta property="og:locale" content="en" />
 <meta property="og:type" content="article" />
-<meta property="og:title" content="关于DMA(直接内存访问) :: Laika">
-<meta property="og:description" content="" />
+<meta property="og:title" content="DMA(直接内存访问)和零拷贝 :: Laika">
+<meta property="og:description" content=" 许多设备都可以临时控制总线。这些设备可以执行涉及主内存和其他设备的数据传送。由于设备执行这些操作的过程中无需借助于 CPU，因此该类型的数据传送称为直接内存访问 (direct memory access, DMA)。1
+   第 9 章 直接内存访问 (Direct Memory Access, DMA) - docs.oracle.com &amp;#x21a9;&amp;#xfe0e;
+   " />
 <meta property="og:url" content="/posts/dma/" />
-<meta property="og:site_name" content="关于DMA(直接内存访问)" />
+<meta property="og:site_name" content="DMA(直接内存访问)和零拷贝" />
 
   <meta property="og:image" content="/">
 
@@ -111,7 +115,7 @@
     
 <div class="post">
   <h1 class="post-title">
-    <a href="/posts/dma/">关于DMA(直接内存访问)</a></h1>
+    <a href="/posts/dma/">DMA(直接内存访问)和零拷贝</a></h1>
   <div class="post-meta">
       
     <span class="post-date">
@@ -132,15 +136,50 @@
     
     #<a href="/tags/kernel/">kernel</a>&nbsp;
     
+    #<a href="/tags/memory/">memory</a>&nbsp;
+    
+    #<a href="/tags/zero-copy/">zero copy</a>&nbsp;
+    
   </span>
   
 
   
 
-  <div class="post-content"></div>
+  <div class="post-content"><div>
+        <blockquote>
+<p>许多设备都可以临时控制总线。这些设备可以执行涉及主内存和其他设备的数据传送。由于设备执行这些操作的过程中无需借助于 CPU，因此该类型的数据传送称为直接内存访问 (direct memory access, DMA)。<sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup></p>
+</blockquote>
+<section class="footnotes" role="doc-endnotes">
+<hr>
+<ol>
+<li id="fn:1" role="doc-endnote">
+<p>第 9 章 直接内存访问 (Direct Memory Access, DMA) - <a href="https://docs.oracle.com/cd/E19253-01/819-7057/dma-29901/index.html">docs.oracle.com</a> <a href="#fnref:1" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+</ol>
+</section>
+
+      </div></div>
 
   
   
+<div class="pagination">
+    <div class="pagination__title">
+        <span class="pagination__title-h">Read other posts</span>
+        <hr />
+    </div>
+    <div class="pagination__buttons">
+        
+        <span class="button previous">
+            <a href="/posts/sched-and-timer/">
+                <span class="button__icon">←</span>
+                <span class="button__text">Linux进程调度与定时器</span>
+            </a>
+        </span>
+        
+        
+    </div>
+</div>
+
   
 
   

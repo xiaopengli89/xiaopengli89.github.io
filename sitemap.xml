@@ -3,6 +3,41 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   
   <url>
+    <loc>/tags/kernel/</loc>
+    <lastmod>2020-05-17T20:14:50+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>/tags/linux/</loc>
+    <lastmod>2020-05-17T20:14:50+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>/posts/sched-and-timer/</loc>
+    <lastmod>2020-05-17T20:14:50+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>/posts/</loc>
+    <lastmod>2020-05-17T20:14:50+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>/tags/sched/</loc>
+    <lastmod>2020-05-17T20:14:50+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>/tags/</loc>
+    <lastmod>2020-05-17T20:14:50+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>/tags/timer/</loc>
+    <lastmod>2020-05-17T20:14:50+08:00</lastmod>
+  </url>
+  
+  <url>
     <loc>/about/</loc>
     <lastmod>2020-05-16T18:39:29+08:00</lastmod>
   </url>
@@ -13,27 +48,17 @@
   </url>
   
   <url>
-    <loc>/tags/kernel/</loc>
-    <lastmod>2020-05-16T18:02:00+08:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>/tags/linux/</loc>
-    <lastmod>2020-05-16T18:02:00+08:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>/posts/</loc>
-    <lastmod>2020-05-16T18:02:00+08:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>/tags/</loc>
-    <lastmod>2020-05-16T18:02:00+08:00</lastmod>
-  </url>
-  
-  <url>
     <loc>/posts/dma/</loc>
+    <lastmod>2020-05-16T18:02:00+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>/tags/memory/</loc>
+    <lastmod>2020-05-16T18:02:00+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>/tags/zero-copy/</loc>
     <lastmod>2020-05-16T18:02:00+08:00</lastmod>
   </url>
   

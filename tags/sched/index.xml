@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>kernel on Laika</title>
-    <link>/tags/kernel/</link>
-    <description>Recent content in kernel on Laika</description>
+    <title>sched on Laika</title>
+    <link>/tags/sched/</link>
+    <description>Recent content in sched on Laika</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <lastBuildDate>Sun, 17 May 2020 20:14:50 +0800</lastBuildDate>
     
-	<atom:link href="/tags/kernel/index.xml" rel="self" type="application/rss+xml" />
+	<atom:link href="/tags/sched/index.xml" rel="self" type="application/rss+xml" />
     
     
     <item>
@@ -29,17 +29,6 @@
 定时器 系统定时器是一种可编程硬件芯片，它能以固定的频率产生中断，这就是定时器中断。如果该中断信号没有被屏蔽，CPU便会去执行对应的中断处理程序，就可以去执行一些需要定时执行的代码，包括：
  更新系统运行的时间 更新实际时间 在SMP(对称多处理器)系统上，均衡各个处理器上的运行队列 检查当前进程是否用尽了时间片，如果用尽了则重新调度 运行已经超时的动态定时器 更新资源消耗、处理器时间的统计信息  系统在启动时，便会根据系统定时器的节拍率设置硬件。在x86体系结构中，系统定时器的默认节拍率是100HZ，也就是说每秒会触发100次定时器中断。该值可以自定义，越高产生中断的频率就越高，时钟中断的解析度也越高，像poll()和select()等系统调用的精度也越高，同理进程消耗的时间片计算和调度时机也更精确。
 但是高节拍率也会带来副作用，意味着执行定时器中断处理程序的次数更多，这不但减少了执行其他任务的时间，同时还会打乱处理器的高速缓存（高速缓存依赖于空间和时间局部性）和增加耗电。</description>
-    </item>
-    
-    <item>
-      <title>DMA(直接内存访问)和零拷贝</title>
-      <link>/posts/dma/</link>
-      <pubDate>Sat, 16 May 2020 18:02:00 +0800</pubDate>
-      
-      <guid>/posts/dma/</guid>
-      <description> 许多设备都可以临时控制总线。这些设备可以执行涉及主内存和其他设备的数据传送。由于设备执行这些操作的过程中无需借助于 CPU，因此该类型的数据传送称为直接内存访问 (direct memory access, DMA)。1
-   第 9 章 直接内存访问 (Direct Memory Access, DMA) - docs.oracle.com &amp;#x21a9;&amp;#xfe0e;
-   </description>
     </item>
     
   </channel>

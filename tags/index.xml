@@ -6,7 +6,7 @@
     <description>Recent content in Tags on Laika</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Sat, 16 May 2020 18:02:00 +0800</lastBuildDate>
+    <lastBuildDate>Sun, 17 May 2020 20:14:50 +0800</lastBuildDate>
     
 	<atom:link href="/tags/index.xml" rel="self" type="application/rss+xml" />
     
@@ -14,7 +14,7 @@
     <item>
       <title>kernel</title>
       <link>/tags/kernel/</link>
-      <pubDate>Sat, 16 May 2020 18:02:00 +0800</pubDate>
+      <pubDate>Sun, 17 May 2020 20:14:50 +0800</pubDate>
       
       <guid>/tags/kernel/</guid>
       <description></description>
@@ -23,9 +23,45 @@
     <item>
       <title>linux</title>
       <link>/tags/linux/</link>
-      <pubDate>Sat, 16 May 2020 18:02:00 +0800</pubDate>
+      <pubDate>Sun, 17 May 2020 20:14:50 +0800</pubDate>
       
       <guid>/tags/linux/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>sched</title>
+      <link>/tags/sched/</link>
+      <pubDate>Sun, 17 May 2020 20:14:50 +0800</pubDate>
+      
+      <guid>/tags/sched/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>timer</title>
+      <link>/tags/timer/</link>
+      <pubDate>Sun, 17 May 2020 20:14:50 +0800</pubDate>
+      
+      <guid>/tags/timer/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>memory</title>
+      <link>/tags/memory/</link>
+      <pubDate>Sat, 16 May 2020 18:02:00 +0800</pubDate>
+      
+      <guid>/tags/memory/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>zero copy</title>
+      <link>/tags/zero-copy/</link>
+      <pubDate>Sat, 16 May 2020 18:02:00 +0800</pubDate>
+      
+      <guid>/tags/zero-copy/</guid>
       <description></description>
     </item>
     
