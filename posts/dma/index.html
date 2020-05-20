@@ -1,174 +1,117 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  
-    <title>DMA(直接内存访问)和零拷贝 :: Laika — Just blog</title>
-  
-  <meta http-equiv="content-type" content="text/html; charset=utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
-<meta name="description" content=" 许多设备都可以临时控制总线。这些设备可以执行涉及主内存和其他设备的数据传送。由于设备执行这些操作的过程中无需借助于 CPU，因此该类型的数据传送称为直接内存访问 (direct memory access, DMA)。1
- 大多数文件系统默认的IO操作都是缓存IO(Buffered I/O)，对于读(Read)操作，即IO设备先把数据发送到内核缓存区(Page Cache)，内核再将数据拷贝到应用程序地址空间的数据缓存区，而对于写(Write)操作，即反过来，从应用程序地址空间的数据缓存区拷贝到内核缓存区，内核再将数据发送到IO设备。
-缓存IO的优势：
- 可以利用内核缓存，如果数据已经在页缓存内，则不需要再读取IO设备，直接返回页缓存中的数据 对于写操作，应用程序只需要将数据拷贝到内核缓冲区即可返回，接下来应用程序缓冲区可以再次使用，而不需要等内核将数据写到IO设备(依赖于应用程序采用的写操作机制)。在一些场景下，比如应用程序每次只写1Byte，缓存IO可以将多次的写操作合并成一次IO写操作，有效地减少了IO操作次数，从而提供系统性能  缓存IO的劣势：
- 数据从IO设备到应用程序地址空间需要经过内核缓冲区的中转，也就是拷贝操作，这些拷贝操作会消耗CPU，增加了系统负载。在某些场景下，比如网络文件服务，数据到达应用程序缓冲区后，又会原样的再次拷贝到内核缓冲区以发送到IO设备，这里的中转次数又增加了一倍 用于中转的缓冲区，不论是应用程序地址空间，还是内核空间，都会占用内存，加大了空间消耗  零拷贝 在一些场景下，我们需要减少数据拷贝的次数，以提高系统性能，零拷贝技术便是用来解决这个问题。在Linux操作系统中，有以下几种方式来实现零拷贝：
-内存映射（mmap) mmap机制是先将数据从IO设备读取到内核缓冲区，然后通过应用程序地址空间和内核共享该内核缓冲区，这样就不需要拷贝了。
-但是这里也会带来一次虚拟存储操作，而虚拟存储操作需要修改页表以及冲刷TLB来维持存储的一致性，这里的开销也不小，但是如果传输的数据较大，那还是值得的。
-sendfile mmap会有虚拟转储开销，同时如果是发送网络数据的话，还需要把数据从内核缓冲区发送到socket缓冲区，最后发送到协议引擎中去，这里还是会有拷贝操作(内核拷贝)。sendfile机制可以再进一步的减少拷贝次数，同时避免虚拟转储操作。
-sendfile利用DMA引擎将数据拷贝到内核缓冲区中，然后将带有文件位置和长度信息的缓冲区描述符添加到socket缓冲区中(这里不需要拷贝完整的数据)，DMA引擎将直接从内核缓冲区拷贝到协议引擎中去，这里避免了内核缓冲区到socket缓冲区的拷贝，同时没有映射内存。
-DMA（直接内存访问） 前面提到了零拷贝技术中应用了DMA，可以跳过应用程序地址空间的中转，但是如果应用需要读取或修改数据呢？这时DMA也可以跳过内核缓冲区，实现数据从IO设备到用户地址空间的直接数据交换。
-像数据库管理系统，希望自己管理页缓存，因为数据库知道自己存储的是什么数据，该如何换页等等。比如在提交事务时，需要redo log写入磁盘，才算事务提交完成，而buffer pool中的脏页并不需要立即写入磁盘，可以在换页时或者定时写入；在换页的时候，决定哪些页需要从buffer pool中换出，需要根据数据库自己的机制判断，依赖操作系统的换页机制将大大降低数据库系统的性能。
-当然并不是所有地址空间都支持DMA，受限与硬件，在Linux中，只有ZONE_DMA区的内存可支持DMA操作，详情可参考Linux内存管理。
-  第 9 章 直接内存访问 (Direct Memory Access, DMA) - docs.oracle.com &amp;#x21a9;&amp;#xfe0e;
-   " />
-<meta name="keywords" content="linux, kernel, memory, zero copy" />
-<meta name="robots" content="noodp" />
-<link rel="canonical" href="/posts/dma/" />
+<html lang="en"><head>
+    <meta charset="utf-8">
+    <meta name="theme-color" content="#000" />
+    <title>
+        
+            DMA(直接内存访问)和零拷贝 &middot; Laika Laika
+        
+    </title>
 
+    
+    <link rel="stylesheet" href="https://unpkg.com/purecss@1.0.0/build/pure-min.css"
+        integrity="sha384-nn4HPE8lTHyVtfCBi5yW9d20FjT8BJwUXyWZT9InLYax14RDjBj46LmSztkmNP9w" crossorigin="anonymous">
+    
+    
+    <link rel="stylesheet" href="https://unpkg.com/purecss@1.0.0/build/grids-responsive-min.css">
+    
+    <link rel="stylesheet" href="/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Sans+Condensed:wght@300&family=Merriweather:ital,wght@0,300;0,700;1,300&display=swap" rel="stylesheet">
+    <link rel="icon" href="/img/favicon.ico" type="image/x-icon">
 
+    <link rel="alternate" type="application/atom+xml" title="Atom Feed" href="/atom.xml" />
 
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="">
+    
+    
+    <meta name="description" content="Living">
+    
 
-<link rel="stylesheet" href="/assets/style.css">
-
-
-
-
-
-
-<link rel="apple-touch-icon-precomposed" sizes="144x144" href="/img/apple-touch-icon-144-precomposed.png">
-
-  <link rel="shortcut icon" href="/img/favicon/orange.png">
-
-
-
-<meta name="twitter:card" content="summary" />
-
-  <meta name="twitter:site" content="" />
-
-<meta name="twitter:creator" content="" />
-
-
-<meta property="og:locale" content="en" />
-<meta property="og:type" content="article" />
-<meta property="og:title" content="DMA(直接内存访问)和零拷贝 :: Laika">
-<meta property="og:description" content=" 许多设备都可以临时控制总线。这些设备可以执行涉及主内存和其他设备的数据传送。由于设备执行这些操作的过程中无需借助于 CPU，因此该类型的数据传送称为直接内存访问 (direct memory access, DMA)。1
- 大多数文件系统默认的IO操作都是缓存IO(Buffered I/O)，对于读(Read)操作，即IO设备先把数据发送到内核缓存区(Page Cache)，内核再将数据拷贝到应用程序地址空间的数据缓存区，而对于写(Write)操作，即反过来，从应用程序地址空间的数据缓存区拷贝到内核缓存区，内核再将数据发送到IO设备。
-缓存IO的优势：
- 可以利用内核缓存，如果数据已经在页缓存内，则不需要再读取IO设备，直接返回页缓存中的数据 对于写操作，应用程序只需要将数据拷贝到内核缓冲区即可返回，接下来应用程序缓冲区可以再次使用，而不需要等内核将数据写到IO设备(依赖于应用程序采用的写操作机制)。在一些场景下，比如应用程序每次只写1Byte，缓存IO可以将多次的写操作合并成一次IO写操作，有效地减少了IO操作次数，从而提供系统性能  缓存IO的劣势：
- 数据从IO设备到应用程序地址空间需要经过内核缓冲区的中转，也就是拷贝操作，这些拷贝操作会消耗CPU，增加了系统负载。在某些场景下，比如网络文件服务，数据到达应用程序缓冲区后，又会原样的再次拷贝到内核缓冲区以发送到IO设备，这里的中转次数又增加了一倍 用于中转的缓冲区，不论是应用程序地址空间，还是内核空间，都会占用内存，加大了空间消耗  零拷贝 在一些场景下，我们需要减少数据拷贝的次数，以提高系统性能，零拷贝技术便是用来解决这个问题。在Linux操作系统中，有以下几种方式来实现零拷贝：
-内存映射（mmap) mmap机制是先将数据从IO设备读取到内核缓冲区，然后通过应用程序地址空间和内核共享该内核缓冲区，这样就不需要拷贝了。
-但是这里也会带来一次虚拟存储操作，而虚拟存储操作需要修改页表以及冲刷TLB来维持存储的一致性，这里的开销也不小，但是如果传输的数据较大，那还是值得的。
-sendfile mmap会有虚拟转储开销，同时如果是发送网络数据的话，还需要把数据从内核缓冲区发送到socket缓冲区，最后发送到协议引擎中去，这里还是会有拷贝操作(内核拷贝)。sendfile机制可以再进一步的减少拷贝次数，同时避免虚拟转储操作。
-sendfile利用DMA引擎将数据拷贝到内核缓冲区中，然后将带有文件位置和长度信息的缓冲区描述符添加到socket缓冲区中(这里不需要拷贝完整的数据)，DMA引擎将直接从内核缓冲区拷贝到协议引擎中去，这里避免了内核缓冲区到socket缓冲区的拷贝，同时没有映射内存。
-DMA（直接内存访问） 前面提到了零拷贝技术中应用了DMA，可以跳过应用程序地址空间的中转，但是如果应用需要读取或修改数据呢？这时DMA也可以跳过内核缓冲区，实现数据从IO设备到用户地址空间的直接数据交换。
-像数据库管理系统，希望自己管理页缓存，因为数据库知道自己存储的是什么数据，该如何换页等等。比如在提交事务时，需要redo log写入磁盘，才算事务提交完成，而buffer pool中的脏页并不需要立即写入磁盘，可以在换页时或者定时写入；在换页的时候，决定哪些页需要从buffer pool中换出，需要根据数据库自己的机制判断，依赖操作系统的换页机制将大大降低数据库系统的性能。
-当然并不是所有地址空间都支持DMA，受限与硬件，在Linux中，只有ZONE_DMA区的内存可支持DMA操作，详情可参考Linux内存管理。
-  第 9 章 直接内存访问 (Direct Memory Access, DMA) - docs.oracle.com &amp;#x21a9;&amp;#xfe0e;
-   " />
-<meta property="og:url" content="/posts/dma/" />
-<meta property="og:site_name" content="DMA(直接内存访问)和零拷贝" />
-
-  <meta property="og:image" content="/">
-
-<meta property="og:image:width" content="2048">
-<meta property="og:image:height" content="1024">
-
-
-  <meta property="article:published_time" content="2020-05-16 18:02:00 &#43;0800 CST" />
-
-
-
-
-
-
-
-
-
-
-
-
-</head>
-<body class="">
-
-
-<div class="container center headings--one-size">
-
-  <header class="header">
-  <div class="header__inner">
-    <div class="header__logo">
-      <a href="/">
-  <div class="logo">
-    Laika
-  </div>
-</a>
-
+    
+    <meta name="keywords" content="linux,kernel,memory,zero copy">
+    
+    <meta name="author" content="Xiaopeng Li"></head>
+<body>
+        <div class="container"><div id="navbar" class="pure-menu pure-menu-open pure-menu-horizontal pure-menu-scrollable">
+    <a href="/" class="pure-menu-heading">
+         
+            Laika 
+         
+    </a>
+    <ul class="pure-menu-list">
+        <li class="pure-menu-item">
+            <a href="/posts" class="pure-menu-link">
+                <i class="fa fa-archive"></i>
+                Articles
+            </a>
+        </li>
+        <li class="pure-menu-item">
+            <a href="/tags" class="pure-menu-link">
+                <i class="fas fa-comments"></i>
+                Categories
+            </a>
+        </li>
+        <li class="pure-menu-item">
+            <a href="/about" class="pure-menu-link">
+                <i class="fas fa-smile"></i>
+                About
+            </a>
+        </li>
+    </ul>
+    <ul class="pure-menu-list pull-right">
+        
+        <li class="pure-menu-item">
+            <a href="https://github.com/xiaopengli89" title="Github" class="pure-menu-link">
+                <i class="fab fa-github"></i>
+                <span class="hide">Github</span>
+            </a>
+        </li>
+        
+        
+        
+        
+        
+        <li class="pure-menu-item">
+            <a href="/atom.xml" title="Atom Feed" class="pure-menu-link">
+                <i class="fas fa-rss-square"></i>
+                <span class="hide">RSS Feed</span>
+            </a>
+        </li>
+    </ul>
+</div>
+<div class="pure-u-1">
+    <div class="pad">
     </div>
-    <div class="menu-trigger">menu</div>
-  </div>
-  
-    <nav class="menu">
-  <ul class="menu__inner menu__inner--desktop">
-    
-      
+</div>
+<div class="pure-g">
+
+
+<div id="content" class="pure-u-1 pure-u-md-3-4 pure-u-sm-1">
+    <div class="pad">
+<div class="date">
+    <time pubdate="2020-05-16">May 16, 2020</time>
+    <span class="author">by Pravin Paratey</span>
+</div>
+
+<article>
+    <h1><a href="/posts/dma/">DMA(直接内存访问)和零拷贝</a></h1>
+    <div class="tags">
         
-          <li><a href="/about">About</a></li>
         
-      
-      
-    
-
-    
-  </ul>
-
-  <ul class="menu__inner menu__inner--mobile">
-    
-      
-        <li><a href="/about">About</a></li>
-      
-    
-    
-  </ul>
-</nav>
-
-  
-</header>
-
-
-  <div class="content">
-    
-<div class="post">
-  <h1 class="post-title">
-    <a href="/posts/dma/">DMA(直接内存访问)和零拷贝</a></h1>
-  <div class="post-meta">
-      
-    <span class="post-date">
-      2020-05-16
-    </span>
-    
-    
-    <span class="post-author">::
-      xiaopengli
-    </span>
-    
-  </div>
-
-  
-  <span class="post-tags">
-    
-    #<a href="/tags/linux/">linux</a>&nbsp;
-    
-    #<a href="/tags/kernel/">kernel</a>&nbsp;
-    
-    #<a href="/tags/memory/">memory</a>&nbsp;
-    
-    #<a href="/tags/zero-copy/">zero copy</a>&nbsp;
-    
-  </span>
-  
-
-  
-
-  <div class="post-content"><div>
-        <blockquote>
+        <a href="/tags/linux" class="pure-button">linux</a>
+        
+        
+        <a href="/tags/kernel" class="pure-button">kernel</a>
+        
+        
+        <a href="/tags/memory" class="pure-button">memory</a>
+        
+        
+        <a href="/tags/zero-copy" class="pure-button">zero copy</a>
+        
+    </div>
+    <blockquote>
 <p>许多设备都可以临时控制总线。这些设备可以执行涉及主内存和其他设备的数据传送。由于设备执行这些操作的过程中无需借助于 CPU，因此该类型的数据传送称为直接内存访问 (direct memory access, DMA)。<sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup></p>
 </blockquote>
 <p>大多数文件系统默认的IO操作都是缓存IO(Buffered I/O)，对于读(Read)操作，即IO设备先把数据发送到内核缓存区(Page Cache)，内核再将数据拷贝到应用程序地址空间的数据缓存区，而对于写(Write)操作，即反过来，从应用程序地址空间的数据缓存区拷贝到内核缓存区，内核再将数据发送到IO设备。</p>
@@ -182,15 +125,15 @@ DMA（直接内存访问） 前面提到了零拷贝技术中应用了DMA，可�
 <li>数据从IO设备到应用程序地址空间需要经过内核缓冲区的中转，也就是拷贝操作，这些拷贝操作会消耗CPU，增加了系统负载。在某些场景下，比如网络文件服务，数据到达应用程序缓冲区后，又会原样的再次拷贝到内核缓冲区以发送到IO设备，这里的中转次数又增加了一倍</li>
 <li>用于中转的缓冲区，不论是应用程序地址空间，还是内核空间，都会占用内存，加大了空间消耗</li>
 </ol>
-<h1 id="零拷贝">零拷贝<a href="#零拷贝" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h1>
+<h1 id="零拷贝">零拷贝</h1>
 <p>在一些场景下，我们需要减少数据拷贝的次数，以提高系统性能，零拷贝技术便是用来解决这个问题。在Linux操作系统中，有以下几种方式来实现零拷贝：</p>
-<h4 id="内存映射mmap">内存映射（mmap)<a href="#内存映射mmap" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h4>
+<h4 id="内存映射mmap">内存映射（mmap)</h4>
 <p>mmap机制是先将数据从IO设备读取到内核缓冲区，然后通过应用程序地址空间和内核共享该内核缓冲区，这样就不需要拷贝了。</p>
 <p>但是这里也会带来一次虚拟存储操作，而虚拟存储操作需要修改页表以及冲刷TLB来维持存储的一致性，这里的开销也不小，但是如果传输的数据较大，那还是值得的。</p>
-<h4 id="sendfile">sendfile<a href="#sendfile" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h4>
+<h4 id="sendfile">sendfile</h4>
 <p>mmap会有虚拟转储开销，同时如果是发送网络数据的话，还需要把数据从内核缓冲区发送到socket缓冲区，最后发送到协议引擎中去，这里还是会有拷贝操作(内核拷贝)。sendfile机制可以再进一步的减少拷贝次数，同时避免虚拟转储操作。</p>
 <p>sendfile利用DMA引擎将数据拷贝到内核缓冲区中，然后将带有文件位置和长度信息的缓冲区描述符添加到socket缓冲区中(这里不需要拷贝完整的数据)，DMA引擎将直接从内核缓冲区拷贝到协议引擎中去，这里避免了内核缓冲区到socket缓冲区的拷贝，同时没有映射内存。</p>
-<h1 id="dma直接内存访问">DMA（直接内存访问）<a href="#dma直接内存访问" class="hanchor" ariaLabel="Anchor">&#8983;</a> </h1>
+<h1 id="dma直接内存访问">DMA（直接内存访问）</h1>
 <p>前面提到了零拷贝技术中应用了DMA，可以跳过应用程序地址空间的中转，但是如果应用需要读取或修改数据呢？这时DMA也可以跳过内核缓冲区，实现数据从IO设备到用户地址空间的直接数据交换。</p>
 <p>像数据库管理系统，希望自己管理页缓存，因为数据库知道自己存储的是什么数据，该如何换页等等。比如在提交事务时，需要redo log写入磁盘，才算事务提交完成，而buffer pool中的脏页并不需要立即写入磁盘，可以在换页时或者定时写入；在换页的时候，决定哪些页需要从buffer pool中换出，需要根据数据库自己的机制判断，依赖操作系统的换页机制将大大降低数据库系统的性能。</p>
 <p>当然并不是所有地址空间都支持DMA，受限与硬件，在Linux中，只有ZONE_DMA区的内存可支持DMA操作，详情可参考Linux内存管理。</p>
@@ -203,57 +146,86 @@ DMA（直接内存访问） 前面提到了零拷贝技术中应用了DMA，可�
 </ol>
 </section>
 
-      </div></div>
-
-  
-  
-<div class="pagination">
-    <div class="pagination__title">
-        <span class="pagination__title-h">Read other posts</span>
-        <hr />
-    </div>
-    <div class="pagination__buttons">
-        
-        <span class="button previous">
-            <a href="/posts/sched-and-timer/">
-                <span class="button__icon">←</span>
-                <span class="button__text">Linux进程调度与定时器</span>
-            </a>
-        </span>
-        
-        
+</article>
     </div>
 </div>
 
-  
 
-  
+                
+<div id="sidebar" class="pure-u-1 pure-u-md-1-4 pure-u-sm-1">
+    <div class="pad">
+        <a name="about"></a>
+        <h3>About Me</h3>
+        <div style="text-align: center;">
+            <img src="" alt="Xiaopeng Li" class="pure-img" />
+            <p><em></em></p>
+        </div>
 
-</div>
+        <h3>Latest Articles</h3>
+        <div class="pure-menu pure-menu-open">
+            <ul class="pure-menu-list">
+                
+                <li class="pure-menu-item">
+                    <a href="/posts/two-queue/" class="pure-menu-link">2Q(双链)缓存淘汰策略<br>
+                        <small></small>
+                    </a>
+                </li>
+                
+                <li class="pure-menu-item">
+                    <a href="/posts/sched-and-timer/" class="pure-menu-link">Linux进程调度与定时器<br>
+                        <small></small>
+                    </a>
+                </li>
+                
+                <li class="pure-menu-item">
+                    <a href="/posts/dma/" class="pure-menu-link">DMA(直接内存访问)和零拷贝<br>
+                        <small></small>
+                    </a>
+                </li>
+                
+            </ul>
+        </div>
 
-  </div>
+        <h3>Categories</h3>
+        <div style="text-align:center" class="tags">
+            
+            
+            <a href="/tags/kernel" class="pure-button"> kernel
+                <small>(2)</small></a>
+            
+            
+            
+            <a href="/tags/linux" class="pure-button"> linux
+                <small>(2)</small></a>
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+        </div>
+    </div> 
+</div> 
 
-  
-    <footer class="footer">
-  <div class="footer__inner">
-    
-      <div class="copyright">
-        <span>© 2020 Powered by <a href="http://gohugo.io">Hugo</a></span>
-    
-        <span>:: Theme made by <a href="https://twitter.com/panr">panr</a></span>
-      </div>
-  </div>
-</footer>
+                
+            </div><div class="pure-g">
+	<footer class="pure-u-1 pure-u-md-1 pure-u-sm-1">
+		<p>This page and its contents are copyright &copy; 2020,
+			<a href="">Xiaopeng Li</a>.</p>
+		<p><a href="https://github.com/pravin/hugo-theme-prav">Theme Prav</a> by <a href="https://cto.me.uk">Pravin
+				Paratey</a></p>
+	</footer>
 
-<script src="/assets/main.js"></script>
-<script src="/assets/prism.js"></script>
-
-
-
-
-
-  
-</div>
-
-</body>
+	<script defer src="https://use.fontawesome.com/releases/v5.0.9/js/all.js"
+		integrity="sha384-8iPTk2s/jMVj81dnzb/iFR2sdA7u06vHJyyLlAd4snFpCl/SnyUjRrbdJsw1pGIl"
+		crossorigin="anonymous"></script>
+</div></div></body>
 </html>

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>cache on Laika</title>
+    <link>/tags/cache/</link>
+    <description>Recent content in cache on Laika</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-gb</language>
+    <lastBuildDate>Tue, 19 May 2020 00:00:00 +0000</lastBuildDate>
+    
+	<atom:link href="/tags/cache/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>2Q(双链)缓存淘汰策略</title>
+      <link>/posts/two-queue/</link>
+      <pubDate>Tue, 19 May 2020 00:00:00 +0000</pubDate>
+      
+      <guid>/posts/two-queue/</guid>
+      <description>LRU(最近使用)算法经常用于缓存应用中，最简单的实现是通过一个链表实现：
+ 插入数据时向头节点插入 更新数据时，移动节点到头节点 淘汰数据时删除尾节点  但是这个简单的实现并不能很好地应付很多场景，缓存的理想情况是预测未来数据的使用情况，尽可能的从缓存中读取数据，减少实际IO操作。
+今天的记录是关于2个相似的LRU变种算法：LRU/2 和 2Q，以及它们的区别。
+2Q(双链) 原始LRU算法描述的是数据使用的最近时间点，越靠近头节点的数据使用的时间点越近，但是没有描述数据使用的频率，像对于数据库的遍历操作，新数据会立即将缓存中的所有数据淘汰，但是遍历完后，缓存中的数据在之后使用的概率非常低，即缓存污染。
+2Q淘汰算法是便是对以上情况的一种优化，淘汰策略是使用2个队列实现，1个FIFO队列记录只访问了一次的数据，1个普通LRU队列记录访问了2次以上的数据。
+ 当第1次访问时，将数据添加到FIFO队列，如果FIFO队列超过限制，淘汰FIFO里最旧的数据 当第2次访问时，将数据从FIFO队列移动到LRU队列的头节点，如果LRU队列超过限制，将LRU里最旧的数据移动到FIFO队列的头节点 当第3次以上访问时，按照LRU规则更新LRU队列  usestd::ptr::NonNull;usestd::fmt::Debug;pubstruct Node&amp;lt;T: Debug&amp;gt;{pubval: T,pubprev: Option&amp;lt;NonNull&amp;lt;Node&amp;lt;T&amp;gt;&amp;gt;&amp;gt;,pubnext: Option&amp;lt;NonNull&amp;lt;Node&amp;lt;T&amp;gt;&amp;gt;&amp;gt;,}pubstruct List&amp;lt;T: Debug&amp;gt;{pubhead: Option&amp;lt;NonNull&amp;lt;Node&amp;lt;T&amp;gt;&amp;gt;&amp;gt;,pubtail: Option&amp;lt;NonNull&amp;lt;Node&amp;lt;T&amp;gt;&amp;gt;&amp;gt;,publen: usize,}impl&amp;lt;T: Debug&amp;gt;List&amp;lt;T&amp;gt;{pubfn new()-&amp;gt; Self{Self{head: None,tail: None,len: 0,}}pubfn push_front(&amp;amp;mutself,val: T){letnode=Box::new(Node{val,prev: None,next: self.head,});letnode=NonNull::new(Box::into_raw(node));ifletSome(mutold_head)=self.head{unsafe{old_head.as_mut().prev=node;}}else{self.tail=node;}self.head=node;self.len+=1;}pubfn push_front_node(&amp;amp;mutself,node: NonNull&amp;lt;Node&amp;lt;T&amp;gt;&amp;gt;){letnode=Some(node);ifletSome(mutold_head)=self.head{unsafe{old_head.as_mut().prev=node;}}else{self.tail=node;}self.head=node;self.len+=1;}pubfn pop_back(&amp;amp;mutself)-&amp;gt; Option&amp;lt;NonNull&amp;lt;Node&amp;lt;T&amp;gt;&amp;gt;&amp;gt;{ifletSome(mutold_tail)=self.tail{unsafe{lettail=old_tail.as_mut().prev;ifletSome(muttail)=tail{tail.as_mut().next=None;}else{self.head=None;}self.tail=tail;self.len-=1;returnSome(old_tail);}}None}pubfn print(&amp;amp;self){letmutcur=self.head.as_ref();unsafe{whileletSome(c)=cur{letr=c.as_ref();println!(&amp;#34;{:?}&amp;#34;,r.val);cur=r.next.as_ref();}}}}struct TwoQueue{fifo: List&amp;lt;(String,i32)&amp;gt;,fifo_limit: usize,lru: List&amp;lt;(String,i32)&amp;gt;,lru_limit: usize,}implTwoQueue{fn new(fifo_limit: usize,lru_limit: usize)-&amp;gt; Self{Self{fifo: List::new(),fifo_limit,lru: List::new(),lru_limit,}}fn get(&amp;amp;mutself,key: &amp;amp;str)-&amp;gt; Option&amp;lt;i32&amp;gt;{letr=self.find_in_lru(key);ifr.is_some(){returnr;}self.find_in_fifo(key)}fn find_in_fifo(&amp;amp;mutself,key: &amp;amp;str)-&amp;gt; Option&amp;lt;i32&amp;gt;{letmutcur=self.fifo.head;whileletSome(c0)=cur{unsafe{letc=&amp;amp;mut*c0.as_ptr();ifc.val.0==key{// 取下 ifletSome(mutp)=c.prev{p.as_mut().next=c.next;}else{self.fifo.head=c.next;}ifletSome(mutn)=c.next{n.as_mut().prev=c.prev;}else{self.fifo.tail=c.prev;}self.fifo.len-=1;// 移动到lru队列 self.lru.push_front_node(c0);// 检查lru是否满 ifself.lru.len&amp;gt;self.lru_limit{ifletSome(node_from_lru)=self.lru.pop_back(){self.fifo.push_front_node(node_from_lru);}}// 返回 returnSome(c.val.1);}cur=c.next;}}None}fn find_in_lru(&amp;amp;mutself,key: &amp;amp;str)-&amp;gt; Option&amp;lt;i32&amp;gt;{letmutcur=self.</description>
+    </item>
+    
+  </channel>
+</rss>

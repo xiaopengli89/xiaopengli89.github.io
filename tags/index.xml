@@ -5,11 +5,29 @@
     <link>/tags/</link>
     <description>Recent content in Tags on Laika</description>
     <generator>Hugo -- gohugo.io</generator>
-    <language>en-us</language>
-    <lastBuildDate>Sun, 17 May 2020 20:14:50 +0800</lastBuildDate>
+    <language>en-gb</language>
+    <lastBuildDate>Tue, 19 May 2020 00:00:00 +0000</lastBuildDate>
     
 	<atom:link href="/tags/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>cache</title>
+      <link>/tags/cache/</link>
+      <pubDate>Tue, 19 May 2020 00:00:00 +0000</pubDate>
+      
+      <guid>/tags/cache/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>lru</title>
+      <link>/tags/lru/</link>
+      <pubDate>Tue, 19 May 2020 00:00:00 +0000</pubDate>
+      
+      <guid>/tags/lru/</guid>
+      <description></description>
+    </item>
     
     <item>
       <title>kernel</title>
