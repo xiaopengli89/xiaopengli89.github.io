@@ -93,7 +93,7 @@
     <div class="pad">
 <div class="date">
     <time pubdate="2020-05-19">May 19, 2020</time>
-    <span class="author">by Pravin Paratey</span>
+		<span class="author">by Xiaopeng Li</span>
 </div>
 
 <article>
@@ -114,7 +114,7 @@
 <li>淘汰数据时删除尾节点</li>
 </ol>
 <p>但是这个简单的实现并不能很好地应付很多场景，缓存的理想情况是预测未来数据的使用情况，尽可能的从缓存中读取数据，减少实际IO操作。</p>
-<p>今天的记录是关于2个相似的LRU变种算法：LRU/2 和 2Q，以及它们的区别。</p>
+<p>今天的记录是关于1个LRU的变种算法：2Q(双链)，该算法在Linux页高速缓存回收中被应用。</p>
 <h1 id="2q双链">2Q(双链)</h1>
 <p>原始LRU算法描述的是数据使用的最近时间点，越靠近头节点的数据使用的时间点越近，但是没有描述数据使用的频率，像对于数据库的遍历操作，新数据会立即将缓存中的所有数据淘汰，但是遍历完后，缓存中的数据在之后使用的概率非常低，即缓存污染。</p>
 <p>2Q淘汰算法是便是对以上情况的一种优化，淘汰策略是使用2个队列实现，1个FIFO队列记录只访问了一次的数据，1个普通LRU队列记录访问了2次以上的数据。</p>
@@ -326,7 +326,8 @@
 </span><span style="color:#bbb"></span>}<span style="color:#bbb">
 </span></code></pre></div><p>- 完</p>
 
-</article></div>
+</article>
+</div>
     <div class="pad"></div>
 
     
@@ -334,7 +335,7 @@
     <div class="pad">
 <div class="date">
     <time pubdate="2020-05-17">May 17, 2020</time>
-    <span class="author">by Pravin Paratey</span>
+		<span class="author">by Xiaopeng Li</span>
 </div>
 
 <article>
@@ -381,7 +382,8 @@
 <p>系统在启动时，便会根据系统定时器的节拍率设置硬件。在x86体系结构中，系统定时器的默认节拍率是100HZ，也就是说每秒会触发100次定时器中断。该值可以自定义，越高产生中断的频率就越高，时钟中断的解析度也越高，像poll()和select()等系统调用的精度也越高，同理进程消耗的时间片计算和调度时机也更精确。</p>
 <p>但是高节拍率也会带来副作用，意味着执行定时器中断处理程序的次数更多，这不但减少了执行其他任务的时间，同时还会打乱处理器的高速缓存（高速缓存依赖于空间和时间局部性）和增加耗电。</p>
 
-</article></div>
+</article>
+</div>
     <div class="pad"></div>
 
     
@@ -389,7 +391,7 @@
     <div class="pad">
 <div class="date">
     <time pubdate="2020-05-16">May 16, 2020</time>
-    <span class="author">by Pravin Paratey</span>
+		<span class="author">by Xiaopeng Li</span>
 </div>
 
 <article>
@@ -427,7 +429,7 @@
 <p>在一些场景下，我们需要减少数据拷贝的次数，以提高系统性能，零拷贝技术便是用来解决这个问题。在Linux操作系统中，有以下几种方式来实现零拷贝：</p>
 <h4 id="内存映射mmap">内存映射（mmap)</h4>
 <p>mmap机制是先将数据从IO设备读取到内核缓冲区，然后通过应用程序地址空间和内核共享该内核缓冲区，这样就不需要拷贝了。</p>
-<p>但是这里也会带来一次虚拟存储操作，而虚拟存储操作需要修改页表以及冲刷TLB来维持存储的一致性，这里的开销也不小，但是如果传输的数据较大，那还是值得的。</p>
+<p>但是这里也会带来一次虚拟存储操作，而虚拟存储操作需要修改页表以及冲刷TLB(translate lookaside buffer，翻译后缓冲器)来维持存储的一致性，这里的开销也不小，但是如果传输的数据较大，那还是值得的。</p>
 <h4 id="sendfile">sendfile</h4>
 <p>mmap会有虚拟转储开销，同时如果是发送网络数据的话，还需要把数据从内核缓冲区发送到socket缓冲区，最后发送到协议引擎中去，这里还是会有拷贝操作(内核拷贝)。sendfile机制可以再进一步的减少拷贝次数，同时避免虚拟转储操作。</p>
 <p>sendfile利用DMA引擎将数据拷贝到内核缓冲区中，然后将带有文件位置和长度信息的缓冲区描述符添加到socket缓冲区中(这里不需要拷贝完整的数据)，DMA引擎将直接从内核缓冲区拷贝到协议引擎中去，这里避免了内核缓冲区到socket缓冲区的拷贝，同时没有映射内存。</p>
@@ -444,7 +446,8 @@
 </ol>
 </section>
 
-</article></div>
+</article>
+</div>
     <div class="pad"></div>
 
     
