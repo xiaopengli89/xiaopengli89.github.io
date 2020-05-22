@@ -6,10 +6,28 @@
     <description>Recent content in Tags on </description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-gb</language>
-    <lastBuildDate>Tue, 19 May 2020 00:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 21 May 2020 21:58:01 +0800</lastBuildDate>
     
 	<atom:link href="/tags/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>socket</title>
+      <link>/tags/socket/</link>
+      <pubDate>Thu, 21 May 2020 21:58:01 +0800</pubDate>
+      
+      <guid>/tags/socket/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>tcp</title>
+      <link>/tags/tcp/</link>
+      <pubDate>Thu, 21 May 2020 21:58:01 +0800</pubDate>
+      
+      <guid>/tags/tcp/</guid>
+      <description></description>
+    </item>
     
     <item>
       <title>cache</title>

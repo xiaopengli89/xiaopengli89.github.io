@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+    <meta charset="utf-8">
+    <meta name="theme-color" content="#000" />
+    <title>
+        
+            关于Socket应用的性能优化 &middot;  Laika
+        
+    </title>
+
+    
+    <link rel="stylesheet" href="https://unpkg.com/purecss@1.0.0/build/pure-min.css"
+        integrity="sha384-nn4HPE8lTHyVtfCBi5yW9d20FjT8BJwUXyWZT9InLYax14RDjBj46LmSztkmNP9w" crossorigin="anonymous">
+    
+    
+    <link rel="stylesheet" href="https://unpkg.com/purecss@1.0.0/build/grids-responsive-min.css">
+    
+    <link rel="stylesheet" href="/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Sans+Condensed:wght@300&family=Merriweather:ital,wght@0,300;0,700;1,300&display=swap" rel="stylesheet">
+    <link rel="icon" href="/img/favicon.ico" type="image/x-icon">
+
+    <link rel="alternate" type="application/atom+xml" title="Atom Feed" href="/atom.xml" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="">
+    
+    
+    <meta name="description" content="Light up the universe">
+    
+
+    
+    <meta name="keywords" content="socket,tcp">
+    
+    <meta name="author" content="Xiaopeng Li"></head>
+<body>
+        <div class="container"><div id="navbar" class="pure-menu pure-menu-open pure-menu-horizontal pure-menu-scrollable">
+    <a href="/" class="pure-menu-heading">
+        
+            Laika 
+         
+    </a>
+    <ul class="pure-menu-list">
+        <li class="pure-menu-item">
+            <a href="/posts" class="pure-menu-link">
+                <i class="fa fa-archive"></i>
+                Articles
+            </a>
+        </li>
+        <li class="pure-menu-item">
+            <a href="/tags" class="pure-menu-link">
+                <i class="fas fa-comments"></i>
+                Categories
+            </a>
+        </li>
+        <li class="pure-menu-item">
+            <a href="/about" class="pure-menu-link">
+                <i class="fas fa-smile"></i>
+                About
+            </a>
+        </li>
+    </ul>
+    <ul class="pure-menu-list pull-right">
+        
+        <li class="pure-menu-item">
+            <a href="https://github.com/xiaopengli89" title="Github" class="pure-menu-link">
+                <i class="fab fa-github"></i>
+                <span class="hide">Github</span>
+            </a>
+        </li>
+        
+        
+        
+        
+        
+        <li class="pure-menu-item">
+            <a href="/atom.xml" title="Atom Feed" class="pure-menu-link">
+                <i class="fas fa-rss-square"></i>
+                <span class="hide">RSS Feed</span>
+            </a>
+        </li>
+    </ul>
+</div>
+<div class="pure-u-1">
+    <div class="pad">
+    </div>
+</div>
+<div class="pure-g">
+
+
+<div id="content" class="pure-u-1 pure-u-md-3-4 pure-u-sm-1">
+    <div class="pad">
+<div class="date">
+    <time pubdate="2020-05-21">May 21, 2020</time>
+		<span class="author">by Xiaopeng Li</span>
+</div>
+
+<article>
+    <h1><a href="/posts/socket-optimize/">关于Socket应用的性能优化</a></h1>
+    <div class="tags">
+        
+        
+        <a href="/tags/socket" class="pure-button">socket</a>
+        
+        
+        <a href="/tags/tcp" class="pure-button">tcp</a>
+        
+    </div>
+    <p>TCP/IP协议栈是计算机网络的基础通信架构，其中IP协议完成了跨链路的路由、寻址，TCP协议完成了面向连接的可靠字节流抽象，提供数据的分段、重传、重组，流量控制和拥塞控制，使得建立在TCP/IP协议之上的应用协议不用再关心各种硬件、网络环境，TCP/IP协议是今天的互联网的基石。</p>
+<h1 id="网络套接字socket">网络套接字Socket</h1>
+<p>Socket是操作系统用于网络编程的应用程序接口（API），可支持多种协议，现代常见的Socket套接字接口（Unix Socket、Windows Socket等）都源自Berkeley套接字<sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup>。接口实现用于TCP/IP协议，因此它是维持Internet的基本技术之一。同时也被用于Unix域套接字（Unix domain sockets），可实现在单机上为进程间通讯（IPC）的接口。</p>
+<p>不同的Socket应用程序除了满足最基本的通信需求外，也会有一些根据业务相关的特殊需求，本篇记录关于几个Linux下网络Socket应用的优化技巧：</p>
+<h2 id="低延迟需求">低延迟需求</h2>
+<p>由于TCP协议是面向字节流的协议，但是用于承载TCP的底层协议无法直接支持字节流，以太网协议需要一帧一帧地发送，一次发送的最大字节数受限于MTU；IP协议虽然支持数据的分包发送，但是大多数情况下我们需要避免IP协议分包，因为这会影响中间跳点的处理性能，所以TCP协议引入了分段（Segment）机制，在TCP层对数据进行拆分，保证IP数据包都是完整的。而通常情况下，我们希望每次发送的数据尽可能的多，也就是正好填满IP数据包，以此减少网络传输的次数（包括发送与接收方确认的次数），同时减少了总的包头数据量，以此提高整体的网络吞吐量。</p>
+<p>Nagle算法实现了对数据的合并，该算法会把多个小的数据合并成一个完整的报文段，以此最大化报文段，减少在线路上传输报文的次数，但是同时也会带来延迟，因为写入缓冲区的数据并不会马上发送出去。在低延迟需求的应用中，可以禁用Nagle算法：</p>
+<div class="highlight"><pre style="background-color:#eed;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#8b008b;font-weight:bold">use</span><span style="color:#bbb"> </span>std::net::SocketAddr;<span style="color:#bbb">
+</span><span style="color:#bbb"></span><span style="color:#8b008b;font-weight:bold">use</span><span style="color:#bbb"> </span>socket2::{Socket,<span style="color:#bbb"> </span>Domain,<span style="color:#bbb"> </span>Type};<span style="color:#bbb">
+</span><span style="color:#bbb"></span><span style="color:#8b008b;font-weight:bold">use</span><span style="color:#bbb"> </span>anyhow::<span style="color:#658b00">Result</span>;<span style="color:#bbb">
+</span><span style="color:#bbb">
+</span><span style="color:#bbb"></span><span style="color:#8b008b;font-weight:bold">fn</span> <span style="color:#008b45">no_delay</span>()<span style="color:#bbb"> </span>-&gt; <span style="color:#658b00">Result</span>&lt;()&gt;<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span><span style="color:#bbb">  </span><span style="color:#228b22">// create a TCP listener bound to two addresses
+</span><span style="color:#228b22"></span><span style="color:#bbb">  </span><span style="color:#8b008b;font-weight:bold">let</span><span style="color:#bbb"> </span>socket<span style="color:#bbb"> </span>=<span style="color:#bbb"> </span>Socket::new(Domain::ipv4(),<span style="color:#bbb"> </span>Type::stream(),<span style="color:#bbb"> </span><span style="color:#658b00">None</span>)?;<span style="color:#bbb">
+</span><span style="color:#bbb">
+</span><span style="color:#bbb">  </span>socket.bind(&amp;<span style="color:#cd5555">&#34;127.0.0.1:12345&#34;</span>.parse::&lt;SocketAddr&gt;()?.into())?;<span style="color:#bbb">
+</span><span style="color:#bbb">  </span><span style="color:#228b22">// sets the value of the TCP_NODELAY option on this socket
+</span><span style="color:#228b22"></span><span style="color:#bbb">  </span>socket.set_nodelay(<span style="color:#8b008b;font-weight:bold">true</span>)?;<span style="color:#bbb">
+</span><span style="color:#bbb">  </span>socket.listen(<span style="color:#b452cd">128</span>)?;<span style="color:#bbb">
+</span><span style="color:#bbb">
+</span><span style="color:#bbb">  </span><span style="color:#8b008b;font-weight:bold">let</span><span style="color:#bbb"> </span>listener<span style="color:#bbb"> </span>=<span style="color:#bbb"> </span>socket.into_tcp_listener();<span style="color:#bbb">
+</span><span style="color:#bbb">  </span><span style="color:#228b22">// ...
+</span><span style="color:#228b22"></span><span style="color:#bbb">  </span><span style="color:#658b00">Ok</span>(())<span style="color:#bbb">
+</span><span style="color:#bbb"></span>}<span style="color:#bbb">
+</span></code></pre></div><h2 id="减少系统调用">减少系统调用</h2>
+<p>由于网络接口的调用属于系统调用，会跨越应用程序空间和内核空间的边界，导致应用程序空间和内核空间的上下文切换，因此在希望减少内核调用负载的场景中，可以在应用程序中尽可能使用能支持的最大缓冲区，这样可以最大化一次系统调用能发送或读取的数据量。</p>
+<h2 id="增加内核缓冲区上限">增加内核缓冲区上限</h2>
+<p>在<a href="/posts/dma/">DMA(直接内存访问)和零拷贝</a>中记录过大多数文件系统默认的IO操作都是缓存IO(Buffered I/O)，Socket接口同样如此，如果网络环境足够好，发送、接收双方的处理能力足够好的话，缓冲区的大小会成为网络通信的瓶颈（因为发送、接收窗口的上限就是内核Socket缓冲区大小）。现代的操作系统都可以动态地调整Socket缓冲区大小（如果你在接口调用里强制指定了缓冲区大小，那么内核就不会动态调整了，因此建议不要在接口调用的时候指定，因为网络环境会随时变化），但是会受一些内核参数的约束。在Linux中，发送、接收缓冲区的上限受以下内核参数的影响：</p>
+<pre><code>net.core.wmem_max
+net.core.rmem_max
+</code></pre><p>一般这个上限的理想值是带宽时延积（Bandwidth Delay Product），取决于链路带宽和往返时延（RTT）。如果网络环境较好，你不想浪费你机器的内存，同时你的应用程序效率足够高的话，不妨增加内核缓冲区上限吧！</p>
+<h2 id="利用以太网巨帧">利用以太网巨帧</h2>
+<p>在之前提到，以太网协议需要一帧一帧的发送报文，原因在于信号在链路上传输过程中无法避免信号的丢失或错误，一旦有一个bit信号发生错误，那之后的信号就没有任何意义了。采用以太网帧的方式，可以将这种影响降低，一个以太网帧的错误，不影响其他以太网帧，如果要重传也只需要重传出错的以太网帧。越小的以太网帧，出错的几率越小，但是网络的吞吐量也越小；越大的以太网帧反过来，出错的几率越大，但是网络的吞吐量越大（包含了出错的无效帧）。因此链路上的每一个节点都有一个最大传输单元（MTU），用于限制传输的以太网帧大小，通常该值为1500。</p>
+<p>但是MTU的大小多少最合适，要看所处的网络环境，带宽大小、网络拥堵情况、物理网络硬件性能等。如果是本地内部网络，拥有较好的网络环境，也就是链路信号出错的概率非常低，可以将MTU的值适当地调大，甚至是非常大（即以太网巨帧），可以有效地增加网络吞吐量。</p>
+<section class="footnotes" role="doc-endnotes">
+<hr>
+<ol>
+<li id="fn:1" role="doc-endnote">
+<p>Berkeley套接字 - <a href="https://zh.wikipedia.org/wiki/Berkeley%E5%A5%97%E6%8E%A5%E5%AD%97">维基百科词条</a> <a href="#fnref:1" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+</ol>
+</section>
+
+</article>
+
+    </div>
+</div>
+
+
+                
+<div id="sidebar" class="pure-u-1 pure-u-md-1-4 pure-u-sm-1">
+    <div class="pad">
+        <a name="about"></a>
+        <h3>About Me</h3>
+        <div style="text-align: center;">
+            <img src="/img/DvZdstGUUAANxzC.jpg" alt="Xiaopeng Li" class="pure-img" />
+            <p><em>Sorcerer in C.E.</em></p>
+        </div>
+
+        <h3>Latest Articles</h3>
+        <div class="pure-menu pure-menu-open">
+            <ul class="pure-menu-list">
+                
+                <li class="pure-menu-item">
+                    <a href="/posts/socket-optimize/" class="pure-menu-link">关于Socket应用的性能优化<br>
+                        <small></small>
+                    </a>
+                </li>
+                
+                <li class="pure-menu-item">
+                    <a href="/posts/two-queue/" class="pure-menu-link">2Q(双链)缓存淘汰策略<br>
+                        <small></small>
+                    </a>
+                </li>
+                
+                <li class="pure-menu-item">
+                    <a href="/posts/sched-and-timer/" class="pure-menu-link">Linux进程调度与定时器<br>
+                        <small></small>
+                    </a>
+                </li>
+                
+                <li class="pure-menu-item">
+                    <a href="/posts/dma/" class="pure-menu-link">DMA(直接内存访问)和零拷贝<br>
+                        <small></small>
+                    </a>
+                </li>
+                
+            </ul>
+        </div>
+
+        <h3>Categories</h3>
+        <div style="text-align:center" class="tags">
+            
+            
+            <a href="/tags/kernel" class="pure-button"> kernel
+                <small>(2)</small></a>
+            
+            
+            
+            <a href="/tags/linux" class="pure-button"> linux
+                <small>(2)</small></a>
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+        </div>
+    </div> 
+</div> 
+
+                
+            </div><div class="pure-g">
+	<footer class="pure-u-1 pure-u-md-1 pure-u-sm-1">
+		<p>This page and its contents are copyright &copy; 2020,
+			<a href="">Xiaopeng Li</a>.</p>
+		<p><a href="https://github.com/pravin/hugo-theme-prav">Theme Prav</a> by <a href="https://cto.me.uk">Pravin
+				Paratey</a></p>
+	</footer>
+
+	<script defer src="https://use.fontawesome.com/releases/v5.0.9/js/all.js"
+		integrity="sha384-8iPTk2s/jMVj81dnzb/iFR2sdA7u06vHJyyLlAd4snFpCl/SnyUjRrbdJsw1pGIl"
+		crossorigin="anonymous"></script>
+</div></div></body>
+</html>

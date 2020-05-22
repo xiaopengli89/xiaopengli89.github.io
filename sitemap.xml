@@ -3,6 +3,31 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   
   <url>
+    <loc>/posts/</loc>
+    <lastmod>2020-05-21T21:58:01+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>/tags/socket/</loc>
+    <lastmod>2020-05-21T21:58:01+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>/tags/</loc>
+    <lastmod>2020-05-21T21:58:01+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>/tags/tcp/</loc>
+    <lastmod>2020-05-21T21:58:01+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>/posts/socket-optimize/</loc>
+    <lastmod>2020-05-21T21:58:01+08:00</lastmod>
+  </url>
+  
+  <url>
     <loc>/posts/two-queue/</loc>
     <lastmod>2020-05-19T00:00:00+00:00</lastmod>
   </url>
@@ -14,16 +39,6 @@
   
   <url>
     <loc>/tags/lru/</loc>
-    <lastmod>2020-05-19T00:00:00+00:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>/posts/</loc>
-    <lastmod>2020-05-19T00:00:00+00:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>/tags/</loc>
     <lastmod>2020-05-19T00:00:00+00:00</lastmod>
   </url>
   

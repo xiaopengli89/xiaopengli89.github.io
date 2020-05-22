@@ -6,10 +6,30 @@
     <description>Recent content in Posts on </description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-gb</language>
-    <lastBuildDate>Tue, 19 May 2020 00:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 21 May 2020 21:58:01 +0800</lastBuildDate>
     
 	<atom:link href="/posts/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>关于Socket应用的性能优化</title>
+      <link>/posts/socket-optimize/</link>
+      <pubDate>Thu, 21 May 2020 21:58:01 +0800</pubDate>
+      
+      <guid>/posts/socket-optimize/</guid>
+      <description>TCP/IP协议栈是计算机网络的基础通信架构，其中IP协议完成了跨链路的路由、寻址，TCP协议完成了面向连接的可靠字节流抽象，提供数据的分段、重传、重组，流量控制和拥塞控制，使得建立在TCP/IP协议之上的应用协议不用再关心各种硬件、网络环境，TCP/IP协议是今天的互联网的基石。
+网络套接字Socket Socket是操作系统用于网络编程的应用程序接口（API），可支持多种协议，现代常见的Socket套接字接口（Unix Socket、Windows Socket等）都源自Berkeley套接字1。接口实现用于TCP/IP协议，因此它是维持Internet的基本技术之一。同时也被用于Unix域套接字（Unix domain sockets），可实现在单机上为进程间通讯（IPC）的接口。
+不同的Socket应用程序除了满足最基本的通信需求外，也会有一些根据业务相关的特殊需求，本篇记录关于几个Linux下网络Socket应用的优化技巧：
+低延迟需求 由于TCP协议是面向字节流的协议，但是用于承载TCP的底层协议无法直接支持字节流，以太网协议需要一帧一帧地发送，一次发送的最大字节数受限于MTU；IP协议虽然支持数据的分包发送，但是大多数情况下我们需要避免IP协议分包，因为这会影响中间跳点的处理性能，所以TCP协议引入了分段（Segment）机制，在TCP层对数据进行拆分，保证IP数据包都是完整的。而通常情况下，我们希望每次发送的数据尽可能的多，也就是正好填满IP数据包，以此减少网络传输的次数（包括发送与接收方确认的次数），同时减少了总的包头数据量，以此提高整体的网络吞吐量。
+Nagle算法实现了对数据的合并，该算法会把多个小的数据合并成一个完整的报文段，以此最大化报文段，减少在线路上传输报文的次数，但是同时也会带来延迟，因为写入缓冲区的数据并不会马上发送出去。在低延迟需求的应用中，可以禁用Nagle算法：
+usestd::net::SocketAddr;usesocket2::{Socket,Domain,Type};useanyhow::Result;fn no_delay()-&amp;gt; Result&amp;lt;()&amp;gt;{// create a TCP listener bound to two addresses letsocket=Socket::new(Domain::ipv4(),Type::stream(),None)?;socket.bind(&amp;amp;&amp;#34;127.0.0.1:12345&amp;#34;.parse::&amp;lt;SocketAddr&amp;gt;()?.into())?;// sets the value of the TCP_NODELAY option on this socket socket.set_nodelay(true)?;socket.listen(128)?;letlistener=socket.into_tcp_listener();// ... Ok(())}减少系统调用 由于网络接口的调用属于系统调用，会跨越应用程序空间和内核空间的边界，导致应用程序空间和内核空间的上下文切换，因此在希望减少内核调用负载的场景中，可以在应用程序中尽可能使用能支持的最大缓冲区，这样可以最大化一次系统调用能发送或读取的数据量。
+增加内核缓冲区上限 在DMA(直接内存访问)和零拷贝中记录过大多数文件系统默认的IO操作都是缓存IO(Buffered I/O)，Socket接口同样如此，如果网络环境足够好，发送、接收双方的处理能力足够好的话，缓冲区的大小会成为网络通信的瓶颈（因为发送、接收窗口的上限就是内核Socket缓冲区大小）。现代的操作系统都可以动态地调整Socket缓冲区大小（如果你在接口调用里强制指定了缓冲区大小，那么内核就不会动态调整了，因此建议不要在接口调用的时候指定，因为网络环境会随时变化），但是会受一些内核参数的约束。在Linux中，发送、接收缓冲区的上限受以下内核参数的影响：
+net.core.wmem_max net.core.rmem_max 一般这个上限的理想值是带宽时延积（Bandwidth Delay Product），取决于链路带宽和往返时延（RTT）。如果网络环境较好，你不想浪费你机器的内存，同时你的应用程序效率足够高的话，不妨增加内核缓冲区上限吧！
+利用以太网巨帧 在之前提到，以太网协议需要一帧一帧的发送报文，原因在于信号在链路上传输过程中无法避免信号的丢失或错误，一旦有一个bit信号发生错误，那之后的信号就没有任何意义了。采用以太网帧的方式，可以将这种影响降低，一个以太网帧的错误，不影响其他以太网帧，如果要重传也只需要重传出错的以太网帧。越小的以太网帧，出错的几率越小，但是网络的吞吐量也越小；越大的以太网帧反过来，出错的几率越大，但是网络的吞吐量越大（包含了出错的无效帧）。因此链路上的每一个节点都有一个最大传输单元（MTU），用于限制传输的以太网帧大小，通常该值为1500。
+但是MTU的大小多少最合适，要看所处的网络环境，带宽大小、网络拥堵情况、物理网络硬件性能等。如果是本地内部网络，拥有较好的网络环境，也就是链路信号出错的概率非常低，可以将MTU的值适当地调大，甚至是非常大（即以太网巨帧），可以有效地增加网络吞吐量。
+  Berkeley套接字 - 维基百科词条 &amp;#x21a9;&amp;#xfe0e;
+   </description>
+    </item>
     
     <item>
       <title>2Q(双链)缓存淘汰策略</title>
