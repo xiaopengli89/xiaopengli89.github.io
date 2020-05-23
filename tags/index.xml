@@ -6,10 +6,46 @@
     <description>Recent content in Tags on </description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-gb</language>
-    <lastBuildDate>Thu, 21 May 2020 21:58:01 +0800</lastBuildDate>
+    <lastBuildDate>Sat, 23 May 2020 11:55:30 +0800</lastBuildDate>
     
 	<atom:link href="/tags/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>database</title>
+      <link>/tags/database/</link>
+      <pubDate>Sat, 23 May 2020 11:55:30 +0800</pubDate>
+      
+      <guid>/tags/database/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>golang</title>
+      <link>/tags/golang/</link>
+      <pubDate>Sat, 23 May 2020 11:55:30 +0800</pubDate>
+      
+      <guid>/tags/golang/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>mysql</title>
+      <link>/tags/mysql/</link>
+      <pubDate>Sat, 23 May 2020 11:55:30 +0800</pubDate>
+      
+      <guid>/tags/mysql/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>tcp</title>
+      <link>/tags/tcp/</link>
+      <pubDate>Sat, 23 May 2020 11:55:30 +0800</pubDate>
+      
+      <guid>/tags/tcp/</guid>
+      <description></description>
+    </item>
     
     <item>
       <title>socket</title>
@@ -17,15 +53,6 @@
       <pubDate>Thu, 21 May 2020 21:58:01 +0800</pubDate>
       
       <guid>/tags/socket/</guid>
-      <description></description>
-    </item>
-    
-    <item>
-      <title>tcp</title>
-      <link>/tags/tcp/</link>
-      <pubDate>Thu, 21 May 2020 21:58:01 +0800</pubDate>
-      
-      <guid>/tags/tcp/</guid>
       <description></description>
     </item>
     

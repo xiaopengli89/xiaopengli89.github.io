@@ -251,12 +251,15 @@ pre {
 pre, div.highlight {
     border: 1px solid #ccc;
     border-radius: 4px;
-    font-size: 14px;
+    font-size: 13px;
     line-height: 1.2em;
+}
+code {
+    font-size: 14px;
 }
 
 pre, code {
-    font-family: 'Menlo', 'Courier New', Courier, monospace;
+    font-family: Monaco, Consolas, monospace;
 }
 
 div.highlight pre {

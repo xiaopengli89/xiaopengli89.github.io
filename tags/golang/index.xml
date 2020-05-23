@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>golang on </title>
+    <link>/tags/golang/</link>
+    <description>Recent content in golang on </description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-gb</language>
+    <lastBuildDate>Sat, 23 May 2020 11:55:30 +0800</lastBuildDate>
+    
+	<atom:link href="/tags/golang/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>关于Go Mysql Driver的unexpected EOF错误</title>
+      <link>/posts/go-mysql-driver-eof/</link>
+      <pubDate>Sat, 23 May 2020 11:55:30 +0800</pubDate>
+      
+      <guid>/posts/go-mysql-driver-eof/</guid>
+      <description>在使用 github.com/go-sql-driver/mysql 作为客户端连接Mysql时，日志中偶然会出现下面的错误：
+[mysql] 2019/08/26 16:07:00 packets.go:36: unexpected EOF github.com/go-sql-driver/mysql 为了复用TCP连接以提高性能，内部实现了连接池。当需要一次SQL操作时，会先从连接池中拿出一条可用的空闲连接去执行操作。如果没有空闲的连接，或者连接已经失效，就打开一条新的TCP连接、SSL认证（如果使用SSL连接的话）、协议握手、认证等，完成初始化连接，再使用这条连接执行操作，使用完后再放回连接池。连接失效的标记可以在上一次使用连接后根据对应的错误来完成，或者本次操作指令发送失败也标记为连接失效，driver会重新执行上面的步骤来进行重试，应用层不会感知。
+到这里，好像一切都没有什么问题，可是上面的错误是怎么回事？如果是连接失效的话，应该会进行重试，对应用透明。
+其实上面的错误来源于服务器主动关闭超时连接造成的TCP半关闭状态，错误的形成原因可以用下面的图简单解释：
+ 当需要重新打开一条Mysql连接时，先是完成基本的TCP连接握手，然后完成Mysql的协议握手、认证，之后就可以在这条连接上发送指令了。一次操作完成后，连接被放回连接池中，如果之后一段时间这条连接都没有被使用过，Mysql服务器会根据相应的配置，主动关闭这条连接。此时服务器内核会向客户端内核发送一个[FIN, ACK]的TCP段，客户端内核回应一个ACK段，此时这条TCP连接会进入半关闭状态：服务器不会再向客户端发送数据，但是客户端可以向服务器发送数据。
+此时一个新的SQL操作从连接池中拿出了这条连接，发送指令，但是在读取的时候，客户端内核已经知道服务器不会再返回数据，因此直接给应用程序返回了EOF错误。然后重点是，此时的连接状态并不是真正意义上的无效连接状态，由于客户端已经把指令发送了出去，尤其如果是一条UPDATE指令的话，是无法执行安全的重试操作的。服务器对这条指令的处理，客户端是完全无法知晓的。
+通常一种简单的解决办法是，设置客户端的空闲超时时间，并且短于服务器的空闲超时时间，然而 database/sql 并没有提供类似&amp;quot;maximum idle duration&amp;quot;的API，不过可以退一步使用 func (*DB) SetConnMaxLifetime 这个API。然而带来的坏处就是，限制了连接的重用时间，即使连接一直处于活跃状态。
+另一种办法是，每次从连接池中拿出连接，在发送第一条指令前发送一个 PING 包来检查连接是否健康，由于 PING 包不会产生副作用，因此后续的操作都是安全的。这种办法的坏处也显而易见，由于从连接池中取出连接是个非常频繁的操作，而每次都会增加至少一次RTT延迟。
+好在 PR#934 通过非常巧妙的方式解决了这一问题。作者的解决思路如下：
+首先需要提到一个Go 1.10后 sql/driver 增加的一个接口：driver.SessionResetter ，其中 ResetSession 方法会在每次连接放入连接池时执行，这里作者先简单地添加了一个 reset 标记。
+type mysqlConn struct { // ...  reset bool // set when the Go SQL package calls ResetSession  // ... } // ResetSession implements driver.SessionResetter. // (From Go 1.</description>
+    </item>
+    
+  </channel>
+</rss>

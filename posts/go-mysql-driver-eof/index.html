@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+    <meta charset="utf-8">
+    <meta name="theme-color" content="#000" />
+    <title>
+        
+            关于Go Mysql Driver的unexpected EOF错误 &middot;  Laika
+        
+    </title>
+
+    
+    <link rel="stylesheet" href="https://unpkg.com/purecss@1.0.0/build/pure-min.css"
+        integrity="sha384-nn4HPE8lTHyVtfCBi5yW9d20FjT8BJwUXyWZT9InLYax14RDjBj46LmSztkmNP9w" crossorigin="anonymous">
+    
+    
+    <link rel="stylesheet" href="https://unpkg.com/purecss@1.0.0/build/grids-responsive-min.css">
+    
+    <link rel="stylesheet" href="/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Sans+Condensed:wght@300&family=Merriweather:ital,wght@0,300;0,700;1,300&display=swap" rel="stylesheet">
+    <link rel="icon" href="/img/favicon.ico" type="image/x-icon">
+
+    <link rel="alternate" type="application/atom+xml" title="Atom Feed" href="/atom.xml" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="">
+    
+    
+    <meta name="description" content="Light up the universe">
+    
+
+    
+    <meta name="keywords" content="golang,mysql,database,tcp">
+    
+    <meta name="author" content="Xiaopeng Li"></head>
+<body>
+        <div class="container"><div id="navbar" class="pure-menu pure-menu-open pure-menu-horizontal pure-menu-scrollable">
+    <a href="/" class="pure-menu-heading">
+        
+            Laika 
+         
+    </a>
+    <ul class="pure-menu-list">
+        <li class="pure-menu-item">
+            <a href="/posts" class="pure-menu-link">
+                <i class="fa fa-archive"></i>
+                Articles
+            </a>
+        </li>
+        <li class="pure-menu-item">
+            <a href="/tags" class="pure-menu-link">
+                <i class="fas fa-comments"></i>
+                Categories
+            </a>
+        </li>
+        <li class="pure-menu-item">
+            <a href="/about" class="pure-menu-link">
+                <i class="fas fa-smile"></i>
+                About
+            </a>
+        </li>
+    </ul>
+    <ul class="pure-menu-list pull-right">
+        
+        <li class="pure-menu-item">
+            <a href="https://github.com/xiaopengli89" title="Github" class="pure-menu-link">
+                <i class="fab fa-github"></i>
+                <span class="hide">Github</span>
+            </a>
+        </li>
+        
+        
+        
+        
+        
+        <li class="pure-menu-item">
+            <a href="/atom.xml" title="Atom Feed" class="pure-menu-link">
+                <i class="fas fa-rss-square"></i>
+                <span class="hide">RSS Feed</span>
+            </a>
+        </li>
+    </ul>
+</div>
+<div class="pure-u-1">
+    <div class="pad">
+    </div>
+</div>
+<div class="pure-g">
+
+
+<div id="content" class="pure-u-1 pure-u-md-3-4 pure-u-sm-1">
+    <div class="pad">
+<div class="date">
+    <time pubdate="2020-05-23">May 23, 2020</time>
+    <span class="author">by Xiaopeng Li</span>
+</div>
+
+<article>
+    <h1><a href="/posts/go-mysql-driver-eof/">关于Go Mysql Driver的unexpected EOF错误</a></h1>
+    <div class="tags">
+        
+        
+        <a href="/tags/golang" class="pure-button">golang</a>
+        
+        
+        <a href="/tags/mysql" class="pure-button">mysql</a>
+        
+        
+        <a href="/tags/database" class="pure-button">database</a>
+        
+        
+        <a href="/tags/tcp" class="pure-button">tcp</a>
+        
+    </div>
+    <p>在使用 <a href="https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc">github.com/go-sql-driver/mysql</a> 作为客户端连接Mysql时，日志中偶然会出现下面的错误：</p>
+<pre><code>[mysql] 2019/08/26 16:07:00 packets.go:36: unexpected EOF
+</code></pre><p><a href="https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc">github.com/go-sql-driver/mysql</a> 为了复用TCP连接以提高性能，内部实现了连接池。当需要一次SQL操作时，会先从连接池中拿出一条可用的空闲连接去执行操作。如果没有空闲的连接，或者连接已经失效，就打开一条新的TCP连接、SSL认证（如果使用SSL连接的话）、协议握手、认证等，完成初始化连接，再使用这条连接执行操作，使用完后再放回连接池。连接失效的标记可以在上一次使用连接后根据对应的错误来完成，或者本次操作指令发送失败也标记为连接失效，driver会重新执行上面的步骤来进行重试，应用层不会感知。</p>
+<p>到这里，好像一切都没有什么问题，可是上面的错误是怎么回事？如果是连接失效的话，应该会进行重试，对应用透明。</p>
+<p>其实上面的错误来源于服务器主动关闭超时连接造成的TCP半关闭状态，错误的形成原因可以用下面的图简单解释：</p>
+<div style="background:white;padding:2em;text-align:center">
+    <img src="/img/go-mysql-driver-eof.svg">
+</div>
+<p>当需要重新打开一条Mysql连接时，先是完成基本的TCP连接握手，然后完成Mysql的协议握手、认证，之后就可以在这条连接上发送指令了。一次操作完成后，连接被放回连接池中，如果之后一段时间这条连接都没有被使用过，Mysql服务器会根据相应的配置，主动关闭这条连接。此时服务器内核会向客户端内核发送一个[FIN, ACK]的TCP段，客户端内核回应一个ACK段，此时这条TCP连接会进入半关闭状态：服务器不会再向客户端发送数据，但是客户端可以向服务器发送数据。</p>
+<p>此时一个新的SQL操作从连接池中拿出了这条连接，发送指令，但是在读取的时候，客户端内核已经知道服务器不会再返回数据，因此直接给应用程序返回了EOF错误。然后重点是，此时的连接状态并不是真正意义上的无效连接状态，由于客户端已经把指令发送了出去，尤其如果是一条UPDATE指令的话，是无法执行安全的重试操作的。服务器对这条指令的处理，客户端是完全无法知晓的。</p>
+<p>通常一种简单的解决办法是，设置客户端的空闲超时时间，并且短于服务器的空闲超时时间，然而 <a href="https://golang.org/pkg/database/sql/">database/sql</a> 并没有提供类似&quot;maximum idle duration&quot;的API，不过可以退一步使用 <a href="https://golang.org/pkg/database/sql/#DB.SetConnMaxLifetime">func (*DB) SetConnMaxLifetime</a> 这个API。然而带来的坏处就是，限制了连接的重用时间，即使连接一直处于活跃状态。</p>
+<p>另一种办法是，每次从连接池中拿出连接，在发送第一条指令前发送一个 <code>PING</code> 包来检查连接是否健康，由于 <code>PING</code> 包不会产生副作用，因此后续的操作都是安全的。这种办法的坏处也显而易见，由于从连接池中取出连接是个非常频繁的操作，而每次都会增加至少一次RTT延迟。</p>
+<p>好在 <a href="https://github.com/go-sql-driver/mysql/pull/934">PR#934</a> 通过非常巧妙的方式解决了这一问题。作者的解决思路如下：</p>
+<p>首先需要提到一个Go 1.10后 <code>sql/driver</code> 增加的一个接口：<a href="https://golang.org/pkg/database/sql/driver/#SessionResetter">driver.SessionResetter</a> ，其中 <code>ResetSession</code> 方法会在每次连接放入连接池时执行，这里作者先简单地添加了一个 <code>reset</code> 标记。</p>
+<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#007020;font-weight:bold">type</span> mysqlConn <span style="color:#007020;font-weight:bold">struct</span> {
+    <span style="color:#60a0b0;font-style:italic">// ...
+</span><span style="color:#60a0b0;font-style:italic"></span>    reset            <span style="color:#902000">bool</span> <span style="color:#60a0b0;font-style:italic">// set when the Go SQL package calls ResetSession
+</span><span style="color:#60a0b0;font-style:italic"></span>    <span style="color:#60a0b0;font-style:italic">// ...
+</span><span style="color:#60a0b0;font-style:italic"></span>}
+
+<span style="color:#60a0b0;font-style:italic">// ResetSession implements driver.SessionResetter.
+</span><span style="color:#60a0b0;font-style:italic">// (From Go 1.10)
+</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#007020;font-weight:bold">func</span> (mc <span style="color:#666">*</span>mysqlConn) <span style="color:#06287e">ResetSession</span>(ctx context.Context) <span style="color:#902000">error</span> {
+    <span style="color:#007020;font-weight:bold">if</span> mc.closed.<span style="color:#06287e">IsSet</span>() {
+        <span style="color:#007020;font-weight:bold">return</span> driver.ErrBadConn
+    }
+    mc.reset = <span style="color:#007020;font-weight:bold">true</span>
+    <span style="color:#007020;font-weight:bold">return</span> <span style="color:#007020;font-weight:bold">nil</span>
+}
+</code></pre></div><p>之后连接被拿出来，在执行发送第一条指令前，会先根据之前添加的 <code>reset</code> 标记检查连接是否可用（liveness check），由于前面的标记是连接在放入连接池时加上的，因此可以做到只在第一次取出后检查（检查后把 <code>reset</code> 取消就行），后续在使用过程中无需再检查，除非再次被放回了连接池。</p>
+<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#60a0b0;font-style:italic">// Write packet buffer &#39;data&#39;
+</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#007020;font-weight:bold">func</span> (mc <span style="color:#666">*</span>mysqlConn) <span style="color:#06287e">writePacket</span>(data []<span style="color:#902000">byte</span>) <span style="color:#902000">error</span> {
+    <span style="color:#60a0b0;font-style:italic">// ...
+</span><span style="color:#60a0b0;font-style:italic"></span>    <span style="color:#60a0b0;font-style:italic">// Perform a stale connection check. We only perform this check for
+</span><span style="color:#60a0b0;font-style:italic"></span> 	<span style="color:#60a0b0;font-style:italic">// the first query on a connection that has been checked out of the
+</span><span style="color:#60a0b0;font-style:italic"></span> 	<span style="color:#60a0b0;font-style:italic">// connection pool: a fresh connection from the pool is more likely
+</span><span style="color:#60a0b0;font-style:italic"></span> 	<span style="color:#60a0b0;font-style:italic">// to be stale, and it has not performed any previous writes that
+</span><span style="color:#60a0b0;font-style:italic"></span> 	<span style="color:#60a0b0;font-style:italic">// could cause data corruption, so it&#39;s safe to return ErrBadConn
+</span><span style="color:#60a0b0;font-style:italic"></span> 	<span style="color:#60a0b0;font-style:italic">// if the check fails.
+</span><span style="color:#60a0b0;font-style:italic"></span> 	<span style="color:#007020;font-weight:bold">if</span> mc.reset {
+ 		mc.reset = <span style="color:#007020;font-weight:bold">false</span>
+ 		conn <span style="color:#666">:=</span> mc.netConn
+ 		<span style="color:#007020;font-weight:bold">if</span> mc.rawConn <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span> {
+ 			conn = mc.rawConn
+ 		}
+ 		<span style="color:#007020;font-weight:bold">if</span> err <span style="color:#666">:=</span> <span style="color:#06287e">connCheck</span>(conn); err <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span> {
+ 			errLog.<span style="color:#06287e">Print</span>(<span style="color:#4070a0">&#34;closing bad idle connection: &#34;</span>, err)
+ 			mc.<span style="color:#06287e">Close</span>()
+ 			<span style="color:#007020;font-weight:bold">return</span> driver.ErrBadConn
+ 		}
+     }
+     <span style="color:#60a0b0;font-style:italic">// ...
+</span><span style="color:#60a0b0;font-style:italic"></span>}
+</code></pre></div><p>而检查连接是否可用的方法用到了Go 1.9后 <code>net.Conn</code> 增加的 <code>syscall.Conn</code> 接口，这个接口可以获取原始连接的文件描述符。先调用 <code>syscall.Read</code> ，传入1个字节的缓冲区，由于还没有发送任何指令，并且由Go runtime创建的Socket都设置了非阻塞（O_NONBLOCK）模式，所以方法会立即返回。如果没有返回错误（或者 <code>EAGAIN</code> / <code>EWOULDBLOCK</code> 这2种错误）且读取的数据长度为0，则说明连接依然有效，反之连接已经失效。之所以不直接使用Go的原生接口 <code>net.Conn.Read</code> ，是因为Go的调度器会立即使当前Goroutine睡眠，导致多次Goroutine上下文切换，影响性能。</p>
+<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#007020;font-weight:bold">func</span> <span style="color:#06287e">connCheck</span>(c net.Conn) <span style="color:#902000">error</span> {
+ 	<span style="color:#007020;font-weight:bold">var</span> (
+ 		n    <span style="color:#902000">int</span>
+ 		err  <span style="color:#902000">error</span>
+ 		buff [<span style="color:#40a070">1</span>]<span style="color:#902000">byte</span>
+ 	)
+
+  	sconn, ok <span style="color:#666">:=</span> c.(syscall.Conn)
+ 	<span style="color:#007020;font-weight:bold">if</span> !ok {
+ 		<span style="color:#007020;font-weight:bold">return</span> <span style="color:#007020;font-weight:bold">nil</span>
+ 	}
+ 	rc, err <span style="color:#666">:=</span> sconn.<span style="color:#06287e">SyscallConn</span>()
+ 	<span style="color:#007020;font-weight:bold">if</span> err <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span> {
+ 		<span style="color:#007020;font-weight:bold">return</span> err
+ 	}
+ 	rerr <span style="color:#666">:=</span> rc.<span style="color:#06287e">Read</span>(<span style="color:#007020;font-weight:bold">func</span>(fd <span style="color:#902000">uintptr</span>) <span style="color:#902000">bool</span> {
+ 		n, err = syscall.<span style="color:#06287e">Read</span>(<span style="color:#007020">int</span>(fd), buff[:])
+ 		<span style="color:#007020;font-weight:bold">return</span> <span style="color:#007020;font-weight:bold">true</span>
+ 	})
+ 	<span style="color:#007020;font-weight:bold">switch</span> {
+ 	<span style="color:#007020;font-weight:bold">case</span> rerr <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span>:
+ 		<span style="color:#007020;font-weight:bold">return</span> rerr
+ 	<span style="color:#007020;font-weight:bold">case</span> n <span style="color:#666">==</span> <span style="color:#40a070">0</span> <span style="color:#666">&amp;&amp;</span> err <span style="color:#666">==</span> <span style="color:#007020;font-weight:bold">nil</span>:
+ 		<span style="color:#007020;font-weight:bold">return</span> io.EOF
+ 	<span style="color:#007020;font-weight:bold">case</span> n &gt; <span style="color:#40a070">0</span>:
+ 		<span style="color:#007020;font-weight:bold">return</span> errUnexpectedRead
+ 	<span style="color:#007020;font-weight:bold">case</span> err <span style="color:#666">==</span> syscall.EAGAIN <span style="color:#666">||</span> err <span style="color:#666">==</span> syscall.EWOULDBLOCK:
+ 		<span style="color:#007020;font-weight:bold">return</span> <span style="color:#007020;font-weight:bold">nil</span>
+ 	<span style="color:#007020;font-weight:bold">default</span>:
+ 		<span style="color:#007020;font-weight:bold">return</span> err
+ 	}
+}
+</code></pre></div><p>- 完</p>
+
+</article>
+
+    </div>
+</div>
+
+
+                
+<div id="sidebar" class="pure-u-1 pure-u-md-1-4 pure-u-sm-1">
+    <div class="pad">
+        <a name="about"></a>
+        <h3>About Me</h3>
+        <div style="text-align: center;">
+            <img src="/img/DvZdstGUUAANxzC.jpg" alt="Xiaopeng Li" class="pure-img" />
+            <p><em>Sorcerer in C.E.</em></p>
+        </div>
+
+        <h3>Latest Articles</h3>
+        <div class="pure-menu pure-menu-open">
+            <ul class="pure-menu-list">
+                
+                <li class="pure-menu-item">
+                    <a href="/posts/go-mysql-driver-eof/" class="pure-menu-link">关于Go Mysql Driver的unexpected EOF错误<br>
+                        <small></small>
+                    </a>
+                </li>
+                
+                <li class="pure-menu-item">
+                    <a href="/posts/socket-optimize/" class="pure-menu-link">关于Socket应用的性能优化<br>
+                        <small></small>
+                    </a>
+                </li>
+                
+                <li class="pure-menu-item">
+                    <a href="/posts/two-queue/" class="pure-menu-link">2Q(双链)缓存淘汰策略<br>
+                        <small></small>
+                    </a>
+                </li>
+                
+                <li class="pure-menu-item">
+                    <a href="/posts/sched-and-timer/" class="pure-menu-link">Linux进程调度与定时器<br>
+                        <small></small>
+                    </a>
+                </li>
+                
+                <li class="pure-menu-item">
+                    <a href="/posts/dma/" class="pure-menu-link">DMA(直接内存访问)和零拷贝<br>
+                        <small></small>
+                    </a>
+                </li>
+                
+            </ul>
+        </div>
+
+        <h3>Categories</h3>
+        <div style="text-align:center" class="tags">
+            
+            
+            <a href="/tags/kernel" class="pure-button"> kernel
+                <small>(2)</small></a>
+            
+            
+            
+            <a href="/tags/linux" class="pure-button"> linux
+                <small>(2)</small></a>
+            
+            
+            
+            <a href="/tags/tcp" class="pure-button"> tcp
+                <small>(2)</small></a>
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+        </div>
+    </div> 
+</div> 
+
+                
+            </div><div class="pure-g">
+	<footer class="pure-u-1 pure-u-md-1 pure-u-sm-1">
+		<p>This page and its contents are copyright &copy; 2020,
+			<a href="">Xiaopeng Li</a>.</p>
+		<p><a href="https://github.com/pravin/hugo-theme-prav">Theme Prav</a> by <a href="https://cto.me.uk">Pravin
+				Paratey</a></p>
+	</footer>
+
+	<script defer src="https://use.fontawesome.com/releases/v5.0.9/js/all.js"
+		integrity="sha384-8iPTk2s/jMVj81dnzb/iFR2sdA7u06vHJyyLlAd4snFpCl/SnyUjRrbdJsw1pGIl"
+		crossorigin="anonymous"></script>
+</div></div></body>
+</html>

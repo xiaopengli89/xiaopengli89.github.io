@@ -91,7 +91,7 @@
     <div class="pad">
 <div class="date">
     <time pubdate="2020-05-21">May 21, 2020</time>
-		<span class="author">by Xiaopeng Li</span>
+    <span class="author">by Xiaopeng Li</span>
 </div>
 
 <article>
@@ -112,22 +112,22 @@
 <h2 id="低延迟需求">低延迟需求</h2>
 <p>由于TCP协议是面向字节流的协议，但是用于承载TCP的底层协议无法直接支持字节流，以太网协议需要一帧一帧地发送，一次发送的最大字节数受限于MTU；IP协议虽然支持数据的分包发送，但是大多数情况下我们需要避免IP协议分包，因为这会影响中间跳点的处理性能，所以TCP协议引入了分段（Segment）机制，在TCP层对数据进行拆分，保证IP数据包都是完整的。而通常情况下，我们希望每次发送的数据尽可能的多，也就是正好填满IP数据包，以此减少网络传输的次数（包括发送与接收方确认的次数），同时减少了总的包头数据量，以此提高整体的网络吞吐量。</p>
 <p>Nagle算法实现了对数据的合并，该算法会把多个小的数据合并成一个完整的报文段，以此最大化报文段，减少在线路上传输报文的次数，但是同时也会带来延迟，因为写入缓冲区的数据并不会马上发送出去。在低延迟需求的应用中，可以禁用Nagle算法：</p>
-<div class="highlight"><pre style="background-color:#eed;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#8b008b;font-weight:bold">use</span><span style="color:#bbb"> </span>std::net::SocketAddr;<span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#8b008b;font-weight:bold">use</span><span style="color:#bbb"> </span>socket2::{Socket,<span style="color:#bbb"> </span>Domain,<span style="color:#bbb"> </span>Type};<span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#8b008b;font-weight:bold">use</span><span style="color:#bbb"> </span>anyhow::<span style="color:#658b00">Result</span>;<span style="color:#bbb">
+<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#007020;font-weight:bold">use</span><span style="color:#bbb"> </span>std::net::SocketAddr;<span style="color:#bbb">
+</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">use</span><span style="color:#bbb"> </span>socket2::{Socket,<span style="color:#bbb"> </span>Domain,<span style="color:#bbb"> </span>Type};<span style="color:#bbb">
+</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">use</span><span style="color:#bbb"> </span>anyhow::<span style="color:#007020">Result</span>;<span style="color:#bbb">
 </span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#8b008b;font-weight:bold">fn</span> <span style="color:#008b45">no_delay</span>()<span style="color:#bbb"> </span>-&gt; <span style="color:#658b00">Result</span>&lt;()&gt;<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">  </span><span style="color:#228b22">// create a TCP listener bound to two addresses
-</span><span style="color:#228b22"></span><span style="color:#bbb">  </span><span style="color:#8b008b;font-weight:bold">let</span><span style="color:#bbb"> </span>socket<span style="color:#bbb"> </span>=<span style="color:#bbb"> </span>Socket::new(Domain::ipv4(),<span style="color:#bbb"> </span>Type::stream(),<span style="color:#bbb"> </span><span style="color:#658b00">None</span>)?;<span style="color:#bbb">
+</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">no_delay</span>()<span style="color:#bbb"> </span>-&gt; <span style="color:#007020">Result</span><span style="color:#666">&lt;</span>()<span style="color:#666">&gt;</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span><span style="color:#bbb">  </span><span style="color:#60a0b0;font-style:italic">// create a TCP listener bound to two addresses
+</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">  </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>socket<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>Socket::new(Domain::ipv4(),<span style="color:#bbb"> </span>Type::stream(),<span style="color:#bbb"> </span><span style="color:#007020">None</span>)<span style="color:#666">?</span>;<span style="color:#bbb">
 </span><span style="color:#bbb">
-</span><span style="color:#bbb">  </span>socket.bind(&amp;<span style="color:#cd5555">&#34;127.0.0.1:12345&#34;</span>.parse::&lt;SocketAddr&gt;()?.into())?;<span style="color:#bbb">
-</span><span style="color:#bbb">  </span><span style="color:#228b22">// sets the value of the TCP_NODELAY option on this socket
-</span><span style="color:#228b22"></span><span style="color:#bbb">  </span>socket.set_nodelay(<span style="color:#8b008b;font-weight:bold">true</span>)?;<span style="color:#bbb">
-</span><span style="color:#bbb">  </span>socket.listen(<span style="color:#b452cd">128</span>)?;<span style="color:#bbb">
+</span><span style="color:#bbb">  </span>socket.bind(<span style="color:#666">&amp;</span><span style="color:#4070a0">&#34;127.0.0.1:12345&#34;</span>.parse::<span style="color:#666">&lt;</span>SocketAddr<span style="color:#666">&gt;</span>()<span style="color:#666">?</span>.into())<span style="color:#666">?</span>;<span style="color:#bbb">
+</span><span style="color:#bbb">  </span><span style="color:#60a0b0;font-style:italic">// sets the value of the TCP_NODELAY option on this socket
+</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">  </span>socket.set_nodelay(<span style="color:#007020;font-weight:bold">true</span>)<span style="color:#666">?</span>;<span style="color:#bbb">
+</span><span style="color:#bbb">  </span>socket.listen(<span style="color:#40a070">128</span>)<span style="color:#666">?</span>;<span style="color:#bbb">
 </span><span style="color:#bbb">
-</span><span style="color:#bbb">  </span><span style="color:#8b008b;font-weight:bold">let</span><span style="color:#bbb"> </span>listener<span style="color:#bbb"> </span>=<span style="color:#bbb"> </span>socket.into_tcp_listener();<span style="color:#bbb">
-</span><span style="color:#bbb">  </span><span style="color:#228b22">// ...
-</span><span style="color:#228b22"></span><span style="color:#bbb">  </span><span style="color:#658b00">Ok</span>(())<span style="color:#bbb">
+</span><span style="color:#bbb">  </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>listener<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>socket.into_tcp_listener();<span style="color:#bbb">
+</span><span style="color:#bbb">  </span><span style="color:#60a0b0;font-style:italic">// ...
+</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">  </span><span style="color:#007020">Ok</span>(())<span style="color:#bbb">
 </span><span style="color:#bbb"></span>}<span style="color:#bbb">
 </span></code></pre></div><h2 id="减少系统调用">减少系统调用</h2>
 <p>由于网络接口的调用属于系统调用，会跨越应用程序空间和内核空间的边界，导致应用程序空间和内核空间的上下文切换，因此在希望减少内核调用负载的场景中，可以在应用程序中尽可能使用能支持的最大缓冲区，这样可以最大化一次系统调用能发送或读取的数据量。</p>
@@ -169,6 +169,12 @@ net.core.rmem_max
             <ul class="pure-menu-list">
                 
                 <li class="pure-menu-item">
+                    <a href="/posts/go-mysql-driver-eof/" class="pure-menu-link">关于Go Mysql Driver的unexpected EOF错误<br>
+                        <small></small>
+                    </a>
+                </li>
+                
+                <li class="pure-menu-item">
                     <a href="/posts/socket-optimize/" class="pure-menu-link">关于Socket应用的性能优化<br>
                         <small></small>
                     </a>
@@ -206,6 +212,15 @@ net.core.rmem_max
             
             <a href="/tags/linux" class="pure-button"> linux
                 <small>(2)</small></a>
+            
+            
+            
+            <a href="/tags/tcp" class="pure-button"> tcp
+                <small>(2)</small></a>
+            
+            
+            
+            
             
             
             
