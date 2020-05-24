@@ -6,7 +6,7 @@
     <description>Recent content in Tags on </description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-gb</language>
-    <lastBuildDate>Sat, 23 May 2020 11:55:30 +0800</lastBuildDate>
+    <lastBuildDate>Sun, 24 May 2020 14:50:06 +0800</lastBuildDate>
     
 	<atom:link href="/tags/index.xml" rel="self" type="application/rss+xml" />
     
@@ -14,7 +14,7 @@
     <item>
       <title>database</title>
       <link>/tags/database/</link>
-      <pubDate>Sat, 23 May 2020 11:55:30 +0800</pubDate>
+      <pubDate>Sun, 24 May 2020 14:50:06 +0800</pubDate>
       
       <guid>/tags/database/</guid>
       <description></description>
@@ -23,7 +23,7 @@
     <item>
       <title>golang</title>
       <link>/tags/golang/</link>
-      <pubDate>Sat, 23 May 2020 11:55:30 +0800</pubDate>
+      <pubDate>Sun, 24 May 2020 14:50:06 +0800</pubDate>
       
       <guid>/tags/golang/</guid>
       <description></description>
@@ -32,9 +32,18 @@
     <item>
       <title>mysql</title>
       <link>/tags/mysql/</link>
-      <pubDate>Sat, 23 May 2020 11:55:30 +0800</pubDate>
+      <pubDate>Sun, 24 May 2020 14:50:06 +0800</pubDate>
       
       <guid>/tags/mysql/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>race</title>
+      <link>/tags/race/</link>
+      <pubDate>Sun, 24 May 2020 14:50:06 +0800</pubDate>
+      
+      <guid>/tags/race/</guid>
       <description></description>
     </item>
     
@@ -44,6 +53,15 @@
       <pubDate>Sat, 23 May 2020 11:55:30 +0800</pubDate>
       
       <guid>/tags/tcp/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>rust</title>
+      <link>/tags/rust/</link>
+      <pubDate>Thu, 21 May 2020 21:58:01 +0800</pubDate>
+      
+      <guid>/tags/rust/</guid>
       <description></description>
     </item>
     

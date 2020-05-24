@@ -116,7 +116,7 @@
 </code></pre><p><a href="https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc">github.com/go-sql-driver/mysql</a> 为了复用TCP连接以提高性能，内部实现了连接池。当需要一次SQL操作时，会先从连接池中拿出一条可用的空闲连接去执行操作。如果没有空闲的连接，或者连接已经失效，就打开一条新的TCP连接、SSL认证（如果使用SSL连接的话）、协议握手、认证等，完成初始化连接，再使用这条连接执行操作，使用完后再放回连接池。连接失效的标记可以在上一次使用连接后根据对应的错误来完成，或者本次操作指令发送失败也标记为连接失效，driver会重新执行上面的步骤来进行重试，应用层不会感知。</p>
 <p>到这里，好像一切都没有什么问题，可是上面的错误是怎么回事？如果是连接失效的话，应该会进行重试，对应用透明。</p>
 <p>其实上面的错误来源于服务器主动关闭超时连接造成的TCP半关闭状态，错误的形成原因可以用下面的图简单解释：</p>
-<div style="background:white;padding:2em;text-align:center">
+<div style="padding:2em;text-align:center">
     <img src="/img/go-mysql-driver-eof.svg">
 </div>
 <p>当需要重新打开一条Mysql连接时，先是完成基本的TCP连接握手，然后完成Mysql的协议握手、认证，之后就可以在这条连接上发送指令了。一次操作完成后，连接被放回连接池中，如果之后一段时间这条连接都没有被使用过，Mysql服务器会根据相应的配置，主动关闭这条连接。此时服务器内核会向客户端内核发送一个[FIN, ACK]的TCP段，客户端内核回应一个ACK段，此时这条TCP连接会进入半关闭状态：服务器不会再向客户端发送数据，但是客户端可以向服务器发送数据。</p>
@@ -220,6 +220,12 @@
             <ul class="pure-menu-list">
                 
                 <li class="pure-menu-item">
+                    <a href="/posts/go-mysql-driver-race/" class="pure-menu-link">关于Go Mysql Driver引入QueryContext带来的数据竞争<br>
+                        <small></small>
+                    </a>
+                </li>
+                
+                <li class="pure-menu-item">
                     <a href="/posts/go-mysql-driver-eof/" class="pure-menu-link">关于Go Mysql Driver的unexpected EOF错误<br>
                         <small></small>
                     </a>
@@ -256,6 +262,16 @@
         <div style="text-align:center" class="tags">
             
             
+            <a href="/tags/database" class="pure-button"> database
+                <small>(2)</small></a>
+            
+            
+            
+            <a href="/tags/golang" class="pure-button"> golang
+                <small>(2)</small></a>
+            
+            
+            
             <a href="/tags/kernel" class="pure-button"> kernel
                 <small>(2)</small></a>
             
@@ -266,12 +282,18 @@
             
             
             
-            <a href="/tags/tcp" class="pure-button"> tcp
+            <a href="/tags/mysql" class="pure-button"> mysql
                 <small>(2)</small></a>
             
             
             
+            <a href="/tags/rust" class="pure-button"> rust
+                <small>(2)</small></a>
             
+            
+            
+            <a href="/tags/tcp" class="pure-button"> tcp
+                <small>(2)</small></a>
             
             
             

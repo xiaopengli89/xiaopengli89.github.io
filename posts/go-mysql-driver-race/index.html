@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+    <meta charset="utf-8">
+    <meta name="theme-color" content="#000" />
+    <title>
+        
+            关于Go Mysql Driver引入QueryContext带来的数据竞争 &middot;  Laika
+        
+    </title>
+
+    
+    <link rel="stylesheet" href="https://unpkg.com/purecss@1.0.0/build/pure-min.css"
+        integrity="sha384-nn4HPE8lTHyVtfCBi5yW9d20FjT8BJwUXyWZT9InLYax14RDjBj46LmSztkmNP9w" crossorigin="anonymous">
+    
+    
+    <link rel="stylesheet" href="https://unpkg.com/purecss@1.0.0/build/grids-responsive-min.css">
+    
+    <link rel="stylesheet" href="/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Sans+Condensed:wght@300&family=Merriweather:ital,wght@0,300;0,700;1,300&display=swap" rel="stylesheet">
+    <link rel="icon" href="/img/favicon.ico" type="image/x-icon">
+
+    <link rel="alternate" type="application/atom+xml" title="Atom Feed" href="/atom.xml" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="">
+    
+    
+    <meta name="description" content="Light up the universe">
+    
+
+    
+    <meta name="keywords" content="golang,mysql,database,race">
+    
+    <meta name="author" content="Xiaopeng Li"></head>
+<body>
+        <div class="container"><div id="navbar" class="pure-menu pure-menu-open pure-menu-horizontal pure-menu-scrollable">
+    <a href="/" class="pure-menu-heading">
+        
+            Laika 
+         
+    </a>
+    <ul class="pure-menu-list">
+        <li class="pure-menu-item">
+            <a href="/posts" class="pure-menu-link">
+                <i class="fa fa-archive"></i>
+                Articles
+            </a>
+        </li>
+        <li class="pure-menu-item">
+            <a href="/tags" class="pure-menu-link">
+                <i class="fas fa-comments"></i>
+                Categories
+            </a>
+        </li>
+        <li class="pure-menu-item">
+            <a href="/about" class="pure-menu-link">
+                <i class="fas fa-smile"></i>
+                About
+            </a>
+        </li>
+    </ul>
+    <ul class="pure-menu-list pull-right">
+        
+        <li class="pure-menu-item">
+            <a href="https://github.com/xiaopengli89" title="Github" class="pure-menu-link">
+                <i class="fab fa-github"></i>
+                <span class="hide">Github</span>
+            </a>
+        </li>
+        
+        
+        
+        
+        
+        <li class="pure-menu-item">
+            <a href="/atom.xml" title="Atom Feed" class="pure-menu-link">
+                <i class="fas fa-rss-square"></i>
+                <span class="hide">RSS Feed</span>
+            </a>
+        </li>
+    </ul>
+</div>
+<div class="pure-u-1">
+    <div class="pad">
+    </div>
+</div>
+<div class="pure-g">
+
+
+<div id="content" class="pure-u-1 pure-u-md-3-4 pure-u-sm-1">
+    <div class="pad">
+<div class="date">
+    <time pubdate="2020-05-24">May 24, 2020</time>
+    <span class="author">by Xiaopeng Li</span>
+</div>
+
+<article>
+    <h1><a href="/posts/go-mysql-driver-race/">关于Go Mysql Driver引入QueryContext带来的数据竞争</a></h1>
+    <div class="tags">
+        
+        
+        <a href="/tags/golang" class="pure-button">golang</a>
+        
+        
+        <a href="/tags/mysql" class="pure-button">mysql</a>
+        
+        
+        <a href="/tags/database" class="pure-button">database</a>
+        
+        
+        <a href="/tags/race" class="pure-button">race</a>
+        
+    </div>
+    <p>在<a href="/posts/go-mysql-driver-eof/">关于Go Mysql Driver的unexpected EOF错误</a>里提到了连接池，当连接<strong>使用完毕</strong>后会放回连接池以便其他的操作可以复用这条连接。这里的<strong>使用完毕</strong>有非常明确的定义：发送缓冲区中不再有未发送的指令，接收缓冲区不再有未接收的数据，下次能读取的数据必须是下一次发送的指令的响应。</p>
+<p>通常情况下的SQL操作如下：</p>
+<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go">rows, err <span style="color:#666">:=</span> db.<span style="color:#06287e">Query</span>(<span style="color:#4070a0">&#34;SELECT a, b FROM some_table&#34;</span>)
+<span style="color:#007020;font-weight:bold">if</span> err <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span> {
+    <span style="color:#007020;font-weight:bold">return</span> err
+}
+<span style="color:#007020;font-weight:bold">defer</span> rows.<span style="color:#06287e">Close</span>()
+
+<span style="color:#007020;font-weight:bold">for</span> rows.<span style="color:#06287e">Next</span>() {
+    <span style="color:#007020;font-weight:bold">var</span> a, b <span style="color:#902000">string</span>
+    <span style="color:#007020;font-weight:bold">if</span> err <span style="color:#666">:=</span> rows.<span style="color:#06287e">Scan</span>(<span style="color:#666">&amp;</span>a, <span style="color:#666">&amp;</span>b); err <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span> {
+        <span style="color:#007020;font-weight:bold">return</span> err
+    }
+    <span style="color:#60a0b0;font-style:italic">// ...
+</span><span style="color:#60a0b0;font-style:italic"></span>}
+</code></pre></div><ol>
+<li><code>db.Query</code> 返回一个 <code>Rows</code> 游标对象</li>
+<li>注册一个 <code>rows.Close</code> 延迟函数用于关闭 <code>Rows</code> 对象</li>
+<li>通过 <code>rows.Next</code> 迭代器读取每一行数据</li>
+<li>通过 <code>rows.Scan</code> 将当前行的数据存入声明的变量中</li>
+</ol>
+<p>整个代码片段会有2种结果</p>
+<ol>
+<li>读取了所有数据</li>
+<li>未读取或读取了部分数据，然后发生错误</li>
+</ol>
+<p>第一种情况由于读取了所有数据，满足<strong>使用完毕</strong>的条件，可以放回连接池；第二种情况，由于发生了错误，连接失效，后续会重新打开新连接，新连接自然是满足<strong>使用完毕</strong>条件的。</p>
+<p>如果在 <code>rows.Next</code> 迭代器中，中途退出（未发生错误的情况下），那接收缓冲区中还有未读取的数据，因此对应的SQL驱动需要在 <code>rows.Close</code> 方法中冲刷掉还未读取的数据，直至缓冲区中读取至EOF为止。如果 <code>rows.Close</code> 不被调用，不但接收缓冲区中有残留的数据，同时连接也不会被放回连接池，切记不可遗忘 <code>rows.Close</code> 调用。</p>
+<p>在 <a href="https://golang.org/pkg/database/sql/">database/sql</a> 引入 <code>QueryContext</code> 后，执行SQL操作时，会单独创建一个新的Goroutine用于超时取消：</p>
+<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#007020;font-weight:bold">func</span> (rs <span style="color:#666">*</span>Rows) <span style="color:#06287e">initContextClose</span>(ctx, txctx context.Context) {
+	<span style="color:#007020;font-weight:bold">if</span> ctx.<span style="color:#06287e">Done</span>() <span style="color:#666">==</span> <span style="color:#007020;font-weight:bold">nil</span> <span style="color:#666">&amp;&amp;</span> (txctx <span style="color:#666">==</span> <span style="color:#007020;font-weight:bold">nil</span> <span style="color:#666">||</span> txctx.<span style="color:#06287e">Done</span>() <span style="color:#666">==</span> <span style="color:#007020;font-weight:bold">nil</span>) {
+		<span style="color:#007020;font-weight:bold">return</span>
+	}
+	<span style="color:#007020;font-weight:bold">if</span> bypassRowsAwaitDone {
+		<span style="color:#007020;font-weight:bold">return</span>
+	}
+	ctx, rs.cancel = context.<span style="color:#06287e">WithCancel</span>(ctx)
+	<span style="color:#007020;font-weight:bold">go</span> rs.<span style="color:#06287e">awaitDone</span>(ctx, txctx)
+}
+
+<span style="color:#60a0b0;font-style:italic">// awaitDone blocks until either ctx or txctx is canceled. The ctx is provided
+</span><span style="color:#60a0b0;font-style:italic">// from the query context and is canceled when the query Rows is closed.
+</span><span style="color:#60a0b0;font-style:italic">// If the query was issued in a transaction, the transaction&#39;s context
+</span><span style="color:#60a0b0;font-style:italic">// is also provided in txctx to ensure Rows is closed if the Tx is closed.
+</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#007020;font-weight:bold">func</span> (rs <span style="color:#666">*</span>Rows) <span style="color:#06287e">awaitDone</span>(ctx, txctx context.Context) {
+	<span style="color:#007020;font-weight:bold">var</span> txctxDone <span style="color:#666">&lt;-</span><span style="color:#007020;font-weight:bold">chan</span> <span style="color:#007020;font-weight:bold">struct</span>{}
+	<span style="color:#007020;font-weight:bold">if</span> txctx <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span> {
+		txctxDone = txctx.<span style="color:#06287e">Done</span>()
+	}
+	<span style="color:#007020;font-weight:bold">select</span> {
+	<span style="color:#007020;font-weight:bold">case</span> <span style="color:#666">&lt;-</span>ctx.<span style="color:#06287e">Done</span>():
+	<span style="color:#007020;font-weight:bold">case</span> <span style="color:#666">&lt;-</span>txctxDone:
+	}
+	rs.<span style="color:#007020">close</span>(ctx.<span style="color:#06287e">Err</span>())
+}
+</code></pre></div><p>这样在 <code>Context</code> 超时取消后，这个单独的Goroutine会马上执行 <code>rows.Close</code> ，冲刷缓冲区后把连接放回连接池，防止因业务Goroutine长期阻塞导致连接无法放回连接池。</p>
+<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#007020;font-weight:bold">func</span> (rs <span style="color:#666">*</span>Rows) <span style="color:#007020">close</span>(err <span style="color:#902000">error</span>) <span style="color:#902000">error</span> {
+	rs.closemu.<span style="color:#06287e">Lock</span>()
+	<span style="color:#007020;font-weight:bold">defer</span> rs.closemu.<span style="color:#06287e">Unlock</span>()
+
+	<span style="color:#007020;font-weight:bold">if</span> rs.closed {
+		<span style="color:#007020;font-weight:bold">return</span> <span style="color:#007020;font-weight:bold">nil</span>
+	}
+	rs.closed = <span style="color:#007020;font-weight:bold">true</span>
+
+	<span style="color:#007020;font-weight:bold">if</span> rs.lasterr <span style="color:#666">==</span> <span style="color:#007020;font-weight:bold">nil</span> {
+		rs.lasterr = err
+	}
+
+	<span style="color:#06287e">withLock</span>(rs.dc, <span style="color:#007020;font-weight:bold">func</span>() {
+		err = rs.rowsi.<span style="color:#06287e">Close</span>()
+	})
+	<span style="color:#007020;font-weight:bold">if</span> fn <span style="color:#666">:=</span> <span style="color:#06287e">rowsCloseHook</span>(); fn <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span> {
+		<span style="color:#06287e">fn</span>(rs, <span style="color:#666">&amp;</span>err)
+	}
+	<span style="color:#007020;font-weight:bold">if</span> rs.cancel <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span> {
+		rs.<span style="color:#06287e">cancel</span>()
+	}
+
+	<span style="color:#007020;font-weight:bold">if</span> rs.closeStmt <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span> {
+		rs.closeStmt.<span style="color:#06287e">Close</span>()
+	}
+	rs.<span style="color:#06287e">releaseConn</span>(err)
+	<span style="color:#007020;font-weight:bold">return</span> err
+}
+</code></pre></div><p>但是当这个Goroutine正在冲刷缓冲区的同时，业务Goroutine正在执行 <code>rows.Scan</code> 方法，这个方法会读取缓冲区中的数据，这里就发生了2个Goroutine的数据竞争。但是和 <code>rows.Next</code> 方法却不会导致数据竞争，是因为 <code>rows.Next</code> 和 <code>rows.Close</code> 使用了互斥锁保护临界区。<code>rows.Scan</code> 并没有保护 <code>convertAssignRows</code> 方法，同时 <a href="https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc">github.com/go-sql-driver/mysql</a> 为了性能，共享了缓冲区和 <code>lastcols</code> 的内存。</p>
+<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#007020;font-weight:bold">func</span> (rs <span style="color:#666">*</span>Rows) <span style="color:#007020">close</span>(err <span style="color:#902000">error</span>) <span style="color:#902000">error</span> {
+	rs.closemu.<span style="color:#06287e">Lock</span>()
+	<span style="color:#007020;font-weight:bold">defer</span> rs.closemu.<span style="color:#06287e">Unlock</span>()
+
+	<span style="color:#007020;font-weight:bold">if</span> rs.closed {
+		<span style="color:#007020;font-weight:bold">return</span> <span style="color:#007020;font-weight:bold">nil</span>
+	}
+	rs.closed = <span style="color:#007020;font-weight:bold">true</span>
+
+	<span style="color:#007020;font-weight:bold">if</span> rs.lasterr <span style="color:#666">==</span> <span style="color:#007020;font-weight:bold">nil</span> {
+		rs.lasterr = err
+	}
+
+	<span style="color:#06287e">withLock</span>(rs.dc, <span style="color:#007020;font-weight:bold">func</span>() {
+		err = rs.rowsi.<span style="color:#06287e">Close</span>()
+	})
+	<span style="color:#007020;font-weight:bold">if</span> fn <span style="color:#666">:=</span> <span style="color:#06287e">rowsCloseHook</span>(); fn <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span> {
+		<span style="color:#06287e">fn</span>(rs, <span style="color:#666">&amp;</span>err)
+	}
+	<span style="color:#007020;font-weight:bold">if</span> rs.cancel <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span> {
+		rs.<span style="color:#06287e">cancel</span>()
+	}
+
+	<span style="color:#007020;font-weight:bold">if</span> rs.closeStmt <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span> {
+		rs.closeStmt.<span style="color:#06287e">Close</span>()
+	}
+	rs.<span style="color:#06287e">releaseConn</span>(err)
+	<span style="color:#007020;font-weight:bold">return</span> err
+}
+
+<span style="color:#007020;font-weight:bold">func</span> (rs <span style="color:#666">*</span>Rows) <span style="color:#06287e">Next</span>() <span style="color:#902000">bool</span> {
+	<span style="color:#007020;font-weight:bold">var</span> doClose, ok <span style="color:#902000">bool</span>
+	<span style="color:#06287e">withLock</span>(rs.closemu.<span style="color:#06287e">RLocker</span>(), <span style="color:#007020;font-weight:bold">func</span>() {
+		doClose, ok = rs.<span style="color:#06287e">nextLocked</span>()
+	})
+	<span style="color:#007020;font-weight:bold">if</span> doClose {
+		rs.<span style="color:#06287e">Close</span>()
+	}
+	<span style="color:#007020;font-weight:bold">return</span> ok
+}
+
+<span style="color:#007020;font-weight:bold">func</span> (rs <span style="color:#666">*</span>Rows) <span style="color:#06287e">Scan</span>(dest <span style="color:#666">...</span><span style="color:#007020;font-weight:bold">interface</span>{}) <span style="color:#902000">error</span> {
+	rs.closemu.<span style="color:#06287e">RLock</span>()
+
+	<span style="color:#007020;font-weight:bold">if</span> rs.lasterr <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span> <span style="color:#666">&amp;&amp;</span> rs.lasterr <span style="color:#666">!=</span> io.EOF {
+		rs.closemu.<span style="color:#06287e">RUnlock</span>()
+		<span style="color:#007020;font-weight:bold">return</span> rs.lasterr
+	}
+	<span style="color:#007020;font-weight:bold">if</span> rs.closed {
+		err <span style="color:#666">:=</span> rs.<span style="color:#06287e">lasterrOrErrLocked</span>(errRowsClosed)
+		rs.closemu.<span style="color:#06287e">RUnlock</span>()
+		<span style="color:#007020;font-weight:bold">return</span> err
+	}
+	rs.closemu.<span style="color:#06287e">RUnlock</span>()
+
+	<span style="color:#007020;font-weight:bold">if</span> rs.lastcols <span style="color:#666">==</span> <span style="color:#007020;font-weight:bold">nil</span> {
+		<span style="color:#007020;font-weight:bold">return</span> errors.<span style="color:#06287e">New</span>(<span style="color:#4070a0">&#34;sql: Scan called without calling Next&#34;</span>)
+	}
+	<span style="color:#007020;font-weight:bold">if</span> <span style="color:#007020">len</span>(dest) <span style="color:#666">!=</span> <span style="color:#007020">len</span>(rs.lastcols) {
+		<span style="color:#007020;font-weight:bold">return</span> fmt.<span style="color:#06287e">Errorf</span>(<span style="color:#4070a0">&#34;sql: expected %d destination arguments in Scan, not %d&#34;</span>, <span style="color:#007020">len</span>(rs.lastcols), <span style="color:#007020">len</span>(dest))
+	}
+	<span style="color:#007020;font-weight:bold">for</span> i, sv <span style="color:#666">:=</span> <span style="color:#007020;font-weight:bold">range</span> rs.lastcols {
+		err <span style="color:#666">:=</span> <span style="color:#06287e">convertAssignRows</span>(dest[i], sv, rs)
+		<span style="color:#007020;font-weight:bold">if</span> err <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span> {
+			<span style="color:#007020;font-weight:bold">return</span> fmt.<span style="color:#06287e">Errorf</span>(<span style="color:#4070a0">`sql: Scan error on column index %d, name %q: %v`</span>, i, rs.rowsi.<span style="color:#06287e">Columns</span>()[i], err)
+		}
+	}
+	<span style="color:#007020;font-weight:bold">return</span> <span style="color:#007020;font-weight:bold">nil</span>
+}
+</code></pre></div><p>为此在 <a href="https://golang.org/doc/go1.10#database/sql/driver">Go 1.10 Release Notes</a> 中专门提到，驱动勿在 <code>rows.Close</code> 方法中修改缓冲区：</p>
+<blockquote>
+<p>Drivers that currently hold on to the destination buffer provided by driver.Rows.Next should ensure they no longer write to a buffer assigned to the destination array outside of that call. Drivers must be careful that underlying buffers are not modified when closing driver.Rows.</p>
+</blockquote>
+<p>为了避免在这种情况下发生数据竞争，<a href="https://github.com/go-sql-driver/mysql/pull/943">PR#943</a> 使用了双缓冲来冲刷缓冲区。</p>
+<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#60a0b0;font-style:italic">// A buffer which is used for both reading and writing.
+</span><span style="color:#60a0b0;font-style:italic">// This is possible since communication on each connection is synchronous.
+</span><span style="color:#60a0b0;font-style:italic">// In other words, we can&#39;t write and read simultaneously on the same connection.
+</span><span style="color:#60a0b0;font-style:italic">// The buffer is similar to bufio.Reader / Writer but zero-copy-ish
+</span><span style="color:#60a0b0;font-style:italic">// Also highly optimized for this particular use case.
+</span><span style="color:#60a0b0;font-style:italic">// This buffer is backed by two byte slices in a double-buffering scheme
+</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#007020;font-weight:bold">type</span> buffer <span style="color:#007020;font-weight:bold">struct</span> {
+	buf     []<span style="color:#902000">byte</span> <span style="color:#60a0b0;font-style:italic">// buf is a byte buffer who&#39;s length and capacity are equal.
+</span><span style="color:#60a0b0;font-style:italic"></span>	nc      net.Conn
+	idx     <span style="color:#902000">int</span>
+	length  <span style="color:#902000">int</span>
+	timeout time.Duration
+	dbuf    [<span style="color:#40a070">2</span>][]<span style="color:#902000">byte</span> <span style="color:#60a0b0;font-style:italic">// dbuf is an array with the two byte slices that back this buffer
+</span><span style="color:#60a0b0;font-style:italic"></span>	flipcnt <span style="color:#902000">uint</span>      <span style="color:#60a0b0;font-style:italic">// flipccnt is the current buffer counter for double-buffering
+</span><span style="color:#60a0b0;font-style:italic"></span>}
+
+<span style="color:#60a0b0;font-style:italic">// flip replaces the active buffer with the background buffer
+</span><span style="color:#60a0b0;font-style:italic">// this is a delayed flip that simply increases the buffer counter;
+</span><span style="color:#60a0b0;font-style:italic">// the actual flip will be performed the next time we call `buffer.fill`
+</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#007020;font-weight:bold">func</span> (b <span style="color:#666">*</span>buffer) <span style="color:#06287e">flip</span>() {
+	b.flipcnt <span style="color:#666">+=</span> <span style="color:#40a070">1</span>
+}
+
+<span style="color:#60a0b0;font-style:italic">// fill reads into the buffer until at least _need_ bytes are in it
+</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#007020;font-weight:bold">func</span> (b <span style="color:#666">*</span>buffer) <span style="color:#06287e">fill</span>(need <span style="color:#902000">int</span>) <span style="color:#902000">error</span> {
+    <span style="color:#60a0b0;font-style:italic">// ...
+</span><span style="color:#60a0b0;font-style:italic"></span>    <span style="color:#60a0b0;font-style:italic">// fill data into its double-buffering target: if we&#39;ve called
+</span><span style="color:#60a0b0;font-style:italic"></span>	<span style="color:#60a0b0;font-style:italic">// flip on this buffer, we&#39;ll be copying to the background buffer,
+</span><span style="color:#60a0b0;font-style:italic"></span>	<span style="color:#60a0b0;font-style:italic">// and then filling it with network data; otherwise we&#39;ll just move
+</span><span style="color:#60a0b0;font-style:italic"></span>	<span style="color:#60a0b0;font-style:italic">// the contents of the current buffer to the front before filling it
+</span><span style="color:#60a0b0;font-style:italic"></span>	dest <span style="color:#666">:=</span> b.dbuf[b.flipcnt<span style="color:#666">&amp;</span><span style="color:#40a070">1</span>]
+
+	<span style="color:#60a0b0;font-style:italic">// grow buffer if necessary to fit the whole packet.
+</span><span style="color:#60a0b0;font-style:italic"></span>	<span style="color:#007020;font-weight:bold">if</span> need &gt; <span style="color:#007020">len</span>(dest) {
+		<span style="color:#60a0b0;font-style:italic">// Round up to the next multiple of the default size
+</span><span style="color:#60a0b0;font-style:italic"></span>		dest = <span style="color:#007020">make</span>([]<span style="color:#902000">byte</span>, ((need<span style="color:#666">/</span>defaultBufSize)<span style="color:#666">+</span><span style="color:#40a070">1</span>)<span style="color:#666">*</span>defaultBufSize)
+
+		<span style="color:#60a0b0;font-style:italic">// if the allocated buffer is not too large, move it to backing storage
+</span><span style="color:#60a0b0;font-style:italic"></span>		<span style="color:#60a0b0;font-style:italic">// to prevent extra allocations on applications that perform large reads
+</span><span style="color:#60a0b0;font-style:italic"></span>		<span style="color:#007020;font-weight:bold">if</span> <span style="color:#007020">len</span>(dest) <span style="color:#666">&lt;=</span> maxCachedBufSize {
+			b.dbuf[b.flipcnt<span style="color:#666">&amp;</span><span style="color:#40a070">1</span>] = dest
+		}
+	}
+
+	<span style="color:#60a0b0;font-style:italic">// if we&#39;re filling the fg buffer, move the existing data to the start of it.
+</span><span style="color:#60a0b0;font-style:italic"></span>	<span style="color:#60a0b0;font-style:italic">// if we&#39;re filling the bg buffer, copy over the data
+</span><span style="color:#60a0b0;font-style:italic"></span>	<span style="color:#007020;font-weight:bold">if</span> n &gt; <span style="color:#40a070">0</span> {
+		<span style="color:#007020">copy</span>(dest[:n], b.buf[b.idx:])
+	}
+
+	b.buf = dest
+    b.idx = <span style="color:#40a070">0</span>
+    <span style="color:#60a0b0;font-style:italic">// ...
+</span><span style="color:#60a0b0;font-style:italic"></span>}
+
+<span style="color:#007020;font-weight:bold">func</span> (rows <span style="color:#666">*</span>mysqlRows) <span style="color:#06287e">Close</span>() (err <span style="color:#902000">error</span>) {
+    <span style="color:#60a0b0;font-style:italic">// ...
+</span><span style="color:#60a0b0;font-style:italic"></span>    <span style="color:#60a0b0;font-style:italic">// flip the buffer for this connection if we need to drain it.
+</span><span style="color:#60a0b0;font-style:italic"></span>	<span style="color:#60a0b0;font-style:italic">// note that for a successful query (i.e. one where rows.next()
+</span><span style="color:#60a0b0;font-style:italic"></span>	<span style="color:#60a0b0;font-style:italic">// has been called until it returns false), `rows.mc` will be nil
+</span><span style="color:#60a0b0;font-style:italic"></span>	<span style="color:#60a0b0;font-style:italic">// by the time the user calls `(*Rows).Close`, so we won&#39;t reach this
+</span><span style="color:#60a0b0;font-style:italic"></span>	<span style="color:#60a0b0;font-style:italic">// see: https://github.com/golang/go/commit/651ddbdb5056ded455f47f9c494c67b389622a47
+</span><span style="color:#60a0b0;font-style:italic"></span>    mc.buf.<span style="color:#06287e">flip</span>()
+    <span style="color:#60a0b0;font-style:italic">// ...
+</span><span style="color:#60a0b0;font-style:italic"></span>}
+</code></pre></div><p>当调用 <code>rows.Close</code> 时，交换 <code>fg buffer</code> 和 <code>bg buffer</code> 2个缓冲区，这样在冲刷缓冲区时用到的就是 <code>bg buffer</code> ，而 <code>rows.Scan</code> 读取的是旧的 <code>fg buffer</code>，从而避免了数据竞争。</p>
+
+</article>
+
+    </div>
+</div>
+
+
+                
+<div id="sidebar" class="pure-u-1 pure-u-md-1-4 pure-u-sm-1">
+    <div class="pad">
+        <a name="about"></a>
+        <h3>About Me</h3>
+        <div style="text-align: center;">
+            <img src="/img/DvZdstGUUAANxzC.jpg" alt="Xiaopeng Li" class="pure-img" />
+            <p><em>Sorcerer in C.E.</em></p>
+        </div>
+
+        <h3>Latest Articles</h3>
+        <div class="pure-menu pure-menu-open">
+            <ul class="pure-menu-list">
+                
+                <li class="pure-menu-item">
+                    <a href="/posts/go-mysql-driver-race/" class="pure-menu-link">关于Go Mysql Driver引入QueryContext带来的数据竞争<br>
+                        <small></small>
+                    </a>
+                </li>
+                
+                <li class="pure-menu-item">
+                    <a href="/posts/go-mysql-driver-eof/" class="pure-menu-link">关于Go Mysql Driver的unexpected EOF错误<br>
+                        <small></small>
+                    </a>
+                </li>
+                
+                <li class="pure-menu-item">
+                    <a href="/posts/socket-optimize/" class="pure-menu-link">关于Socket应用的性能优化<br>
+                        <small></small>
+                    </a>
+                </li>
+                
+                <li class="pure-menu-item">
+                    <a href="/posts/two-queue/" class="pure-menu-link">2Q(双链)缓存淘汰策略<br>
+                        <small></small>
+                    </a>
+                </li>
+                
+                <li class="pure-menu-item">
+                    <a href="/posts/sched-and-timer/" class="pure-menu-link">Linux进程调度与定时器<br>
+                        <small></small>
+                    </a>
+                </li>
+                
+                <li class="pure-menu-item">
+                    <a href="/posts/dma/" class="pure-menu-link">DMA(直接内存访问)和零拷贝<br>
+                        <small></small>
+                    </a>
+                </li>
+                
+            </ul>
+        </div>
+
+        <h3>Categories</h3>
+        <div style="text-align:center" class="tags">
+            
+            
+            <a href="/tags/database" class="pure-button"> database
+                <small>(2)</small></a>
+            
+            
+            
+            <a href="/tags/golang" class="pure-button"> golang
+                <small>(2)</small></a>
+            
+            
+            
+            <a href="/tags/kernel" class="pure-button"> kernel
+                <small>(2)</small></a>
+            
+            
+            
+            <a href="/tags/linux" class="pure-button"> linux
+                <small>(2)</small></a>
+            
+            
+            
+            <a href="/tags/mysql" class="pure-button"> mysql
+                <small>(2)</small></a>
+            
+            
+            
+            <a href="/tags/rust" class="pure-button"> rust
+                <small>(2)</small></a>
+            
+            
+            
+            <a href="/tags/tcp" class="pure-button"> tcp
+                <small>(2)</small></a>
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+        </div>
+    </div> 
+</div> 
+
+                
+            </div><div class="pure-g">
+	<footer class="pure-u-1 pure-u-md-1 pure-u-sm-1">
+		<p>This page and its contents are copyright &copy; 2020,
+			<a href="">Xiaopeng Li</a>.</p>
+		<p><a href="https://github.com/pravin/hugo-theme-prav">Theme Prav</a> by <a href="https://cto.me.uk">Pravin
+				Paratey</a></p>
+	</footer>
+
+	<script defer src="https://use.fontawesome.com/releases/v5.0.9/js/all.js"
+		integrity="sha384-8iPTk2s/jMVj81dnzb/iFR2sdA7u06vHJyyLlAd4snFpCl/SnyUjRrbdJsw1pGIl"
+		crossorigin="anonymous"></script>
+</div></div></body>
+</html>
