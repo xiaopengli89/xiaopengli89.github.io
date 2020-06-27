@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>mataprogramming on </title>
+    <link>/tags/mataprogramming/</link>
+    <description>Recent content in mataprogramming on </description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-gb</language>
+    <lastBuildDate>Sat, 27 Jun 2020 17:22:04 +0800</lastBuildDate>
+    
+	<atom:link href="/tags/mataprogramming/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>Rust过程宏（一）</title>
+      <link>/posts/rust-procedural-macro-1/</link>
+      <pubDate>Sat, 27 Jun 2020 17:22:04 +0800</pubDate>
+      
+      <guid>/posts/rust-procedural-macro-1/</guid>
+      <description>Rust宏 宏属于元编程，用于生成代码，减少重复代码的编写，同时不同于运行时反射，宏会在编译时被展开，没有运行时开销。在Rust中，宏大体分为2类：声明宏和过程宏。
+声明宏较为简单，类似模式匹配，利用递归和替换把重复的代码片段隐藏起来，典型的实现是标准库中 vec!，println!。
+过程宏则稍微复杂，但是功能强大的多，可以精确地控制语法树的生成。同时过程宏使用Rust代码编写，灵活性和表达能力丰富。过程宏经常被用于3种情景下：
+ 自动实现 trait，使用 derive 派生宏 装饰 field 或 函数，使用 attribute 属性宏 实现 DSL，使用 function 函数宏  过程宏的编写 过程宏的构建有特殊的规则，过程宏的定义必须置于独立的 crate 中，并且需要指明 lib 开启 proc-macro 。
+首先创建一个 mymacro 的 lib 项目：
+$ cargo new mymacro --lib 然后再在 mymacro 内创建个 mymacro_derive 的 lib 项目：
+$ cd mymacro $ cargo new mymacro_derive --lib 在 mymacro/Cargo.toml 内添加 mymacro_derive 的依赖：
+[dependencies] mymacro_derive = { path = &amp;#34;mymacro_derive&amp;#34; } 在 mymacro/mymacro_derive/Cargo.toml 内开启 proc-macro：</description>
+    </item>
+    
+  </channel>
+</rss>
