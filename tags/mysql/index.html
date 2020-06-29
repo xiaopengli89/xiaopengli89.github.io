@@ -29,7 +29,8 @@
     
 
     
-    <meta name="author" content="Xiaopeng Li"></head>
+    <meta name="author" content="Xiaopeng Li"><link href="https://cdn.jsdelivr.net/npm/prism-themes@1.4.0/themes/prism-base16-ateliersulphurpool.light.css" rel="stylesheet" />
+</head>
 <body>
         <div class="container"><div id="navbar" class="pure-menu pure-menu-open pure-menu-horizontal pure-menu-scrollable">
     <a href="/" class="pure-menu-heading">
@@ -96,7 +97,7 @@
             <time>May 24 2020</time>
             <div class="pad">
                 <h3><a href="/posts/go-mysql-driver-race/">关于Go Mysql Driver引入QueryContext带来的数据竞争</a></h3>
-                <p></p>
+                <p>并发编程里的常见问题&ndash;数据竞争。</p>
             </div>
         </div>
     </div>
@@ -107,7 +108,7 @@
             <time>May 23 2020</time>
             <div class="pad">
                 <h3><a href="/posts/go-mysql-driver-eof/">关于Go Mysql Driver的unexpected EOF错误</a></h3>
-                <p></p>
+                <p>应该是大多数Golang开发者日志里的东西了。</p>
             </div>
         </div>
     </div>
@@ -129,5 +130,9 @@
 	<script defer src="https://use.fontawesome.com/releases/v5.0.9/js/all.js"
 		integrity="sha384-8iPTk2s/jMVj81dnzb/iFR2sdA7u06vHJyyLlAd4snFpCl/SnyUjRrbdJsw1pGIl"
 		crossorigin="anonymous"></script>
-</div></div></body>
+</div>
+</div><script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.20.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.20.0/plugins/autoloader/prism-autoloader.min.js"></script>
+<script>Prism.plugins.autoloader.languages_path = 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.20.0/components/'</script>
+</body>
 </html>

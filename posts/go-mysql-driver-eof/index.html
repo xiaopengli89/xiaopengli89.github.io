@@ -25,13 +25,14 @@
     <meta name="generator" content="">
     
     
-    <meta name="description" content="Light up the universe">
+    <meta name="description" content="应该是大多数Golang开发者日志里的东西了。">
     
 
     
     <meta name="keywords" content="golang,mysql,database,tcp">
     
-    <meta name="author" content="Xiaopeng Li"></head>
+    <meta name="author" content="Xiaopeng Li"><link href="https://cdn.jsdelivr.net/npm/prism-themes@1.4.0/themes/prism-base16-ateliersulphurpool.light.css" rel="stylesheet" />
+</head>
 <body>
         <div class="container"><div id="navbar" class="pure-menu pure-menu-open pure-menu-horizontal pure-menu-scrollable">
     <a href="/" class="pure-menu-heading">
@@ -113,7 +114,8 @@
     </div>
     <p>在使用 <a href="https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc">github.com/go-sql-driver/mysql</a> 作为客户端连接Mysql时，日志中偶然会出现下面的错误：</p>
 <pre><code>[mysql] 2019/08/26 16:07:00 packets.go:36: unexpected EOF
-</code></pre><p><a href="https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc">github.com/go-sql-driver/mysql</a> 为了复用TCP连接以提高性能，内部实现了连接池。当需要一次SQL操作时，会先从连接池中拿出一条可用的空闲连接去执行操作。如果没有空闲的连接，或者连接已经失效，就打开一条新的TCP连接、SSL认证（如果使用SSL连接的话）、协议握手、认证等，完成初始化连接，再使用这条连接执行操作，使用完后再放回连接池。连接失效的标记可以在上一次使用连接后根据对应的错误来完成，或者本次操作指令发送失败也标记为连接失效，driver会重新执行上面的步骤来进行重试，应用层不会感知。</p>
+</code></pre>
+<p><a href="https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc">github.com/go-sql-driver/mysql</a> 为了复用TCP连接以提高性能，内部实现了连接池。当需要一次SQL操作时，会先从连接池中拿出一条可用的空闲连接去执行操作。如果没有空闲的连接，或者连接已经失效，就打开一条新的TCP连接、SSL认证（如果使用SSL连接的话）、协议握手、认证等，完成初始化连接，再使用这条连接执行操作，使用完后再放回连接池。连接失效的标记可以在上一次使用连接后根据对应的错误来完成，或者本次操作指令发送失败也标记为连接失效，driver会重新执行上面的步骤来进行重试，应用层不会感知。</p>
 <p>到这里，好像一切都没有什么问题，可是上面的错误是怎么回事？如果是连接失效的话，应该会进行重试，对应用透明。</p>
 <p>其实上面的错误来源于服务器主动关闭超时连接造成的TCP半关闭状态，错误的形成原因可以用下面的图简单解释：</p>
 <div style="padding:2em;text-align:center">
@@ -125,79 +127,82 @@
 <p>另一种办法是，每次从连接池中拿出连接，在发送第一条指令前发送一个 <code>PING</code> 包来检查连接是否健康，由于 <code>PING</code> 包不会产生副作用，因此后续的操作都是安全的。这种办法的坏处也显而易见，由于从连接池中取出连接是个非常频繁的操作，而每次都会增加至少一次RTT延迟。</p>
 <p>好在 <a href="https://github.com/go-sql-driver/mysql/pull/934">PR#934</a> 通过非常巧妙的方式解决了这一问题。作者的解决思路如下：</p>
 <p>首先需要提到一个Go 1.10后 <code>sql/driver</code> 增加的一个接口：<a href="https://golang.org/pkg/database/sql/driver/#SessionResetter">driver.SessionResetter</a> ，其中 <code>ResetSession</code> 方法会在每次连接放入连接池时执行，这里作者先简单地添加了一个 <code>reset</code> 标记。</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#007020;font-weight:bold">type</span> mysqlConn <span style="color:#007020;font-weight:bold">struct</span> {
-    <span style="color:#60a0b0;font-style:italic">// ...
-</span><span style="color:#60a0b0;font-style:italic"></span>    reset            <span style="color:#902000">bool</span> <span style="color:#60a0b0;font-style:italic">// set when the Go SQL package calls ResetSession
-</span><span style="color:#60a0b0;font-style:italic"></span>    <span style="color:#60a0b0;font-style:italic">// ...
-</span><span style="color:#60a0b0;font-style:italic"></span>}
-
-<span style="color:#60a0b0;font-style:italic">// ResetSession implements driver.SessionResetter.
-</span><span style="color:#60a0b0;font-style:italic">// (From Go 1.10)
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#007020;font-weight:bold">func</span> (mc <span style="color:#666">*</span>mysqlConn) <span style="color:#06287e">ResetSession</span>(ctx context.Context) <span style="color:#902000">error</span> {
-    <span style="color:#007020;font-weight:bold">if</span> mc.closed.<span style="color:#06287e">IsSet</span>() {
-        <span style="color:#007020;font-weight:bold">return</span> driver.ErrBadConn
-    }
-    mc.reset = <span style="color:#007020;font-weight:bold">true</span>
-    <span style="color:#007020;font-weight:bold">return</span> <span style="color:#007020;font-weight:bold">nil</span>
+<pre><code class="language-go">type mysqlConn struct {
+    // ...
+    reset            bool // set when the Go SQL package calls ResetSession
+    // ...
 }
-</code></pre></div><p>之后连接被拿出来，在执行发送第一条指令前，会先根据之前添加的 <code>reset</code> 标记检查连接是否可用（liveness check），由于前面的标记是连接在放入连接池时加上的，因此可以做到只在第一次取出后检查（检查后把 <code>reset</code> 取消就行），后续在使用过程中无需再检查，除非再次被放回了连接池。</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#60a0b0;font-style:italic">// Write packet buffer &#39;data&#39;
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#007020;font-weight:bold">func</span> (mc <span style="color:#666">*</span>mysqlConn) <span style="color:#06287e">writePacket</span>(data []<span style="color:#902000">byte</span>) <span style="color:#902000">error</span> {
-    <span style="color:#60a0b0;font-style:italic">// ...
-</span><span style="color:#60a0b0;font-style:italic"></span>    <span style="color:#60a0b0;font-style:italic">// Perform a stale connection check. We only perform this check for
-</span><span style="color:#60a0b0;font-style:italic"></span> 	<span style="color:#60a0b0;font-style:italic">// the first query on a connection that has been checked out of the
-</span><span style="color:#60a0b0;font-style:italic"></span> 	<span style="color:#60a0b0;font-style:italic">// connection pool: a fresh connection from the pool is more likely
-</span><span style="color:#60a0b0;font-style:italic"></span> 	<span style="color:#60a0b0;font-style:italic">// to be stale, and it has not performed any previous writes that
-</span><span style="color:#60a0b0;font-style:italic"></span> 	<span style="color:#60a0b0;font-style:italic">// could cause data corruption, so it&#39;s safe to return ErrBadConn
-</span><span style="color:#60a0b0;font-style:italic"></span> 	<span style="color:#60a0b0;font-style:italic">// if the check fails.
-</span><span style="color:#60a0b0;font-style:italic"></span> 	<span style="color:#007020;font-weight:bold">if</span> mc.reset {
- 		mc.reset = <span style="color:#007020;font-weight:bold">false</span>
- 		conn <span style="color:#666">:=</span> mc.netConn
- 		<span style="color:#007020;font-weight:bold">if</span> mc.rawConn <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span> {
+
+// ResetSession implements driver.SessionResetter.
+// (From Go 1.10)
+func (mc *mysqlConn) ResetSession(ctx context.Context) error {
+    if mc.closed.IsSet() {
+        return driver.ErrBadConn
+    }
+    mc.reset = true
+    return nil
+}
+</code></pre>
+<p>之后连接被拿出来，在执行发送第一条指令前，会先根据之前添加的 <code>reset</code> 标记检查连接是否可用（liveness check），由于前面的标记是连接在放入连接池时加上的，因此可以做到只在第一次取出后检查（检查后把 <code>reset</code> 取消就行），后续在使用过程中无需再检查，除非再次被放回了连接池。</p>
+<pre><code class="language-go">// Write packet buffer 'data'
+func (mc *mysqlConn) writePacket(data []byte) error {
+    // ...
+    // Perform a stale connection check. We only perform this check for
+ 	// the first query on a connection that has been checked out of the
+ 	// connection pool: a fresh connection from the pool is more likely
+ 	// to be stale, and it has not performed any previous writes that
+ 	// could cause data corruption, so it's safe to return ErrBadConn
+ 	// if the check fails.
+ 	if mc.reset {
+ 		mc.reset = false
+ 		conn := mc.netConn
+ 		if mc.rawConn != nil {
  			conn = mc.rawConn
  		}
- 		<span style="color:#007020;font-weight:bold">if</span> err <span style="color:#666">:=</span> <span style="color:#06287e">connCheck</span>(conn); err <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span> {
- 			errLog.<span style="color:#06287e">Print</span>(<span style="color:#4070a0">&#34;closing bad idle connection: &#34;</span>, err)
- 			mc.<span style="color:#06287e">Close</span>()
- 			<span style="color:#007020;font-weight:bold">return</span> driver.ErrBadConn
+ 		if err := connCheck(conn); err != nil {
+ 			errLog.Print(&quot;closing bad idle connection: &quot;, err)
+ 			mc.Close()
+ 			return driver.ErrBadConn
  		}
      }
-     <span style="color:#60a0b0;font-style:italic">// ...
-</span><span style="color:#60a0b0;font-style:italic"></span>}
-</code></pre></div><p>而检查连接是否可用的方法用到了Go 1.9后 <code>net.Conn</code> 增加的 <code>syscall.Conn</code> 接口，这个接口可以获取原始连接的文件描述符。先调用 <code>syscall.Read</code> ，传入1个字节的缓冲区，由于还没有发送任何指令，并且由Go runtime创建的Socket都设置了非阻塞（O_NONBLOCK）模式，所以方法会立即返回。如果没有返回错误（或者 <code>EAGAIN</code> / <code>EWOULDBLOCK</code> 这2种错误）且读取的数据长度为0，则说明连接依然有效，反之连接已经失效。之所以不直接使用Go的原生接口 <code>net.Conn.Read</code> ，是因为Go的调度器会立即使当前Goroutine睡眠，导致多次Goroutine上下文切换，影响性能。</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#007020;font-weight:bold">func</span> <span style="color:#06287e">connCheck</span>(c net.Conn) <span style="color:#902000">error</span> {
- 	<span style="color:#007020;font-weight:bold">var</span> (
- 		n    <span style="color:#902000">int</span>
- 		err  <span style="color:#902000">error</span>
- 		buff [<span style="color:#40a070">1</span>]<span style="color:#902000">byte</span>
+     // ...
+}
+</code></pre>
+<p>而检查连接是否可用的方法用到了Go 1.9后 <code>net.Conn</code> 增加的 <code>syscall.Conn</code> 接口，这个接口可以获取原始连接的文件描述符。先调用 <code>syscall.Read</code> ，传入1个字节的缓冲区，由于还没有发送任何指令，并且由Go runtime创建的Socket都设置了非阻塞（O_NONBLOCK）模式，所以方法会立即返回。如果没有返回错误（或者 <code>EAGAIN</code> / <code>EWOULDBLOCK</code> 这2种错误）且读取的数据长度为0，则说明连接依然有效，反之连接已经失效。之所以不直接使用Go的原生接口 <code>net.Conn.Read</code> ，是因为Go的调度器会立即使当前Goroutine睡眠，导致多次Goroutine上下文切换，影响性能。</p>
+<pre><code class="language-go">func connCheck(c net.Conn) error {
+ 	var (
+ 		n    int
+ 		err  error
+ 		buff [1]byte
  	)
 
-  	sconn, ok <span style="color:#666">:=</span> c.(syscall.Conn)
- 	<span style="color:#007020;font-weight:bold">if</span> !ok {
- 		<span style="color:#007020;font-weight:bold">return</span> <span style="color:#007020;font-weight:bold">nil</span>
+  	sconn, ok := c.(syscall.Conn)
+ 	if !ok {
+ 		return nil
  	}
- 	rc, err <span style="color:#666">:=</span> sconn.<span style="color:#06287e">SyscallConn</span>()
- 	<span style="color:#007020;font-weight:bold">if</span> err <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span> {
- 		<span style="color:#007020;font-weight:bold">return</span> err
+ 	rc, err := sconn.SyscallConn()
+ 	if err != nil {
+ 		return err
  	}
- 	rerr <span style="color:#666">:=</span> rc.<span style="color:#06287e">Read</span>(<span style="color:#007020;font-weight:bold">func</span>(fd <span style="color:#902000">uintptr</span>) <span style="color:#902000">bool</span> {
- 		n, err = syscall.<span style="color:#06287e">Read</span>(<span style="color:#007020">int</span>(fd), buff[:])
- 		<span style="color:#007020;font-weight:bold">return</span> <span style="color:#007020;font-weight:bold">true</span>
+ 	rerr := rc.Read(func(fd uintptr) bool {
+ 		n, err = syscall.Read(int(fd), buff[:])
+ 		return true
  	})
- 	<span style="color:#007020;font-weight:bold">switch</span> {
- 	<span style="color:#007020;font-weight:bold">case</span> rerr <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span>:
- 		<span style="color:#007020;font-weight:bold">return</span> rerr
- 	<span style="color:#007020;font-weight:bold">case</span> n <span style="color:#666">==</span> <span style="color:#40a070">0</span> <span style="color:#666">&amp;&amp;</span> err <span style="color:#666">==</span> <span style="color:#007020;font-weight:bold">nil</span>:
- 		<span style="color:#007020;font-weight:bold">return</span> io.EOF
- 	<span style="color:#007020;font-weight:bold">case</span> n &gt; <span style="color:#40a070">0</span>:
- 		<span style="color:#007020;font-weight:bold">return</span> errUnexpectedRead
- 	<span style="color:#007020;font-weight:bold">case</span> err <span style="color:#666">==</span> syscall.EAGAIN <span style="color:#666">||</span> err <span style="color:#666">==</span> syscall.EWOULDBLOCK:
- 		<span style="color:#007020;font-weight:bold">return</span> <span style="color:#007020;font-weight:bold">nil</span>
- 	<span style="color:#007020;font-weight:bold">default</span>:
- 		<span style="color:#007020;font-weight:bold">return</span> err
+ 	switch {
+ 	case rerr != nil:
+ 		return rerr
+ 	case n == 0 &amp;&amp; err == nil:
+ 		return io.EOF
+ 	case n &gt; 0:
+ 		return errUnexpectedRead
+ 	case err == syscall.EAGAIN || err == syscall.EWOULDBLOCK:
+ 		return nil
+ 	default:
+ 		return err
  	}
 }
-</code></pre></div><p>- 完</p>
+</code></pre>
+<p>- 完</p>
 </article>
 
     </div>
@@ -220,49 +225,49 @@
                 
                 <li class="pure-menu-item">
                     <a href="/posts/rust-procedural-macro-1/" class="pure-menu-link">Rust过程宏（一）<br>
-                        <small></small>
+                        <small>开始Rust元编程，利用Rust的derive派生宏，消除重复的样板代码。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/rust-closure/" class="pure-menu-link">Rust闭包<br>
-                        <small></small>
+                        <small>Rust也可以函数式，像动态创建&#34;函数&#34;一样使用闭包。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/go-mysql-driver-race/" class="pure-menu-link">关于Go Mysql Driver引入QueryContext带来的数据竞争<br>
-                        <small></small>
+                        <small>并发编程里的常见问题--数据竞争。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/go-mysql-driver-eof/" class="pure-menu-link">关于Go Mysql Driver的unexpected EOF错误<br>
-                        <small></small>
+                        <small>应该是大多数Golang开发者日志里的东西了。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/socket-optimize/" class="pure-menu-link">关于Socket应用的性能优化<br>
-                        <small></small>
+                        <small>一点网络优化的小技巧。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/two-queue/" class="pure-menu-link">2Q(双链)缓存淘汰策略<br>
-                        <small></small>
+                        <small>经典LRU算法的实用变体。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/sched-and-timer/" class="pure-menu-link">Linux进程调度与定时器<br>
-                        <small></small>
+                        <small>操作系统的时间概念。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/dma/" class="pure-menu-link">DMA(直接内存访问)和零拷贝<br>
-                        <small></small>
+                        <small>Linux的多样化IO技术。</small>
                     </a>
                 </li>
                 
@@ -345,5 +350,9 @@
 	<script defer src="https://use.fontawesome.com/releases/v5.0.9/js/all.js"
 		integrity="sha384-8iPTk2s/jMVj81dnzb/iFR2sdA7u06vHJyyLlAd4snFpCl/SnyUjRrbdJsw1pGIl"
 		crossorigin="anonymous"></script>
-</div></div></body>
+</div>
+</div><script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.20.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.20.0/plugins/autoloader/prism-autoloader.min.js"></script>
+<script>Prism.plugins.autoloader.languages_path = 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.20.0/components/'</script>
+</body>
 </html>

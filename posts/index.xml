@@ -43,15 +43,15 @@
 &lt;/ol&gt;
 &lt;p&gt;但是闭包可以捕获当前上下文环境中的变量，而函数不可以（访问全局静态变量除外，但是这和闭包的实现完全不一样）。&lt;/p&gt;
 &lt;p&gt;闭包的创建和调用：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-rust&#34; data-lang=&#34;rust&#34;&gt;&lt;span style=&#34;color:#007020;font-weight:bold&#34;&gt;let&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;env_var&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;&lt;span style=&#34;color:#666&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;&lt;span style=&#34;color:#40a070&#34;&gt;1&lt;/span&gt;;&lt;span style=&#34;color:#bbb&#34;&gt;
-&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#007020;font-weight:bold&#34;&gt;let&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;fn1&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;&lt;span style=&#34;color:#666&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;&lt;span style=&#34;color:#666&#34;&gt;|&lt;/span&gt;x&lt;span style=&#34;color:#666&#34;&gt;|&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;x&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;&lt;span style=&#34;color:#666&#34;&gt;+&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;env_var;&lt;span style=&#34;color:#bbb&#34;&gt;
-&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt;
-&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#007020;font-weight:bold&#34;&gt;let&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;result1&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;&lt;span style=&#34;color:#666&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;fn1(&lt;span style=&#34;color:#40a070&#34;&gt;2&lt;/span&gt;);&lt;span style=&#34;color:#bbb&#34;&gt;
-&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt;&lt;/span&gt;assert_eq&lt;span style=&#34;color:#666&#34;&gt;!&lt;/span&gt;(result1,&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;&lt;span style=&#34;color:#40a070&#34;&gt;3&lt;/span&gt;);&lt;span style=&#34;color:#bbb&#34;&gt;
-&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt;
-&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#007020;font-weight:bold&#34;&gt;let&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;result2&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;&lt;span style=&#34;color:#666&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;fn1(&lt;span style=&#34;color:#40a070&#34;&gt;3&lt;/span&gt;);&lt;span style=&#34;color:#bbb&#34;&gt;
-&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt;&lt;/span&gt;assert_eq&lt;span style=&#34;color:#666&#34;&gt;!&lt;/span&gt;(result2,&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;&lt;span style=&#34;color:#40a070&#34;&gt;4&lt;/span&gt;);&lt;span style=&#34;color:#bbb&#34;&gt;
-&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;</description>
+&lt;pre&gt;&lt;code class=&#34;language-rust&#34;&gt;let env_var = 1;
+let fn1 = |x| x + env_var;
+
+let result1 = fn1(2);
+assert_eq!(result1, 3);
+
+let result2 = fn1(3);
+assert_eq!(result2, 4);
+&lt;/code&gt;&lt;/pre&gt;</description>
     </item>
     
     <item>
@@ -62,20 +62,20 @@
       <guid>/posts/go-mysql-driver-race/</guid>
       <description>&lt;p&gt;在&lt;a href=&#34;/posts/go-mysql-driver-eof/&#34;&gt;关于Go Mysql Driver的unexpected EOF错误&lt;/a&gt;里提到了连接池，当连接&lt;strong&gt;使用完毕&lt;/strong&gt;后会放回连接池以便其他的操作可以复用这条连接。这里的&lt;strong&gt;使用完毕&lt;/strong&gt;有非常明确的定义：发送缓冲区中不再有未发送的指令，接收缓冲区不再有未接收的数据，下次能读取的数据必须是下一次发送的指令的响应。&lt;/p&gt;
 &lt;p&gt;通常情况下的SQL操作如下：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;rows, err &lt;span style=&#34;color:#666&#34;&gt;:=&lt;/span&gt; db.&lt;span style=&#34;color:#06287e&#34;&gt;Query&lt;/span&gt;(&lt;span style=&#34;color:#4070a0&#34;&gt;&amp;#34;SELECT a, b FROM some_table&amp;#34;&lt;/span&gt;)
-&lt;span style=&#34;color:#007020;font-weight:bold&#34;&gt;if&lt;/span&gt; err &lt;span style=&#34;color:#666&#34;&gt;!=&lt;/span&gt; &lt;span style=&#34;color:#007020;font-weight:bold&#34;&gt;nil&lt;/span&gt; {
-    &lt;span style=&#34;color:#007020;font-weight:bold&#34;&gt;return&lt;/span&gt; err
+&lt;pre&gt;&lt;code class=&#34;language-go&#34;&gt;rows, err := db.Query(&amp;quot;SELECT a, b FROM some_table&amp;quot;)
+if err != nil {
+    return err
 }
-&lt;span style=&#34;color:#007020;font-weight:bold&#34;&gt;defer&lt;/span&gt; rows.&lt;span style=&#34;color:#06287e&#34;&gt;Close&lt;/span&gt;()
+defer rows.Close()
 
-&lt;span style=&#34;color:#007020;font-weight:bold&#34;&gt;for&lt;/span&gt; rows.&lt;span style=&#34;color:#06287e&#34;&gt;Next&lt;/span&gt;() {
-    &lt;span style=&#34;color:#007020;font-weight:bold&#34;&gt;var&lt;/span&gt; a, b &lt;span style=&#34;color:#902000&#34;&gt;string&lt;/span&gt;
-    &lt;span style=&#34;color:#007020;font-weight:bold&#34;&gt;if&lt;/span&gt; err &lt;span style=&#34;color:#666&#34;&gt;:=&lt;/span&gt; rows.&lt;span style=&#34;color:#06287e&#34;&gt;Scan&lt;/span&gt;(&lt;span style=&#34;color:#666&#34;&gt;&amp;amp;&lt;/span&gt;a, &lt;span style=&#34;color:#666&#34;&gt;&amp;amp;&lt;/span&gt;b); err &lt;span style=&#34;color:#666&#34;&gt;!=&lt;/span&gt; &lt;span style=&#34;color:#007020;font-weight:bold&#34;&gt;nil&lt;/span&gt; {
-        &lt;span style=&#34;color:#007020;font-weight:bold&#34;&gt;return&lt;/span&gt; err
+for rows.Next() {
+    var a, b string
+    if err := rows.Scan(&amp;amp;a, &amp;amp;b); err != nil {
+        return err
     }
-    &lt;span style=&#34;color:#60a0b0;font-style:italic&#34;&gt;// ...
-&lt;/span&gt;&lt;span style=&#34;color:#60a0b0;font-style:italic&#34;&gt;&lt;/span&gt;}
-&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;</description>
+    // ...
+}
+&lt;/code&gt;&lt;/pre&gt;</description>
     </item>
     
     <item>
@@ -86,7 +86,8 @@
       <guid>/posts/go-mysql-driver-eof/</guid>
       <description>&lt;p&gt;在使用 &lt;a href=&#34;https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc&#34;&gt;github.com/go-sql-driver/mysql&lt;/a&gt; 作为客户端连接Mysql时，日志中偶然会出现下面的错误：&lt;/p&gt;
 &lt;pre&gt;&lt;code&gt;[mysql] 2019/08/26 16:07:00 packets.go:36: unexpected EOF
-&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;&lt;a href=&#34;https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc&#34;&gt;github.com/go-sql-driver/mysql&lt;/a&gt; 为了复用TCP连接以提高性能，内部实现了连接池。当需要一次SQL操作时，会先从连接池中拿出一条可用的空闲连接去执行操作。如果没有空闲的连接，或者连接已经失效，就打开一条新的TCP连接、SSL认证（如果使用SSL连接的话）、协议握手、认证等，完成初始化连接，再使用这条连接执行操作，使用完后再放回连接池。连接失效的标记可以在上一次使用连接后根据对应的错误来完成，或者本次操作指令发送失败也标记为连接失效，driver会重新执行上面的步骤来进行重试，应用层不会感知。&lt;/p&gt;</description>
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;a href=&#34;https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc&#34;&gt;github.com/go-sql-driver/mysql&lt;/a&gt; 为了复用TCP连接以提高性能，内部实现了连接池。当需要一次SQL操作时，会先从连接池中拿出一条可用的空闲连接去执行操作。如果没有空闲的连接，或者连接已经失效，就打开一条新的TCP连接、SSL认证（如果使用SSL连接的话）、协议握手、认证等，完成初始化连接，再使用这条连接执行操作，使用完后再放回连接池。连接失效的标记可以在上一次使用连接后根据对应的错误来完成，或者本次操作指令发送失败也标记为连接失效，driver会重新执行上面的步骤来进行重试，应用层不会感知。&lt;/p&gt;</description>
     </item>
     
     <item>

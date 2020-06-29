@@ -25,13 +25,14 @@
     <meta name="generator" content="">
     
     
-    <meta name="description" content="Light up the universe">
+    <meta name="description" content="经典LRU算法的实用变体。">
     
 
     
     <meta name="keywords" content="lru,cache,rust">
     
-    <meta name="author" content="Xiaopeng Li"></head>
+    <meta name="author" content="Xiaopeng Li"><link href="https://cdn.jsdelivr.net/npm/prism-themes@1.4.0/themes/prism-base16-ateliersulphurpool.light.css" rel="stylesheet" />
+</head>
 <body>
         <div class="container"><div id="navbar" class="pure-menu pure-menu-open pure-menu-horizontal pure-menu-scrollable">
     <a href="/" class="pure-menu-heading">
@@ -124,208 +125,209 @@
 <li>当第2次访问时，将数据从FIFO队列移动到LRU队列的头节点，如果LRU队列超过限制，将LRU里最旧的数据移动到FIFO队列的头节点</li>
 <li>当第3次以上访问时，按照LRU规则更新LRU队列</li>
 </ol>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#007020;font-weight:bold">use</span><span style="color:#bbb"> </span>std::ptr::NonNull;<span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">use</span><span style="color:#bbb"> </span>std::fmt::Debug;<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">struct</span> <span style="color:#0e84b5;font-weight:bold">Node</span><span style="color:#666">&lt;</span>T: <span style="color:#0e84b5;font-weight:bold">Debug</span><span style="color:#666">&gt;</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span>val: <span style="color:#0e84b5;font-weight:bold">T</span>,<span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span>prev: <span style="color:#007020">Option</span><span style="color:#666">&lt;</span>NonNull<span style="color:#666">&lt;</span>Node<span style="color:#666">&lt;</span>T<span style="color:#666">&gt;&gt;&gt;</span>,<span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span>next: <span style="color:#007020">Option</span><span style="color:#666">&lt;</span>NonNull<span style="color:#666">&lt;</span>Node<span style="color:#666">&lt;</span>T<span style="color:#666">&gt;&gt;&gt;</span>,<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">struct</span> <span style="color:#0e84b5;font-weight:bold">List</span><span style="color:#666">&lt;</span>T: <span style="color:#0e84b5;font-weight:bold">Debug</span><span style="color:#666">&gt;</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span>head: <span style="color:#007020">Option</span><span style="color:#666">&lt;</span>NonNull<span style="color:#666">&lt;</span>Node<span style="color:#666">&lt;</span>T<span style="color:#666">&gt;&gt;&gt;</span>,<span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span>tail: <span style="color:#007020">Option</span><span style="color:#666">&lt;</span>NonNull<span style="color:#666">&lt;</span>Node<span style="color:#666">&lt;</span>T<span style="color:#666">&gt;&gt;&gt;</span>,<span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span>len: <span style="color:#902000">usize</span>,<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">impl</span><span style="color:#bbb"> </span><span style="color:#666">&lt;</span>T: <span style="color:#0e84b5;font-weight:bold">Debug</span><span style="color:#666">&gt;</span><span style="color:#bbb"> </span>List<span style="color:#666">&lt;</span>T<span style="color:#666">&gt;</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">new</span>()<span style="color:#bbb"> </span>-&gt; <span style="color:#0e84b5;font-weight:bold">Self</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>Self<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>head: <span style="color:#007020">None</span>,<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>tail: <span style="color:#007020">None</span>,<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>len: <span style="color:#40a070">0</span>,<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">push_front</span>(<span style="color:#666">&amp;</span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>self,<span style="color:#bbb"> </span>val: <span style="color:#0e84b5;font-weight:bold">T</span>)<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>node<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020">Box</span>::new(Node<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>val,<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>prev: <span style="color:#007020">None</span>,<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>next: <span style="color:#0e84b5;font-weight:bold">self</span>.head,<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>});<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>node<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>NonNull::new(<span style="color:#007020">Box</span>::into_raw(node));<span style="color:#bbb">
-</span><span style="color:#bbb">		
-</span><span style="color:#bbb">		</span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(<span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>old_head)<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>self.head<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">			</span><span style="color:#007020;font-weight:bold">unsafe</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">				</span>old_head.as_mut().prev<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>node;<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>}<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">else</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>self.tail<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>node;<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>self.head<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>node;<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>self.len<span style="color:#bbb"> </span><span style="color:#666">+=</span><span style="color:#bbb">  </span><span style="color:#40a070">1</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">push_front_node</span>(<span style="color:#666">&amp;</span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>self,<span style="color:#bbb"> </span>node: <span style="color:#0e84b5;font-weight:bold">NonNull</span><span style="color:#666">&lt;</span>Node<span style="color:#666">&lt;</span>T<span style="color:#666">&gt;&gt;</span>)<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>node<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(node);<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(<span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>old_head)<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>self.head<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">			</span><span style="color:#007020;font-weight:bold">unsafe</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">				</span>old_head.as_mut().prev<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>node;<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>}<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">else</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>self.tail<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>node;<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>self.head<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>node;<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>self.len<span style="color:#bbb"> </span><span style="color:#666">+=</span><span style="color:#bbb">  </span><span style="color:#40a070">1</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">pop_back</span>(<span style="color:#666">&amp;</span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>self)<span style="color:#bbb"> </span>-&gt; <span style="color:#007020">Option</span><span style="color:#666">&lt;</span>NonNull<span style="color:#666">&lt;</span>Node<span style="color:#666">&lt;</span>T<span style="color:#666">&gt;&gt;&gt;</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(<span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>old_tail)<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>self.tail<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">			</span><span style="color:#007020;font-weight:bold">unsafe</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">				</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>tail<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>old_tail.as_mut().prev;<span style="color:#bbb">
-</span><span style="color:#bbb">				</span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(<span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>tail)<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>tail<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">					</span>tail.as_mut().next<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020">None</span>;<span style="color:#bbb">	
-</span><span style="color:#bbb">				</span>}<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">else</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">					</span>self.head<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020">None</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">				</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">				</span>self.tail<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>tail;<span style="color:#bbb">
-</span><span style="color:#bbb">				</span>self.len<span style="color:#bbb"> </span><span style="color:#666">-=</span><span style="color:#bbb"> </span><span style="color:#40a070">1</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">				</span><span style="color:#007020;font-weight:bold">return</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(old_tail);<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020">None</span><span style="color:#bbb">
-</span><span style="color:#bbb">	</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">print</span>(<span style="color:#666">&amp;</span>self)<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>cur<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>self.head.as_ref();<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020;font-weight:bold">unsafe</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">			</span><span style="color:#007020;font-weight:bold">while</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(c)<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>cur<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">				</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>r<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>c.as_ref();<span style="color:#bbb">
-</span><span style="color:#bbb">				</span>println<span style="color:#666">!</span>(<span style="color:#4070a0">&#34;{:?}&#34;</span>,<span style="color:#bbb"> </span>r.val);<span style="color:#bbb">
-</span><span style="color:#bbb">				</span>cur<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>r.next.as_ref();<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>}<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">struct</span> <span style="color:#0e84b5;font-weight:bold">TwoQueue</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>fifo: <span style="color:#0e84b5;font-weight:bold">List</span><span style="color:#666">&lt;</span>(<span style="color:#007020">String</span>,<span style="color:#bbb"> </span><span style="color:#902000">i32</span>)<span style="color:#666">&gt;</span>,<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>fifo_limit: <span style="color:#902000">usize</span>,<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>lru: <span style="color:#0e84b5;font-weight:bold">List</span><span style="color:#666">&lt;</span>(<span style="color:#007020">String</span>,<span style="color:#bbb"> </span><span style="color:#902000">i32</span>)<span style="color:#666">&gt;</span>,<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>lru_limit: <span style="color:#902000">usize</span>,<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">impl</span><span style="color:#bbb"> </span>TwoQueue<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">new</span>(fifo_limit: <span style="color:#902000">usize</span>,<span style="color:#bbb"> </span>lru_limit: <span style="color:#902000">usize</span>)<span style="color:#bbb"> </span>-&gt; <span style="color:#0e84b5;font-weight:bold">Self</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>Self<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>fifo: <span style="color:#0e84b5;font-weight:bold">List</span>::new(),<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>fifo_limit,<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>lru: <span style="color:#0e84b5;font-weight:bold">List</span>::new(),<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>lru_limit,<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">	
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">get</span>(<span style="color:#666">&amp;</span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>self,<span style="color:#bbb"> </span>key: <span style="color:#007020">&amp;</span><span style="color:#902000">str</span>)<span style="color:#bbb"> </span>-&gt; <span style="color:#007020">Option</span><span style="color:#666">&lt;</span><span style="color:#902000">i32</span><span style="color:#666">&gt;</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>r<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>self.find_in_lru(key);<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span>r.is_some()<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">			</span><span style="color:#007020;font-weight:bold">return</span><span style="color:#bbb"> </span>r;<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>self.find_in_fifo(key)<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">find_in_fifo</span>(<span style="color:#666">&amp;</span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>self,<span style="color:#bbb"> </span>key: <span style="color:#007020">&amp;</span><span style="color:#902000">str</span>)<span style="color:#bbb"> </span>-&gt; <span style="color:#007020">Option</span><span style="color:#666">&lt;</span><span style="color:#902000">i32</span><span style="color:#666">&gt;</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>cur<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>self.fifo.head;<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020;font-weight:bold">while</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(c0)<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>cur<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">			</span><span style="color:#007020;font-weight:bold">unsafe</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">				</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>c<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#666">&amp;</span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span><span style="color:#666">*</span>c0.as_ptr();<span style="color:#bbb">			
-</span><span style="color:#bbb">				</span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span>c.val.<span style="color:#40a070">0</span><span style="color:#bbb"> </span><span style="color:#666">==</span><span style="color:#bbb"> </span>key<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">					</span><span style="color:#60a0b0;font-style:italic">// 取下
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">					</span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(<span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>p)<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>c.prev<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">						</span>p.as_mut().next<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>c.next;<span style="color:#bbb">
-</span><span style="color:#bbb">					</span>}<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">else</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">						</span>self.fifo.head<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>c.next;<span style="color:#bbb">
-</span><span style="color:#bbb">					</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">					</span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(<span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>n)<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>c.next<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">						</span>n.as_mut().prev<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>c.prev;<span style="color:#bbb">
-</span><span style="color:#bbb">					</span>}<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">else</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">						</span>self.fifo.tail<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>c.prev;<span style="color:#bbb">
-</span><span style="color:#bbb">					</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">					</span>self.fifo.len<span style="color:#bbb"> </span><span style="color:#666">-=</span><span style="color:#bbb"> </span><span style="color:#40a070">1</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">					</span><span style="color:#60a0b0;font-style:italic">// 移动到lru队列
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">					</span>self.lru.push_front_node(c0);<span style="color:#bbb">
-</span><span style="color:#bbb">					</span><span style="color:#60a0b0;font-style:italic">// 检查lru是否满
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">					</span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span>self.lru.len<span style="color:#bbb"> </span><span style="color:#666">&gt;</span><span style="color:#bbb"> </span>self.lru_limit<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">						</span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(node_from_lru)<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>self.lru.pop_back()<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">							</span>self.fifo.push_front_node(node_from_lru);<span style="color:#bbb">
-</span><span style="color:#bbb">						</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">					</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">					</span><span style="color:#60a0b0;font-style:italic">// 返回
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">					</span><span style="color:#007020;font-weight:bold">return</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(c.val.<span style="color:#40a070">1</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">				</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">				</span>cur<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>c.next;<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020">None</span><span style="color:#bbb">
-</span><span style="color:#bbb">	</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">find_in_lru</span>(<span style="color:#666">&amp;</span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>self,<span style="color:#bbb"> </span>key: <span style="color:#007020">&amp;</span><span style="color:#902000">str</span>)<span style="color:#bbb"> </span>-&gt; <span style="color:#007020">Option</span><span style="color:#666">&lt;</span><span style="color:#902000">i32</span><span style="color:#666">&gt;</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>cur<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>self.lru.head;<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020;font-weight:bold">while</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(c0)<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>cur<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">			</span><span style="color:#007020;font-weight:bold">unsafe</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">				</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>c<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#666">&amp;</span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span><span style="color:#666">*</span>c0.as_ptr();<span style="color:#bbb">
-</span><span style="color:#bbb">				</span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span>c.val.<span style="color:#40a070">0</span><span style="color:#bbb"> </span><span style="color:#666">==</span><span style="color:#bbb"> </span>key<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">					</span><span style="color:#60a0b0;font-style:italic">// 取下
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">					</span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(<span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>p)<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>c.prev<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">						</span>p.as_mut().next<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>c.next;<span style="color:#bbb">
-</span><span style="color:#bbb">					</span>}<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">else</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">						</span>self.lru.head<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>c.next;<span style="color:#bbb">
-</span><span style="color:#bbb">					</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">					</span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(<span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>n)<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>c.next<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">						</span>n.as_mut().prev<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>c.prev;<span style="color:#bbb">
-</span><span style="color:#bbb">					</span>}<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">else</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">						</span>self.lru.tail<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>c.prev;<span style="color:#bbb">
-</span><span style="color:#bbb">					</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">					</span><span style="color:#60a0b0;font-style:italic">// 移动至头节点
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">					</span>c.prev<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020">None</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">					</span>c.next<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>self.lru.head;<span style="color:#bbb">
-</span><span style="color:#bbb">					</span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(<span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>h)<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>self.lru.head<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">						</span>h.as_mut().prev<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(c0);<span style="color:#bbb">
-</span><span style="color:#bbb">					</span>}<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">else</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">						</span>self.lru.tail<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(c0);<span style="color:#bbb">
-</span><span style="color:#bbb">					</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">					</span>self.lru.head<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(c0);<span style="color:#bbb">
-</span><span style="color:#bbb">					</span><span style="color:#60a0b0;font-style:italic">// 返回
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">					</span><span style="color:#007020;font-weight:bold">return</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(c.val.<span style="color:#40a070">1</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">				</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">				</span>cur<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>c.next;<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020">None</span><span style="color:#bbb">
-</span><span style="color:#bbb">	</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">put</span>(<span style="color:#666">&amp;</span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>self,<span style="color:#bbb"> </span>key: <span style="color:#007020">String</span>,<span style="color:#bbb"> </span>val: <span style="color:#902000">i32</span>)<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>self.fifo.push_front((key,<span style="color:#bbb"> </span>val));<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span>self.fifo.len<span style="color:#bbb"> </span><span style="color:#666">&gt;</span><span style="color:#bbb"> </span>self.fifo_limit<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">			</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>_<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>self.fifo.pop_back();<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>}<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020">#[test]</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">two_queue</span>()<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>tq<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>TwoQueue::new(<span style="color:#40a070">3</span>,<span style="color:#bbb"> </span><span style="color:#40a070">3</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>tq.put(<span style="color:#4070a0">&#34;a&#34;</span>.into(),<span style="color:#bbb"> </span><span style="color:#40a070">1</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>tq.put(<span style="color:#4070a0">&#34;b&#34;</span>.into(),<span style="color:#bbb"> </span><span style="color:#40a070">2</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>tq.put(<span style="color:#4070a0">&#34;c&#34;</span>.into(),<span style="color:#bbb"> </span><span style="color:#40a070">3</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>tq.put(<span style="color:#4070a0">&#34;d&#34;</span>.into(),<span style="color:#bbb"> </span><span style="color:#40a070">4</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>tq.get(<span style="color:#4070a0">&#34;b&#34;</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>println<span style="color:#666">!</span>(<span style="color:#4070a0">&#34;fifo&#34;</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>tq.fifo.print();<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>println<span style="color:#666">!</span>(<span style="color:#4070a0">&#34;lru&#34;</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>tq.lru.print();<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span></code></pre></div><p>- 完</p>
+<pre><code class="language-rust">use std::ptr::NonNull;
+use std::fmt::Debug;
+
+pub struct Node&lt;T: Debug&gt; {
+	pub val: T,
+	pub prev: Option&lt;NonNull&lt;Node&lt;T&gt;&gt;&gt;,
+	pub next: Option&lt;NonNull&lt;Node&lt;T&gt;&gt;&gt;,
+}
+
+pub struct List&lt;T: Debug&gt; {
+	pub head: Option&lt;NonNull&lt;Node&lt;T&gt;&gt;&gt;,
+	pub tail: Option&lt;NonNull&lt;Node&lt;T&gt;&gt;&gt;,
+	pub len: usize,
+}
+
+impl &lt;T: Debug&gt; List&lt;T&gt; {
+	pub fn new() -&gt; Self {
+		Self {
+			head: None,
+			tail: None,
+			len: 0,
+		}
+	}
+
+	pub fn push_front(&amp;mut self, val: T) {
+		let node = Box::new(Node {
+			val,
+			prev: None,
+			next: self.head,
+		});
+		let node = NonNull::new(Box::into_raw(node));
+		
+		if let Some(mut old_head) = self.head {
+			unsafe {
+				old_head.as_mut().prev = node;
+			}
+		} else {
+			self.tail = node;
+		}
+		self.head = node;
+		self.len +=  1;
+	}
+
+	pub fn push_front_node(&amp;mut self, node: NonNull&lt;Node&lt;T&gt;&gt;) {
+		let node = Some(node);
+		if let Some(mut old_head) = self.head {
+			unsafe {
+				old_head.as_mut().prev = node;
+			}
+		} else {
+			self.tail = node;
+		}
+		self.head = node;
+		self.len +=  1;
+	}
+
+	pub fn pop_back(&amp;mut self) -&gt; Option&lt;NonNull&lt;Node&lt;T&gt;&gt;&gt; {
+		if let Some(mut old_tail) = self.tail {
+			unsafe {
+				let tail = old_tail.as_mut().prev;
+				if let Some(mut tail) = tail {
+					tail.as_mut().next = None;	
+				} else {
+					self.head = None;
+				}
+				self.tail = tail;
+				self.len -= 1;
+				return Some(old_tail);
+			}
+		}
+		None
+	}
+
+	pub fn print(&amp;self) {
+		let mut cur = self.head.as_ref();
+		unsafe {
+			while let Some(c) = cur {
+				let r = c.as_ref();
+				println!(&quot;{:?}&quot;, r.val);
+				cur = r.next.as_ref();
+			}
+		}
+	}
+}
+
+struct TwoQueue {
+	fifo: List&lt;(String, i32)&gt;,
+	fifo_limit: usize,
+	lru: List&lt;(String, i32)&gt;,
+	lru_limit: usize,
+}
+
+impl TwoQueue {
+	fn new(fifo_limit: usize, lru_limit: usize) -&gt; Self {
+		Self {
+			fifo: List::new(),
+			fifo_limit,
+			lru: List::new(),
+			lru_limit,
+		}
+	}
+	
+	fn get(&amp;mut self, key: &amp;str) -&gt; Option&lt;i32&gt; {
+		let r = self.find_in_lru(key);
+		if r.is_some() {
+			return r;
+		}
+		self.find_in_fifo(key)
+	}
+
+	fn find_in_fifo(&amp;mut self, key: &amp;str) -&gt; Option&lt;i32&gt; {
+		let mut cur = self.fifo.head;
+		while let Some(c0) = cur {
+			unsafe {
+				let c = &amp;mut *c0.as_ptr();			
+				if c.val.0 == key {
+					// 取下
+					if let Some(mut p) = c.prev {
+						p.as_mut().next = c.next;
+					} else {
+						self.fifo.head = c.next;
+					}
+					if let Some(mut n) = c.next {
+						n.as_mut().prev = c.prev;
+					} else {
+						self.fifo.tail = c.prev;
+					}
+					self.fifo.len -= 1;
+					// 移动到lru队列
+					self.lru.push_front_node(c0);
+					// 检查lru是否满
+					if self.lru.len &gt; self.lru_limit {
+						if let Some(node_from_lru) = self.lru.pop_back() {
+							self.fifo.push_front_node(node_from_lru);
+						}
+					}
+					// 返回
+					return Some(c.val.1);
+				}
+				cur = c.next;
+			}
+		}
+		None
+	}
+
+	fn find_in_lru(&amp;mut self, key: &amp;str) -&gt; Option&lt;i32&gt; {
+		let mut cur = self.lru.head;
+		while let Some(c0) = cur {
+			unsafe {
+				let c = &amp;mut *c0.as_ptr();
+				if c.val.0 == key {
+					// 取下
+					if let Some(mut p) = c.prev {
+						p.as_mut().next = c.next;
+					} else {
+						self.lru.head = c.next;
+					}
+					if let Some(mut n) = c.next {
+						n.as_mut().prev = c.prev;
+					} else {
+						self.lru.tail = c.prev;
+					}
+					// 移动至头节点
+					c.prev = None;
+					c.next = self.lru.head;
+					if let Some(mut h) = self.lru.head {
+						h.as_mut().prev = Some(c0);
+					} else {
+						self.lru.tail = Some(c0);
+					}
+					self.lru.head = Some(c0);
+					// 返回
+					return Some(c.val.1);
+				}
+				cur = c.next;
+			}
+		}
+		None
+	}
+
+	fn put(&amp;mut self, key: String, val: i32) {
+		self.fifo.push_front((key, val));
+		if self.fifo.len &gt; self.fifo_limit {
+			let _ = self.fifo.pop_back();
+		}
+	}
+}
+
+#[test]
+fn two_queue() {
+	let mut tq = TwoQueue::new(3, 3);
+	tq.put(&quot;a&quot;.into(), 1);
+	tq.put(&quot;b&quot;.into(), 2);
+	tq.put(&quot;c&quot;.into(), 3);
+	tq.put(&quot;d&quot;.into(), 4);
+	tq.get(&quot;b&quot;);
+	println!(&quot;fifo&quot;);
+	tq.fifo.print();
+	println!(&quot;lru&quot;);
+	tq.lru.print();
+}
+</code></pre>
+<p>- 完</p>
 </article>
 
     </div>
@@ -348,49 +350,49 @@
                 
                 <li class="pure-menu-item">
                     <a href="/posts/rust-procedural-macro-1/" class="pure-menu-link">Rust过程宏（一）<br>
-                        <small></small>
+                        <small>开始Rust元编程，利用Rust的derive派生宏，消除重复的样板代码。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/rust-closure/" class="pure-menu-link">Rust闭包<br>
-                        <small></small>
+                        <small>Rust也可以函数式，像动态创建&#34;函数&#34;一样使用闭包。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/go-mysql-driver-race/" class="pure-menu-link">关于Go Mysql Driver引入QueryContext带来的数据竞争<br>
-                        <small></small>
+                        <small>并发编程里的常见问题--数据竞争。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/go-mysql-driver-eof/" class="pure-menu-link">关于Go Mysql Driver的unexpected EOF错误<br>
-                        <small></small>
+                        <small>应该是大多数Golang开发者日志里的东西了。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/socket-optimize/" class="pure-menu-link">关于Socket应用的性能优化<br>
-                        <small></small>
+                        <small>一点网络优化的小技巧。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/two-queue/" class="pure-menu-link">2Q(双链)缓存淘汰策略<br>
-                        <small></small>
+                        <small>经典LRU算法的实用变体。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/sched-and-timer/" class="pure-menu-link">Linux进程调度与定时器<br>
-                        <small></small>
+                        <small>操作系统的时间概念。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/dma/" class="pure-menu-link">DMA(直接内存访问)和零拷贝<br>
-                        <small></small>
+                        <small>Linux的多样化IO技术。</small>
                     </a>
                 </li>
                 
@@ -473,5 +475,9 @@
 	<script defer src="https://use.fontawesome.com/releases/v5.0.9/js/all.js"
 		integrity="sha384-8iPTk2s/jMVj81dnzb/iFR2sdA7u06vHJyyLlAd4snFpCl/SnyUjRrbdJsw1pGIl"
 		crossorigin="anonymous"></script>
-</div></div></body>
+</div>
+</div><script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.20.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.20.0/plugins/autoloader/prism-autoloader.min.js"></script>
+<script>Prism.plugins.autoloader.languages_path = 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.20.0/components/'</script>
+</body>
 </html>

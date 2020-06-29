@@ -259,7 +259,13 @@ code {
 }
 
 pre, code {
-    font-family: Monaco, Consolas, monospace;
+    font-family: Monaco, Courier, monospace;
+}
+
+article > p code {
+	background: #e2e2e2;
+	padding: .1em .4em;
+	border-radius: .4em;
 }
 
 div.highlight pre {

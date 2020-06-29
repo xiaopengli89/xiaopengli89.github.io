@@ -25,13 +25,14 @@
     <meta name="generator" content="">
     
     
-    <meta name="description" content="Light up the universe">
+    <meta name="description" content="一点网络优化的小技巧。">
     
 
     
     <meta name="keywords" content="socket,tcp,rust">
     
-    <meta name="author" content="Xiaopeng Li"></head>
+    <meta name="author" content="Xiaopeng Li"><link href="https://cdn.jsdelivr.net/npm/prism-themes@1.4.0/themes/prism-base16-ateliersulphurpool.light.css" rel="stylesheet" />
+</head>
 <body>
         <div class="container"><div id="navbar" class="pure-menu pure-menu-open pure-menu-horizontal pure-menu-scrollable">
     <a href="/" class="pure-menu-heading">
@@ -115,30 +116,32 @@
 <h2 id="低延迟需求">低延迟需求</h2>
 <p>由于TCP协议是面向字节流的协议，但是用于承载TCP的底层协议无法直接支持字节流，以太网协议需要一帧一帧地发送，一次发送的最大字节数受限于MTU；IP协议虽然支持数据的分包发送，但是大多数情况下我们需要避免IP协议分包，因为这会影响中间跳点的处理性能，所以TCP协议引入了分段（Segment）机制，在TCP层对数据进行拆分，保证IP数据包都是完整的。而通常情况下，我们希望每次发送的数据尽可能的多，也就是正好填满IP数据包，以此减少网络传输的次数（包括发送与接收方确认的次数），同时减少了总的包头数据量，以此提高整体的网络吞吐量。</p>
 <p>Nagle算法实现了对数据的合并，该算法会把多个小的数据合并成一个完整的报文段，以此最大化报文段，减少在线路上传输报文的次数，但是同时也会带来延迟，因为写入缓冲区的数据并不会马上发送出去。在低延迟需求的应用中，可以禁用Nagle算法：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#007020;font-weight:bold">use</span><span style="color:#bbb"> </span>std::net::SocketAddr;<span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">use</span><span style="color:#bbb"> </span>socket2::{Socket,<span style="color:#bbb"> </span>Domain,<span style="color:#bbb"> </span>Type};<span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">use</span><span style="color:#bbb"> </span>anyhow::<span style="color:#007020">Result</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">no_delay</span>()<span style="color:#bbb"> </span>-&gt; <span style="color:#007020">Result</span><span style="color:#666">&lt;</span>()<span style="color:#666">&gt;</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">  </span><span style="color:#60a0b0;font-style:italic">// create a TCP listener bound to two addresses
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">  </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>socket<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>Socket::new(Domain::ipv4(),<span style="color:#bbb"> </span>Type::stream(),<span style="color:#bbb"> </span><span style="color:#007020">None</span>)<span style="color:#666">?</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">  </span>socket.bind(<span style="color:#666">&amp;</span><span style="color:#4070a0">&#34;127.0.0.1:12345&#34;</span>.parse::<span style="color:#666">&lt;</span>SocketAddr<span style="color:#666">&gt;</span>()<span style="color:#666">?</span>.into())<span style="color:#666">?</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">  </span><span style="color:#60a0b0;font-style:italic">// sets the value of the TCP_NODELAY option on this socket
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">  </span>socket.set_nodelay(<span style="color:#007020;font-weight:bold">true</span>)<span style="color:#666">?</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">  </span>socket.listen(<span style="color:#40a070">128</span>)<span style="color:#666">?</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">  </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>listener<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>socket.into_tcp_listener();<span style="color:#bbb">
-</span><span style="color:#bbb">  </span><span style="color:#60a0b0;font-style:italic">// ...
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">  </span><span style="color:#007020">Ok</span>(())<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span></code></pre></div><h2 id="减少系统调用">减少系统调用</h2>
+<pre><code class="language-rust">use std::net::SocketAddr;
+use socket2::{Socket, Domain, Type};
+use anyhow::Result;
+
+fn no_delay() -&gt; Result&lt;()&gt; {
+  // create a TCP listener bound to two addresses
+  let socket = Socket::new(Domain::ipv4(), Type::stream(), None)?;
+
+  socket.bind(&amp;&quot;127.0.0.1:12345&quot;.parse::&lt;SocketAddr&gt;()?.into())?;
+  // sets the value of the TCP_NODELAY option on this socket
+  socket.set_nodelay(true)?;
+  socket.listen(128)?;
+
+  let listener = socket.into_tcp_listener();
+  // ...
+  Ok(())
+}
+</code></pre>
+<h2 id="减少系统调用">减少系统调用</h2>
 <p>由于网络接口的调用属于系统调用，会跨越应用程序空间和内核空间的边界，导致应用程序空间和内核空间的上下文切换，因此在希望减少内核调用负载的场景中，可以在应用程序中尽可能使用能支持的最大缓冲区，这样可以最大化一次系统调用能发送或读取的数据量。</p>
 <h2 id="增加内核缓冲区上限">增加内核缓冲区上限</h2>
 <p>在<a href="/posts/dma/">DMA(直接内存访问)和零拷贝</a>中记录过大多数文件系统默认的IO操作都是缓存IO(Buffered I/O)，Socket接口同样如此，如果网络环境足够好，发送、接收双方的处理能力足够好的话，缓冲区的大小会成为网络通信的瓶颈（因为发送、接收窗口的上限就是内核Socket缓冲区大小）。现代的操作系统都可以动态地调整Socket缓冲区大小（如果你在接口调用里强制指定了缓冲区大小，那么内核就不会动态调整了，因此建议不要在接口调用的时候指定，因为网络环境会随时变化），但是会受一些内核参数的约束。在Linux中，发送、接收缓冲区的上限受以下内核参数的影响：</p>
 <pre><code>net.core.wmem_max
 net.core.rmem_max
-</code></pre><p>一般这个上限的理想值是带宽时延积（Bandwidth Delay Product），取决于链路带宽和往返时延（RTT）。如果网络环境较好，你不想浪费你机器的内存，同时你的应用程序效率足够高的话，不妨增加内核缓冲区上限吧！</p>
+</code></pre>
+<p>一般这个上限的理想值是带宽时延积（Bandwidth Delay Product），取决于链路带宽和往返时延（RTT）。如果网络环境较好，你不想浪费你机器的内存，同时你的应用程序效率足够高的话，不妨增加内核缓冲区上限吧！</p>
 <h2 id="利用以太网巨帧">利用以太网巨帧</h2>
 <p>在之前提到，以太网协议需要一帧一帧的发送报文，原因在于信号在链路上传输过程中无法避免信号的丢失或错误，一旦有一个bit信号发生错误，那之后的信号就没有任何意义了。采用以太网帧的方式，可以将这种影响降低，一个以太网帧的错误，不影响其他以太网帧，如果要重传也只需要重传出错的以太网帧。越小的以太网帧，出错的几率越小，但是网络的吞吐量也越小；越大的以太网帧反过来，出错的几率越大，但是网络的吞吐量越大（包含了出错的无效帧）。因此链路上的每一个节点都有一个最大传输单元（MTU），用于限制传输的以太网帧大小，通常该值为1500。</p>
 <p>但是MTU的大小多少最合适，要看所处的网络环境，带宽大小、网络拥堵情况、物理网络硬件性能等。如果是本地内部网络，拥有较好的网络环境，也就是链路信号出错的概率非常低，可以将MTU的值适当地调大，甚至是非常大（即以太网巨帧），可以有效地增加网络吞吐量。</p>
@@ -172,49 +175,49 @@ net.core.rmem_max
                 
                 <li class="pure-menu-item">
                     <a href="/posts/rust-procedural-macro-1/" class="pure-menu-link">Rust过程宏（一）<br>
-                        <small></small>
+                        <small>开始Rust元编程，利用Rust的derive派生宏，消除重复的样板代码。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/rust-closure/" class="pure-menu-link">Rust闭包<br>
-                        <small></small>
+                        <small>Rust也可以函数式，像动态创建&#34;函数&#34;一样使用闭包。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/go-mysql-driver-race/" class="pure-menu-link">关于Go Mysql Driver引入QueryContext带来的数据竞争<br>
-                        <small></small>
+                        <small>并发编程里的常见问题--数据竞争。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/go-mysql-driver-eof/" class="pure-menu-link">关于Go Mysql Driver的unexpected EOF错误<br>
-                        <small></small>
+                        <small>应该是大多数Golang开发者日志里的东西了。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/socket-optimize/" class="pure-menu-link">关于Socket应用的性能优化<br>
-                        <small></small>
+                        <small>一点网络优化的小技巧。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/two-queue/" class="pure-menu-link">2Q(双链)缓存淘汰策略<br>
-                        <small></small>
+                        <small>经典LRU算法的实用变体。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/sched-and-timer/" class="pure-menu-link">Linux进程调度与定时器<br>
-                        <small></small>
+                        <small>操作系统的时间概念。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/dma/" class="pure-menu-link">DMA(直接内存访问)和零拷贝<br>
-                        <small></small>
+                        <small>Linux的多样化IO技术。</small>
                     </a>
                 </li>
                 
@@ -297,5 +300,9 @@ net.core.rmem_max
 	<script defer src="https://use.fontawesome.com/releases/v5.0.9/js/all.js"
 		integrity="sha384-8iPTk2s/jMVj81dnzb/iFR2sdA7u06vHJyyLlAd4snFpCl/SnyUjRrbdJsw1pGIl"
 		crossorigin="anonymous"></script>
-</div></div></body>
+</div>
+</div><script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.20.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.20.0/plugins/autoloader/prism-autoloader.min.js"></script>
+<script>Prism.plugins.autoloader.languages_path = 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.20.0/components/'</script>
+</body>
 </html>

@@ -32,7 +32,8 @@
     
 
     
-    <meta name="author" content="Xiaopeng Li"></head>
+    <meta name="author" content="Xiaopeng Li"><link href="https://cdn.jsdelivr.net/npm/prism-themes@1.4.0/themes/prism-base16-ateliersulphurpool.light.css" rel="stylesheet" />
+</head>
 <body>
         <div class="container"><div id="navbar" class="pure-menu pure-menu-open pure-menu-horizontal pure-menu-scrollable">
     <a href="/" class="pure-menu-heading">
@@ -158,15 +159,15 @@
 </ol>
 <p>但是闭包可以捕获当前上下文环境中的变量，而函数不可以（访问全局静态变量除外，但是这和闭包的实现完全不一样）。</p>
 <p>闭包的创建和调用：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>env_var<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#40a070">1</span>;<span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>fn1<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#666">|</span>x<span style="color:#666">|</span><span style="color:#bbb"> </span>x<span style="color:#bbb"> </span><span style="color:#666">+</span><span style="color:#bbb"> </span>env_var;<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>result1<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>fn1(<span style="color:#40a070">2</span>);<span style="color:#bbb">
-</span><span style="color:#bbb"></span>assert_eq<span style="color:#666">!</span>(result1,<span style="color:#bbb"> </span><span style="color:#40a070">3</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>result2<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>fn1(<span style="color:#40a070">3</span>);<span style="color:#bbb">
-</span><span style="color:#bbb"></span>assert_eq<span style="color:#666">!</span>(result2,<span style="color:#bbb"> </span><span style="color:#40a070">4</span>);<span style="color:#bbb">
-</span></code></pre></div>
+<pre><code class="language-rust">let env_var = 1;
+let fn1 = |x| x + env_var;
+
+let result1 = fn1(2);
+assert_eq!(result1, 3);
+
+let result2 = fn1(3);
+assert_eq!(result2, 4);
+</code></pre>
 
 	
 	
@@ -205,20 +206,20 @@
     </div>
     <p>在<a href="/posts/go-mysql-driver-eof/">关于Go Mysql Driver的unexpected EOF错误</a>里提到了连接池，当连接<strong>使用完毕</strong>后会放回连接池以便其他的操作可以复用这条连接。这里的<strong>使用完毕</strong>有非常明确的定义：发送缓冲区中不再有未发送的指令，接收缓冲区不再有未接收的数据，下次能读取的数据必须是下一次发送的指令的响应。</p>
 <p>通常情况下的SQL操作如下：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go">rows, err <span style="color:#666">:=</span> db.<span style="color:#06287e">Query</span>(<span style="color:#4070a0">&#34;SELECT a, b FROM some_table&#34;</span>)
-<span style="color:#007020;font-weight:bold">if</span> err <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span> {
-    <span style="color:#007020;font-weight:bold">return</span> err
+<pre><code class="language-go">rows, err := db.Query(&quot;SELECT a, b FROM some_table&quot;)
+if err != nil {
+    return err
 }
-<span style="color:#007020;font-weight:bold">defer</span> rows.<span style="color:#06287e">Close</span>()
+defer rows.Close()
 
-<span style="color:#007020;font-weight:bold">for</span> rows.<span style="color:#06287e">Next</span>() {
-    <span style="color:#007020;font-weight:bold">var</span> a, b <span style="color:#902000">string</span>
-    <span style="color:#007020;font-weight:bold">if</span> err <span style="color:#666">:=</span> rows.<span style="color:#06287e">Scan</span>(<span style="color:#666">&amp;</span>a, <span style="color:#666">&amp;</span>b); err <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span> {
-        <span style="color:#007020;font-weight:bold">return</span> err
+for rows.Next() {
+    var a, b string
+    if err := rows.Scan(&amp;a, &amp;b); err != nil {
+        return err
     }
-    <span style="color:#60a0b0;font-style:italic">// ...
-</span><span style="color:#60a0b0;font-style:italic"></span>}
-</code></pre></div>
+    // ...
+}
+</code></pre>
 
 	
 	
@@ -257,7 +258,8 @@
     </div>
     <p>在使用 <a href="https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc">github.com/go-sql-driver/mysql</a> 作为客户端连接Mysql时，日志中偶然会出现下面的错误：</p>
 <pre><code>[mysql] 2019/08/26 16:07:00 packets.go:36: unexpected EOF
-</code></pre><p><a href="https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc">github.com/go-sql-driver/mysql</a> 为了复用TCP连接以提高性能，内部实现了连接池。当需要一次SQL操作时，会先从连接池中拿出一条可用的空闲连接去执行操作。如果没有空闲的连接，或者连接已经失效，就打开一条新的TCP连接、SSL认证（如果使用SSL连接的话）、协议握手、认证等，完成初始化连接，再使用这条连接执行操作，使用完后再放回连接池。连接失效的标记可以在上一次使用连接后根据对应的错误来完成，或者本次操作指令发送失败也标记为连接失效，driver会重新执行上面的步骤来进行重试，应用层不会感知。</p>
+</code></pre>
+<p><a href="https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc">github.com/go-sql-driver/mysql</a> 为了复用TCP连接以提高性能，内部实现了连接池。当需要一次SQL操作时，会先从连接池中拿出一条可用的空闲连接去执行操作。如果没有空闲的连接，或者连接已经失效，就打开一条新的TCP连接、SSL认证（如果使用SSL连接的话）、协议握手、认证等，完成初始化连接，再使用这条连接执行操作，使用完后再放回连接池。连接失效的标记可以在上一次使用连接后根据对应的错误来完成，或者本次操作指令发送失败也标记为连接失效，driver会重新执行上面的步骤来进行重试，应用层不会感知。</p>
 
 	
 	
@@ -454,49 +456,49 @@
                 
                 <li class="pure-menu-item">
                     <a href="/posts/rust-procedural-macro-1/" class="pure-menu-link">Rust过程宏（一）<br>
-                        <small></small>
+                        <small>开始Rust元编程，利用Rust的derive派生宏，消除重复的样板代码。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/rust-closure/" class="pure-menu-link">Rust闭包<br>
-                        <small></small>
+                        <small>Rust也可以函数式，像动态创建&#34;函数&#34;一样使用闭包。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/go-mysql-driver-race/" class="pure-menu-link">关于Go Mysql Driver引入QueryContext带来的数据竞争<br>
-                        <small></small>
+                        <small>并发编程里的常见问题--数据竞争。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/go-mysql-driver-eof/" class="pure-menu-link">关于Go Mysql Driver的unexpected EOF错误<br>
-                        <small></small>
+                        <small>应该是大多数Golang开发者日志里的东西了。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/socket-optimize/" class="pure-menu-link">关于Socket应用的性能优化<br>
-                        <small></small>
+                        <small>一点网络优化的小技巧。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/two-queue/" class="pure-menu-link">2Q(双链)缓存淘汰策略<br>
-                        <small></small>
+                        <small>经典LRU算法的实用变体。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/sched-and-timer/" class="pure-menu-link">Linux进程调度与定时器<br>
-                        <small></small>
+                        <small>操作系统的时间概念。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/dma/" class="pure-menu-link">DMA(直接内存访问)和零拷贝<br>
-                        <small></small>
+                        <small>Linux的多样化IO技术。</small>
                     </a>
                 </li>
                 
@@ -579,5 +581,9 @@
 	<script defer src="https://use.fontawesome.com/releases/v5.0.9/js/all.js"
 		integrity="sha384-8iPTk2s/jMVj81dnzb/iFR2sdA7u06vHJyyLlAd4snFpCl/SnyUjRrbdJsw1pGIl"
 		crossorigin="anonymous"></script>
-</div></div></body>
+</div>
+</div><script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.20.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.20.0/plugins/autoloader/prism-autoloader.min.js"></script>
+<script>Prism.plugins.autoloader.languages_path = 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.20.0/components/'</script>
+</body>
 </html>

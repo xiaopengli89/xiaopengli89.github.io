@@ -25,13 +25,14 @@
     <meta name="generator" content="">
     
     
-    <meta name="description" content="Light up the universe">
+    <meta name="description" content="Rust也可以函数式，像动态创建&#34;函数&#34;一样使用闭包。">
     
 
     
     <meta name="keywords" content="rust,closure">
     
-    <meta name="author" content="Xiaopeng Li"></head>
+    <meta name="author" content="Xiaopeng Li"><link href="https://cdn.jsdelivr.net/npm/prism-themes@1.4.0/themes/prism-base16-ateliersulphurpool.light.css" rel="stylesheet" />
+</head>
 <body>
         <div class="container"><div id="navbar" class="pure-menu pure-menu-open pure-menu-horizontal pure-menu-scrollable">
     <a href="/" class="pure-menu-heading">
@@ -114,176 +115,178 @@
 </ol>
 <p>但是闭包可以捕获当前上下文环境中的变量，而函数不可以（访问全局静态变量除外，但是这和闭包的实现完全不一样）。</p>
 <p>闭包的创建和调用：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>env_var<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#40a070">1</span>;<span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>fn1<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#666">|</span>x<span style="color:#666">|</span><span style="color:#bbb"> </span>x<span style="color:#bbb"> </span><span style="color:#666">+</span><span style="color:#bbb"> </span>env_var;<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>result1<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>fn1(<span style="color:#40a070">2</span>);<span style="color:#bbb">
-</span><span style="color:#bbb"></span>assert_eq<span style="color:#666">!</span>(result1,<span style="color:#bbb"> </span><span style="color:#40a070">3</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>result2<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>fn1(<span style="color:#40a070">3</span>);<span style="color:#bbb">
-</span><span style="color:#bbb"></span>assert_eq<span style="color:#666">!</span>(result2,<span style="color:#bbb"> </span><span style="color:#40a070">4</span>);<span style="color:#bbb">
-</span></code></pre></div><p>编译器在编译过程中会创建对应的匿名结构，并根据需要实现三个 <code>trait</code>：<a href="https://doc.rust-lang.org/std/ops/trait.FnOnce.html">FnOnce</a>、<a href="https://doc.rust-lang.org/std/ops/trait.FnMut.html">FnMut</a>、<a href="https://doc.rust-lang.org/std/ops/trait.Fn.html">Fn</a> ，而闭包的创建就是该匿名结构的实例化，闭包调用则是3个 <code>trait</code> 的方法调用。</p>
+<pre><code class="language-rust">let env_var = 1;
+let fn1 = |x| x + env_var;
+
+let result1 = fn1(2);
+assert_eq!(result1, 3);
+
+let result2 = fn1(3);
+assert_eq!(result2, 4);
+</code></pre>
+<p>编译器在编译过程中会创建对应的匿名结构，并根据需要实现三个 <code>trait</code>：<a href="https://doc.rust-lang.org/std/ops/trait.FnOnce.html">FnOnce</a>、<a href="https://doc.rust-lang.org/std/ops/trait.FnMut.html">FnMut</a>、<a href="https://doc.rust-lang.org/std/ops/trait.Fn.html">Fn</a> ，而闭包的创建就是该匿名结构的实例化，闭包调用则是3个 <code>trait</code> 的方法调用。</p>
 <p>以下是3个 <code>trait</code> 的定义：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">trait</span><span style="color:#bbb"> </span><span style="color:#007020">FnOnce</span><span style="color:#666">&lt;</span>Args<span style="color:#666">&gt;</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#4070a0;font-style:italic">/// The returned type after the call operator is used.
-</span><span style="color:#4070a0;font-style:italic"></span><span style="color:#bbb">    </span><span style="color:#007020">#[stable(feature = </span><span style="color:#4070a0">&#34;fn_once_output&#34;</span><span style="color:#007020">, since = </span><span style="color:#4070a0">&#34;1.12.0&#34;</span><span style="color:#007020">)]</span><span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">type</span> <span style="color:#0e84b5;font-weight:bold">Output</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#4070a0;font-style:italic">/// Performs the call operation.
-</span><span style="color:#4070a0;font-style:italic"></span><span style="color:#bbb">    </span><span style="color:#007020">#[unstable(feature = </span><span style="color:#4070a0">&#34;fn_traits&#34;</span><span style="color:#007020">, issue = </span><span style="color:#4070a0">&#34;29625&#34;</span><span style="color:#007020">)]</span><span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">extern</span><span style="color:#bbb"> </span><span style="color:#4070a0">&#34;rust-call&#34;</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">call_once</span>(self,<span style="color:#bbb"> </span>args: <span style="color:#0e84b5;font-weight:bold">Args</span>)<span style="color:#bbb"> </span>-&gt; <span style="color:#0e84b5;font-weight:bold">Self</span>::Output;<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">trait</span><span style="color:#bbb"> </span><span style="color:#007020">FnMut</span><span style="color:#666">&lt;</span>Args<span style="color:#666">&gt;</span>: <span style="color:#007020">FnOnce</span><span style="color:#666">&lt;</span>Args<span style="color:#666">&gt;</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#4070a0;font-style:italic">/// Performs the call operation.
-</span><span style="color:#4070a0;font-style:italic"></span><span style="color:#bbb">    </span><span style="color:#007020">#[unstable(feature = </span><span style="color:#4070a0">&#34;fn_traits&#34;</span><span style="color:#007020">, issue = </span><span style="color:#4070a0">&#34;29625&#34;</span><span style="color:#007020">)]</span><span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">extern</span><span style="color:#bbb"> </span><span style="color:#4070a0">&#34;rust-call&#34;</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">call_mut</span>(<span style="color:#666">&amp;</span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>self,<span style="color:#bbb"> </span>args: <span style="color:#0e84b5;font-weight:bold">Args</span>)<span style="color:#bbb"> </span>-&gt; <span style="color:#0e84b5;font-weight:bold">Self</span>::Output;<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">trait</span><span style="color:#bbb"> </span><span style="color:#007020">Fn</span><span style="color:#666">&lt;</span>Args<span style="color:#666">&gt;</span>: <span style="color:#007020">FnMut</span><span style="color:#666">&lt;</span>Args<span style="color:#666">&gt;</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#4070a0;font-style:italic">/// Performs the call operation.
-</span><span style="color:#4070a0;font-style:italic"></span><span style="color:#bbb">    </span><span style="color:#007020">#[unstable(feature = </span><span style="color:#4070a0">&#34;fn_traits&#34;</span><span style="color:#007020">, issue = </span><span style="color:#4070a0">&#34;29625&#34;</span><span style="color:#007020">)]</span><span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">extern</span><span style="color:#bbb"> </span><span style="color:#4070a0">&#34;rust-call&#34;</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">call</span>(<span style="color:#666">&amp;</span>self,<span style="color:#bbb"> </span>args: <span style="color:#0e84b5;font-weight:bold">Args</span>)<span style="color:#bbb"> </span>-&gt; <span style="color:#0e84b5;font-weight:bold">Self</span>::Output;<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span></code></pre></div><p>其中 <code>Args</code> 为闭包参数类型，使用元组 ( <code>Tuple</code>) 来表示参数列表，<code>Output</code> 是返回值类型。</p>
+<pre><code class="language-rust">pub trait FnOnce&lt;Args&gt; {
+    /// The returned type after the call operator is used.
+    #[stable(feature = &quot;fn_once_output&quot;, since = &quot;1.12.0&quot;)]
+    type Output;
+
+    /// Performs the call operation.
+    #[unstable(feature = &quot;fn_traits&quot;, issue = &quot;29625&quot;)]
+    extern &quot;rust-call&quot; fn call_once(self, args: Args) -&gt; Self::Output;
+}
+
+pub trait FnMut&lt;Args&gt;: FnOnce&lt;Args&gt; {
+    /// Performs the call operation.
+    #[unstable(feature = &quot;fn_traits&quot;, issue = &quot;29625&quot;)]
+    extern &quot;rust-call&quot; fn call_mut(&amp;mut self, args: Args) -&gt; Self::Output;
+}
+
+pub trait Fn&lt;Args&gt;: FnMut&lt;Args&gt; {
+    /// Performs the call operation.
+    #[unstable(feature = &quot;fn_traits&quot;, issue = &quot;29625&quot;)]
+    extern &quot;rust-call&quot; fn call(&amp;self, args: Args) -&gt; Self::Output;
+}
+</code></pre>
+<p>其中 <code>Args</code> 为闭包参数类型，使用元组 ( <code>Tuple</code>) 来表示参数列表，<code>Output</code> 是返回值类型。</p>
 <p>并且可以发现 <code>FnMut</code> 派生自 <code>FnOnce</code>，而 <code>Fn</code> 又派生自 <code>FnMut</code>，这里需要这样理解：</p>
 <p><em><strong>如果一个函数接收一个 <code>FnOnce</code> 参数，总可以传递一个 <code>FnMut</code></strong></em><br>
 <em><strong>如果一个函数接收一个 <code>FnMut</code>，总可以传递一个 <code>Fn</code></strong></em></p>
 <p>我们可以手动构造一个 <code>FnOnce</code> 闭包结构实现：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#007020">#![feature(unboxed_closures)]</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020">#![feature(fn_traits)]</span><span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">use</span><span style="color:#bbb"> </span>std::ops::{<span style="color:#007020">Fn</span>,<span style="color:#bbb"> </span><span style="color:#007020">FnMut</span>,<span style="color:#bbb"> </span><span style="color:#007020">FnOnce</span>};<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">struct</span> <span style="color:#0e84b5;font-weight:bold">MyFn</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span>env_var: <span style="color:#007020">String</span>,<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">impl</span><span style="color:#bbb"> </span><span style="color:#007020">FnOnce</span><span style="color:#666">&lt;</span>(<span style="color:#902000">i32</span>,<span style="color:#bbb"> </span><span style="color:#902000">i32</span>)<span style="color:#666">&gt;</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">for</span><span style="color:#bbb"> </span>MyFn<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">type</span> <span style="color:#0e84b5;font-weight:bold">Output</span><span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020">String</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">	
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">extern</span><span style="color:#bbb"> </span><span style="color:#4070a0">&#34;rust-call&#34;</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">call_once</span>(self,<span style="color:#bbb"> </span>args: (<span style="color:#902000">i32</span>,<span style="color:#bbb"> </span><span style="color:#902000">i32</span>))<span style="color:#bbb"> </span>-&gt; <span style="color:#0e84b5;font-weight:bold">Self</span>::Output<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">        </span>println<span style="color:#666">!</span>(<span style="color:#4070a0">&#34;{}&#34;</span>,<span style="color:#bbb"> </span>args.<span style="color:#40a070">0</span><span style="color:#bbb"> </span><span style="color:#666">+</span><span style="color:#bbb"> </span>args.<span style="color:#40a070">1</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">        </span>self.env_var<span style="color:#bbb">
-</span><span style="color:#bbb">    </span>}<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">main</span>()<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>env_var<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020">String</span>::from(<span style="color:#4070a0">&#34;env_var&#34;</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>my_fn<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>MyFn<span style="color:#bbb"> </span>{<span style="color:#bbb"> </span>env_var,<span style="color:#bbb"> </span>};<span style="color:#bbb">
-</span><span style="color:#bbb">	
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>o1: <span style="color:#007020">String</span> <span style="color:#666">=</span><span style="color:#bbb"> </span>my_fn(<span style="color:#40a070">1</span>,<span style="color:#bbb"> </span><span style="color:#40a070">1</span>);<span style="color:#bbb"> </span><span style="color:#60a0b0;font-style:italic">// 这里调用 call_once 方法, my_fn 变量 move 进方法
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">	</span>assert_eq<span style="color:#666">!</span>(o1,<span style="color:#bbb"> </span><span style="color:#007020">String</span>::from(<span style="color:#4070a0">&#34;env_var&#34;</span>));<span style="color:#bbb">
-</span><span style="color:#bbb">	
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>o2: <span style="color:#007020">String</span> <span style="color:#666">=</span><span style="color:#bbb"> </span>my_fn(<span style="color:#40a070">2</span>,<span style="color:#bbb"> </span><span style="color:#40a070">2</span>);<span style="color:#bbb"> </span><span style="color:#60a0b0;font-style:italic">// 编译不过，因为 my_fn 变量已经被 move 掉了
-</span><span style="color:#60a0b0;font-style:italic"></span>}<span style="color:#bbb">
-</span></code></pre></div><p>接着为 <code>MyFn</code> 实现 <code>FnMut</code>：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#60a0b0;font-style:italic">// ...
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#007020;font-weight:bold">struct</span> <span style="color:#0e84b5;font-weight:bold">MyFn</span><span style="color:#666">&lt;</span><span style="color:#4070a0">&#39;a</span><span style="color:#666">&gt;</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span>env_var: <span style="color:#007020">&amp;</span><span style="color:#4070a0">&#39;a</span><span style="color:#bbb"> </span><span style="color:#902000">str</span>,<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">impl</span><span style="color:#666">&lt;</span><span style="color:#4070a0">&#39;a</span><span style="color:#666">&gt;</span><span style="color:#bbb"> </span><span style="color:#007020">FnOnce</span><span style="color:#666">&lt;</span>(<span style="color:#902000">i32</span>,<span style="color:#bbb"> </span><span style="color:#902000">i32</span>)<span style="color:#666">&gt;</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">for</span><span style="color:#bbb"> </span>MyFn<span style="color:#666">&lt;</span><span style="color:#4070a0">&#39;a</span><span style="color:#666">&gt;</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">type</span> <span style="color:#0e84b5;font-weight:bold">Output</span><span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020">String</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">extern</span><span style="color:#bbb"> </span><span style="color:#4070a0">&#34;rust-call&#34;</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">call_once</span>(<span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>self,<span style="color:#bbb"> </span>args: (<span style="color:#902000">i32</span>,<span style="color:#bbb"> </span><span style="color:#902000">i32</span>))<span style="color:#bbb"> </span>-&gt; <span style="color:#0e84b5;font-weight:bold">Self</span>::Output<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">        </span>self.call_mut(args)<span style="color:#bbb">
-</span><span style="color:#bbb">    </span>}<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">impl</span><span style="color:#666">&lt;</span><span style="color:#4070a0">&#39;a</span><span style="color:#666">&gt;</span><span style="color:#bbb"> </span><span style="color:#007020">FnMut</span><span style="color:#666">&lt;</span>(<span style="color:#902000">i32</span>,<span style="color:#bbb"> </span><span style="color:#902000">i32</span>)<span style="color:#666">&gt;</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">for</span><span style="color:#bbb"> </span>MyFn<span style="color:#666">&lt;</span><span style="color:#4070a0">&#39;a</span><span style="color:#666">&gt;</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">extern</span><span style="color:#bbb"> </span><span style="color:#4070a0">&#34;rust-call&#34;</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">call_mut</span>(<span style="color:#666">&amp;</span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>self,<span style="color:#bbb"> </span>args: (<span style="color:#902000">i32</span>,<span style="color:#bbb"> </span><span style="color:#902000">i32</span>))<span style="color:#bbb"> </span>-&gt; <span style="color:#0e84b5;font-weight:bold">Self</span>::Output<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">        </span>println<span style="color:#666">!</span>(<span style="color:#4070a0">&#34;{}&#34;</span>,<span style="color:#bbb"> </span>args.<span style="color:#40a070">0</span><span style="color:#bbb"> </span><span style="color:#666">+</span><span style="color:#bbb"> </span>args.<span style="color:#40a070">1</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">        </span>self.env_var.to_owned()<span style="color:#bbb">
-</span><span style="color:#bbb">    </span>}<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">main</span>()<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>env_var<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020">String</span>::from(<span style="color:#4070a0">&#34;env_var&#34;</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>my_fn<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>MyFn<span style="color:#bbb"> </span>{<span style="color:#bbb"> </span>env_var: <span style="color:#007020">&amp;</span><span style="color:#0e84b5;font-weight:bold">env_var</span><span style="color:#bbb"> </span>};<span style="color:#bbb">
-</span><span style="color:#bbb">	
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>o1: <span style="color:#007020">String</span> <span style="color:#666">=</span><span style="color:#bbb"> </span>my_fn(<span style="color:#40a070">1</span>,<span style="color:#bbb"> </span><span style="color:#40a070">1</span>);<span style="color:#bbb"> </span><span style="color:#60a0b0;font-style:italic">// 这里调用 call_mut 方法, my_fn 变量 mut borrow 进方法
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">	</span>assert_eq<span style="color:#666">!</span>(o1,<span style="color:#bbb"> </span><span style="color:#007020">String</span>::from(<span style="color:#4070a0">&#34;env_var&#34;</span>));<span style="color:#bbb">
-</span><span style="color:#bbb">	
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>o2: <span style="color:#007020">String</span> <span style="color:#666">=</span><span style="color:#bbb"> </span>my_fn(<span style="color:#40a070">2</span>,<span style="color:#bbb"> </span><span style="color:#40a070">2</span>);<span style="color:#bbb"> </span><span style="color:#60a0b0;font-style:italic">// 还是调用 call_mut 方法，my_fn 变量依然有效
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">	</span>assert_eq<span style="color:#666">!</span>(o2,<span style="color:#bbb"> </span><span style="color:#007020">String</span>::from(<span style="color:#4070a0">&#34;env_var&#34;</span>));<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span></code></pre></div><p>这里可以看到，如果某个参数如果需要调用 <code>call_once</code> 方法的话，<code>call_once</code> 内部只要再次调用 <code>call_mut</code> 即可，因为一个 <code>Ownership</code> 总可以转成一个 <code>Mut Borrow</code>，同理 <code>Mut Borrow</code> 总可以转成 <code>Borrow</code> 。</p>
+<pre><code class="language-rust">#![feature(unboxed_closures)]
+#![feature(fn_traits)]
+
+use std::ops::{Fn, FnMut, FnOnce};
+
+struct MyFn {
+    env_var: String,
+}
+
+impl FnOnce&lt;(i32, i32)&gt; for MyFn {
+    type Output = String;
+	
+    extern &quot;rust-call&quot; fn call_once(self, args: (i32, i32)) -&gt; Self::Output {
+        println!(&quot;{}&quot;, args.0 + args.1);
+        self.env_var
+    }
+}
+
+fn main() {
+    let env_var = String::from(&quot;env_var&quot;);
+    let my_fn = MyFn { env_var, };
+	
+    let o1: String = my_fn(1, 1); // 这里调用 call_once 方法, my_fn 变量 move 进方法
+	assert_eq!(o1, String::from(&quot;env_var&quot;));
+	
+	let o2: String = my_fn(2, 2); // 编译不过，因为 my_fn 变量已经被 move 掉了
+}
+</code></pre>
+<p>接着为 <code>MyFn</code> 实现 <code>FnMut</code>：</p>
+<pre><code class="language-rust">// ...
+struct MyFn&lt;'a&gt; {
+    env_var: &amp;'a str,
+}
+
+impl&lt;'a&gt; FnOnce&lt;(i32, i32)&gt; for MyFn&lt;'a&gt; {
+    type Output = String;
+    extern &quot;rust-call&quot; fn call_once(mut self, args: (i32, i32)) -&gt; Self::Output {
+        self.call_mut(args)
+    }
+}
+
+impl&lt;'a&gt; FnMut&lt;(i32, i32)&gt; for MyFn&lt;'a&gt; {
+    extern &quot;rust-call&quot; fn call_mut(&amp;mut self, args: (i32, i32)) -&gt; Self::Output {
+        println!(&quot;{}&quot;, args.0 + args.1);
+        self.env_var.to_owned()
+    }
+}
+
+fn main() {
+    let env_var = String::from(&quot;env_var&quot;);
+    let mut my_fn = MyFn { env_var: &amp;env_var };
+	
+    let o1: String = my_fn(1, 1); // 这里调用 call_mut 方法, my_fn 变量 mut borrow 进方法
+	assert_eq!(o1, String::from(&quot;env_var&quot;));
+	
+	let o2: String = my_fn(2, 2); // 还是调用 call_mut 方法，my_fn 变量依然有效
+	assert_eq!(o2, String::from(&quot;env_var&quot;));
+}
+</code></pre>
+<p>这里可以看到，如果某个参数如果需要调用 <code>call_once</code> 方法的话，<code>call_once</code> 内部只要再次调用 <code>call_mut</code> 即可，因为一个 <code>Ownership</code> 总可以转成一个 <code>Mut Borrow</code>，同理 <code>Mut Borrow</code> 总可以转成 <code>Borrow</code> 。</p>
 <p>测试一个函数接受 <code>FnOnce</code>，传递一个 <code>FnMut</code>：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#60a0b0;font-style:italic">// ...
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">expect_fn_once</span><span style="color:#666">&lt;</span>F<span style="color:#666">&gt;</span>(f: <span style="color:#0e84b5;font-weight:bold">F</span>)<span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">where</span><span style="color:#bbb">
-</span><span style="color:#bbb">    </span>F: <span style="color:#007020">FnOnce</span><span style="color:#666">&lt;</span>(<span style="color:#902000">i32</span>,<span style="color:#bbb"> </span><span style="color:#902000">i32</span>),<span style="color:#bbb"> </span>Output<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020">String</span><span style="color:#666">&gt;</span>,<span style="color:#bbb">
-</span><span style="color:#bbb"></span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>_: <span style="color:#007020">String</span> <span style="color:#666">=</span><span style="color:#bbb"> </span>f(<span style="color:#40a070">1</span>,<span style="color:#bbb"> </span><span style="color:#40a070">2</span>);<span style="color:#bbb"> </span><span style="color:#60a0b0;font-style:italic">// 这里调用的是 call_once
-</span><span style="color:#60a0b0;font-style:italic"></span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">main</span>()<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>env_var<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020">String</span>::from(<span style="color:#4070a0">&#34;env_var&#34;</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>my_fn<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>MyFn<span style="color:#bbb"> </span>{<span style="color:#bbb"> </span>env_var: <span style="color:#007020">&amp;</span><span style="color:#0e84b5;font-weight:bold">env_var</span><span style="color:#bbb"> </span>};<span style="color:#bbb">
-</span><span style="color:#bbb">	
-</span><span style="color:#bbb">	</span>expect_fn_once(my_fn);<span style="color:#bbb"> </span><span style="color:#60a0b0;font-style:italic">// 因为 my_fn 实现了 FnOnce，所以可以作为参数传递
-</span><span style="color:#60a0b0;font-style:italic"></span>}<span style="color:#bbb">
-</span></code></pre></div><p>另外，<code>FnOnce</code> 、<code>FnMut</code> 、<code>Fn</code> 有3个语法糖表示：</p>
+<pre><code class="language-rust">// ...
+fn expect_fn_once&lt;F&gt;(f: F)
+where
+    F: FnOnce&lt;(i32, i32), Output = String&gt;,
+{
+    let _: String = f(1, 2); // 这里调用的是 call_once
+}
+
+fn main() {
+    let env_var = String::from(&quot;env_var&quot;);
+    let my_fn = MyFn { env_var: &amp;env_var };
+	
+	expect_fn_once(my_fn); // 因为 my_fn 实现了 FnOnce，所以可以作为参数传递
+}
+</code></pre>
+<p>另外，<code>FnOnce</code> 、<code>FnMut</code> 、<code>Fn</code> 有3个语法糖表示：</p>
 <p><code>FnOnce(T1, T2) -&gt; T3</code> 可以用来表示 <code>FnOnce&lt;(T1, T2), Output = T3&gt;</code></p>
 <p>因此上面的 <code>expect_fn_once</code> 方法可以简写为：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">expect_fn_once</span>(f: <span style="color:#0e84b5;font-weight:bold">impl</span><span style="color:#bbb"> </span><span style="color:#007020">FnOnce</span>(<span style="color:#902000">i32</span>,<span style="color:#bbb"> </span><span style="color:#902000">i32</span>)<span style="color:#bbb"> </span>-&gt; <span style="color:#007020">String</span>)<span style="color:#bbb">
-</span><span style="color:#bbb"></span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>_: <span style="color:#007020">String</span> <span style="color:#666">=</span><span style="color:#bbb"> </span>f(<span style="color:#40a070">1</span>,<span style="color:#bbb"> </span><span style="color:#40a070">2</span>);<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span></code></pre></div><p><code>FnMut</code> 、<code>Fn</code> 同理。</p>
+<pre><code class="language-rust">fn expect_fn_once(f: impl FnOnce(i32, i32) -&gt; String)
+{
+    let _: String = f(1, 2);
+}
+</code></pre>
+<p><code>FnMut</code> 、<code>Fn</code> 同理。</p>
 <h3 id="编译器闭包的生成规则">编译器闭包的生成规则</h3>
 <ol>
-<li>
-<p>如果闭包只需要上下文环境的 <code>Borrow</code> ，优先生成 <code>Fn</code> ，方法默认调用 <code>call</code> ，因为上下文环境可以被同时 <code>Borrow</code> 多次，例如：<br>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>a<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#40a070">1</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>fn1<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#666">||</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>_<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#666">&amp;</span>a;<span style="color:#bbb">
-</span><span style="color:#bbb"></span>};<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>fn2<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#666">||</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>_<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#666">&amp;</span>a;<span style="color:#bbb">
-</span><span style="color:#bbb"></span>};<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span>println<span style="color:#666">!</span>(<span style="color:#4070a0">&#34;{}&#34;</span>,<span style="color:#bbb"> </span>a);<span style="color:#bbb">
-</span></code></pre></div></p>
-</li>
-<li>
-<p>如果闭包需要上下文环境的 <code>Mut Borrow</code>，则生成 <code>FnMut</code>，方法默认调用 <code>call_mut</code>，因为不会丢失 <code>Ownership</code>，闭包可以被多次调用，上下文环境 <code>Mut Borrow</code> 进闭包结构，当闭包被 <code>drop</code> 掉后，外部才能再次使用被捕获的变量，例如：<br>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#bbb"> 
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>a<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#40a070">1</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>fn1<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#666">||</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>_<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#666">&amp;</span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>a;<span style="color:#bbb">
-</span><span style="color:#bbb"></span>};<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>fn2<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#666">||</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>_<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#666">&amp;</span>a;<span style="color:#bbb"> </span><span style="color:#60a0b0;font-style:italic">// 这里无法编译通过，因为 f1 已经 mut borrow 了 a
-</span><span style="color:#60a0b0;font-style:italic"></span>};<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span>fn1();<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span>println<span style="color:#666">!</span>(<span style="color:#4070a0">&#34;{}&#34;</span>,<span style="color:#bbb"> </span>a);<span style="color:#bbb">
-</span></code></pre></div></p>
-</li>
-<li>
-<p>如果闭包需要上下文的 <code>Ownership</code>，则生成 <code>FnOcne</code>，方法调用 <code>call_once</code>，因为调用闭包会导致失去 <code>Ownership</code> ，所以闭包只能调用一次，上下文环境被 <code>move</code> 进闭包，外部不再能使用被捕获的变量，例如：<br>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#bbb"> 
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>a<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020">String</span>::from(<span style="color:#4070a0">&#34;a&#34;</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>fn1<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#666">||</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>b: <span style="color:#007020">String</span> <span style="color:#666">=</span><span style="color:#bbb"> </span>a;<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>b<span style="color:#bbb">
-</span><span style="color:#bbb"></span>};<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>fn2<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#666">||</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>b: <span style="color:#007020">String</span> <span style="color:#666">=</span><span style="color:#bbb"> </span>a;<span style="color:#bbb"> </span><span style="color:#60a0b0;font-style:italic">// 这里无法编译通过，因为 a 变量已经被 move 进了 fn1
-</span><span style="color:#60a0b0;font-style:italic"></span>};<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span>println<span style="color:#666">!</span>(<span style="color:#4070a0">&#34;{}&#34;</span>,<span style="color:#bbb"> </span>a);<span style="color:#bbb"> </span><span style="color:#60a0b0;font-style:italic">// 这里也无法编译通过
-</span></code></pre></div></p>
-</li>
+<li>如果闭包只需要上下文环境的 <code>Borrow</code> ，优先生成 <code>Fn</code> ，方法默认调用 <code>call</code> ，因为上下文环境可以被同时 <code>Borrow</code> 多次，例如：</li>
 </ol>
+<pre><code class="language-rust">let a = 1;
+
+let fn1 = || {
+	let _ = &amp;a;
+};
+
+let fn2 = || {
+	let _ = &amp;a;
+};
+
+println!(&quot;{}&quot;, a);
+</code></pre>
+<ol start="2">
+<li>如果闭包需要上下文环境的 <code>Mut Borrow</code>，则生成 <code>FnMut</code>，方法默认调用 <code>call_mut</code>，因为不会丢失 <code>Ownership</code>，闭包可以被多次调用，上下文环境 <code>Mut Borrow</code> 进闭包结构，当闭包被 <code>drop</code> 掉后，外部才能再次使用被捕获的变量，例如：</li>
+</ol>
+<pre><code class="language-rust">let mut a = 1;
+
+let fn1 = || {
+	let _ = &amp;mut a;
+};
+
+let fn2 = || {
+	let _ = &amp;a; // 这里无法编译通过，因为 f1 已经 mut borrow 了 a
+};
+
+fn1();
+
+println!(&quot;{}&quot;, a);
+</code></pre>
+<ol start="3">
+<li>如果闭包需要上下文的 <code>Ownership</code>，则生成 <code>FnOcne</code>，方法调用 <code>call_once</code>，因为调用闭包会导致失去 <code>Ownership</code> ，所以闭包只能调用一次，上下文环境被 <code>move</code> 进闭包，外部不再能使用被捕获的变量，例如：</li>
+</ol>
+<pre><code class="language-rust">let a = String::from(&quot;a&quot;);
+
+let fn1 = || {
+	let b: String = a;
+	b
+};
+
+let fn2 = || {
+	let b: String = a; // 这里无法编译通过，因为 a 变量已经被 move 进了 fn1
+};
+
+println!(&quot;{}&quot;, a); // 这里也无法编译通过
+</code></pre>
 <p>有时我们需要强制捕获变量的 <code>Ownership</code> ，可以在闭包上修饰 <code>move</code> 关键字，这在多线程/异步环境下很常见。</p>
 </article>
 
@@ -307,49 +310,49 @@
                 
                 <li class="pure-menu-item">
                     <a href="/posts/rust-procedural-macro-1/" class="pure-menu-link">Rust过程宏（一）<br>
-                        <small></small>
+                        <small>开始Rust元编程，利用Rust的derive派生宏，消除重复的样板代码。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/rust-closure/" class="pure-menu-link">Rust闭包<br>
-                        <small></small>
+                        <small>Rust也可以函数式，像动态创建&#34;函数&#34;一样使用闭包。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/go-mysql-driver-race/" class="pure-menu-link">关于Go Mysql Driver引入QueryContext带来的数据竞争<br>
-                        <small></small>
+                        <small>并发编程里的常见问题--数据竞争。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/go-mysql-driver-eof/" class="pure-menu-link">关于Go Mysql Driver的unexpected EOF错误<br>
-                        <small></small>
+                        <small>应该是大多数Golang开发者日志里的东西了。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/socket-optimize/" class="pure-menu-link">关于Socket应用的性能优化<br>
-                        <small></small>
+                        <small>一点网络优化的小技巧。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/two-queue/" class="pure-menu-link">2Q(双链)缓存淘汰策略<br>
-                        <small></small>
+                        <small>经典LRU算法的实用变体。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/sched-and-timer/" class="pure-menu-link">Linux进程调度与定时器<br>
-                        <small></small>
+                        <small>操作系统的时间概念。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/dma/" class="pure-menu-link">DMA(直接内存访问)和零拷贝<br>
-                        <small></small>
+                        <small>Linux的多样化IO技术。</small>
                     </a>
                 </li>
                 
@@ -432,5 +435,9 @@
 	<script defer src="https://use.fontawesome.com/releases/v5.0.9/js/all.js"
 		integrity="sha384-8iPTk2s/jMVj81dnzb/iFR2sdA7u06vHJyyLlAd4snFpCl/SnyUjRrbdJsw1pGIl"
 		crossorigin="anonymous"></script>
-</div></div></body>
+</div>
+</div><script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.20.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.20.0/plugins/autoloader/prism-autoloader.min.js"></script>
+<script>Prism.plugins.autoloader.languages_path = 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.20.0/components/'</script>
+</body>
 </html>

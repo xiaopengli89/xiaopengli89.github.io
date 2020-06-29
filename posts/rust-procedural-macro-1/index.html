@@ -25,13 +25,14 @@
     <meta name="generator" content="">
     
     
-    <meta name="description" content="Light up the universe">
+    <meta name="description" content="开始Rust元编程，利用Rust的derive派生宏，消除重复的样板代码。">
     
 
     
     <meta name="keywords" content="rust,macro,mataprogramming">
     
-    <meta name="author" content="Xiaopeng Li"></head>
+    <meta name="author" content="Xiaopeng Li"><link href="https://cdn.jsdelivr.net/npm/prism-themes@1.4.0/themes/prism-base16-ateliersulphurpool.light.css" rel="stylesheet" />
+</head>
 <body>
         <div class="container"><div id="navbar" class="pure-menu pure-menu-open pure-menu-horizontal pure-menu-scrollable">
     <a href="/" class="pure-menu-heading">
@@ -120,71 +121,82 @@
 <h3 id="过程宏的编写">过程宏的编写</h3>
 <p>过程宏的构建有特殊的规则，过程宏的定义必须置于独立的 <code>crate</code> 中，并且需要指明 <code>lib</code> 开启 <code>proc-macro</code> 。</p>
 <p>首先创建一个 <code>mymacro</code> 的 <code>lib</code> 项目：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sh" data-lang="sh">$ cargo new mymacro --lib
-</code></pre></div><p>然后再在 <code>mymacro</code> 内创建个 <code>mymacro_derive</code> 的 <code>lib</code> 项目：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sh" data-lang="sh">$ <span style="color:#007020">cd</span> mymacro
+<pre><code class="language-bash">$ cargo new mymacro --lib
+</code></pre>
+<p>然后再在 <code>mymacro</code> 内创建个 <code>mymacro_derive</code> 的 <code>lib</code> 项目：</p>
+<pre><code class="language-bash">$ cd mymacro
 $ cargo new mymacro_derive --lib
-</code></pre></div><p>在 <code>mymacro/Cargo.toml</code> 内添加 <code>mymacro_derive</code> 的依赖：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-toml" data-lang="toml">[dependencies]
-mymacro_derive = <span style="">{</span> path = <span style="color:#4070a0">&#34;mymacro_derive&#34;</span> <span style="">}</span>
-</code></pre></div><p>在 <code>mymacro/mymacro_derive/Cargo.toml</code> 内开启 <code>proc-macro</code>：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-toml" data-lang="toml">[lib]
-proc<span style="">-</span>macro = <span style="color:#007020;font-weight:bold">true</span>
-</code></pre></div><p>在 <code>mymacro/mymacro_derive/src/lib.rs</code> 中需要引入 <code>proc_macro</code> ：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#007020;font-weight:bold">extern</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">crate</span><span style="color:#bbb"> </span>proc_macro;<span style="color:#bbb">
-</span></code></pre></div><p>接下来就可以实现我们的过程宏了。先从 <code>derive</code> 派生宏 开始吧。</p>
+</code></pre>
+<p>在 <code>mymacro/Cargo.toml</code> 内添加 <code>mymacro_derive</code> 的依赖：</p>
+<pre><code class="language-toml">[dependencies]
+mymacro_derive = { path = &quot;mymacro_derive&quot; }
+</code></pre>
+<p>在 <code>mymacro/mymacro_derive/Cargo.toml</code> 内开启 <code>proc-macro</code>：</p>
+<pre><code class="language-toml">[lib]
+proc-macro = true
+</code></pre>
+<p>在 <code>mymacro/mymacro_derive/src/lib.rs</code> 中需要引入 <code>proc_macro</code> ：</p>
+<pre><code class="language-rust">extern crate proc_macro;
+</code></pre>
+<p>接下来就可以实现我们的过程宏了。先从 <code>derive</code> 派生宏 开始吧。</p>
 <h3 id="derive-派生宏"><code>derive</code> 派生宏</h3>
 <p><code>derive</code> 派生宏可以自动实现我们的自定义 <code>trait</code>，为此我们先在 <code>mymacro/src/lib.rs</code> 定义我们的 <code>trait</code>：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">trait</span><span style="color:#bbb"> </span>MyMacro<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">show_fields</span>();<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span></code></pre></div><p>然后在 <code>mymacro/mymacro_derive/src/lib.rs</code> 下面实现我们的代码：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#007020;font-weight:bold">extern</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">crate</span><span style="color:#bbb"> </span>proc_macro;<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">use</span><span style="color:#bbb"> </span>proc_macro::TokenStream;<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020">#[proc_macro_derive(MyMacro)]</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">mymacro_derive</span>(input: <span style="color:#0e84b5;font-weight:bold">TokenStream</span>)<span style="color:#bbb"> </span>-&gt; <span style="color:#0e84b5;font-weight:bold">TokenStream</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span>todo<span style="color:#666">!</span>()<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span></code></pre></div><p><code>#[proc_macro_derive(MyMacro)]</code> 指示我们为 <code>MyMacro</code> 实现 <code>derive</code> 派生宏；函数 <code>mymacro_derive</code> 的参数和返回值都是 <code>proc_macro::TokenStream</code> 标记流。</p>
+<pre><code class="language-rust">pub trait MyMacro {
+    fn show_fields();
+}
+</code></pre>
+<p>然后在 <code>mymacro/mymacro_derive/src/lib.rs</code> 下面实现我们的代码：</p>
+<pre><code class="language-rust">extern crate proc_macro;
+
+use proc_macro::TokenStream;
+
+#[proc_macro_derive(MyMacro)]
+pub fn mymacro_derive(input: TokenStream) -&gt; TokenStream {
+    todo!()
+}
+</code></pre>
+<p><code>#[proc_macro_derive(MyMacro)]</code> 指示我们为 <code>MyMacro</code> 实现 <code>derive</code> 派生宏；函数 <code>mymacro_derive</code> 的参数和返回值都是 <code>proc_macro::TokenStream</code> 标记流。</p>
 <p>不过直接操作 <code>proc_macro::TokenStream</code> 十分不便，为此有2个 <code>crate</code> 可以帮助我们：<code>syn</code> 和 <code>quote</code>。<code>syn</code> 可以帮我们把标记流转换成语法树，<code>quote</code> 可以再把 <code>syn</code> 的数据结构转换回标记流。我们添加下 <code>syn</code> 和 <code>quote</code> 的依赖：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-toml" data-lang="toml">[dependencies]
-syn = <span style="">{</span> version = <span style="color:#4070a0">&#34;1.0&#34;</span>, features = [ <span style="color:#4070a0">&#34;extra-traits&#34;</span> ] <span style="">}</span>
-quote = <span style="color:#4070a0">&#34;1.0&#34;</span>
-</code></pre></div><p>把标记流转换为语法树：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#007020;font-weight:bold">use</span><span style="color:#bbb"> </span>syn::DeriveInput;<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020">#[proc_macro_derive(MyMacro)]</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">mymacro_derive</span>(input: <span style="color:#0e84b5;font-weight:bold">TokenStream</span>)<span style="color:#bbb"> </span>-&gt; <span style="color:#0e84b5;font-weight:bold">TokenStream</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>ast: <span style="color:#0e84b5;font-weight:bold">DeriveInput</span><span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>syn::parse(input).unwrap();<span style="color:#bbb">
-</span><span style="color:#bbb">    </span>dbg<span style="color:#666">!</span>(ast);<span style="color:#bbb">
-</span><span style="color:#bbb">    </span>todo<span style="color:#666">!</span>()<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span></code></pre></div><p>这里我们把转换后的语法树打印了出来（需要在 <code>sync</code> 依赖中启用 <code>extra-traits</code> 这个 <code>feature</code>）。</p>
+<pre><code class="language-toml">[dependencies]
+syn = { version = &quot;1.0&quot;, features = [ &quot;extra-traits&quot; ] }
+quote = &quot;1.0&quot;
+</code></pre>
+<p>把标记流转换为语法树：</p>
+<pre><code class="language-rust">use syn::DeriveInput;
+
+#[proc_macro_derive(MyMacro)]
+pub fn mymacro_derive(input: TokenStream) -&gt; TokenStream {
+    let ast: DeriveInput = syn::parse(input).unwrap();
+    dbg!(ast);
+    todo!()
+}
+</code></pre>
+<p>这里我们把转换后的语法树打印了出来（需要在 <code>sync</code> 依赖中启用 <code>extra-traits</code> 这个 <code>feature</code>）。</p>
 <p>在 <code>mymacro/src/lib.rs</code> 中写个测试：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">use</span><span style="color:#bbb"> </span>mymacro_derive::<span style="color:#666">*</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#60a0b0;font-style:italic">// --snip--
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020">#[derive(MyMacro)]</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">struct</span> <span style="color:#0e84b5;font-weight:bold">Dog</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>name: <span style="color:#007020">String</span>,<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>age: <span style="color:#902000">u8</span>,<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020">#[cfg(test)]</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">mod</span> <span style="color:#0e84b5;font-weight:bold">test</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">use</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">super</span>::<span style="color:#666">*</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020">#[test]</span><span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">dog_show</span>()<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">        </span>Dog::show_fields();<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>}<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span></code></pre></div><p>执行测试：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sh" data-lang="sh">$ cargo <span style="color:#007020">test</span> dog_show
-</code></pre></div><p>会得到下面的输出：</p>
+<pre><code class="language-rust">pub use mymacro_derive::*;
+
+// --snip--
+
+#[derive(MyMacro)]
+struct Dog {
+	name: String,
+	age: u8,
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+	fn dog_show() {
+        Dog::show_fields();
+	}
+}
+</code></pre>
+<p>执行测试：</p>
+<pre><code class="language-bash">$ cargo test dog_show
+</code></pre>
+<p>会得到下面的输出：</p>
 <pre><code>[mymacro_derive/src/lib.rs:9] ast = DeriveInput {
     attrs: [],
     vis: Inherited,
@@ -208,77 +220,80 @@ error: proc-macro derive panicked
   |
   = help: message: not yet implemented
 ...
-</code></pre><p>因为我们还没有具体实现，所以编译器提示编译失败。不过我们可以在其中看到 <code>ast</code> 中的很多有用的内容。</p>
+</code></pre>
+<p>因为我们还没有具体实现，所以编译器提示编译失败。不过我们可以在其中看到 <code>ast</code> 中的很多有用的内容。</p>
 <p>我们利用 <code>ast</code> 中的信息实现 <code>MyMacro</code> 中的 <code>show_fields</code> 关联方法：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#007020;font-weight:bold">extern</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">crate</span><span style="color:#bbb"> </span>proc_macro;<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">use</span><span style="color:#bbb"> </span>proc_macro::TokenStream;<span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">use</span><span style="color:#bbb"> </span>quote::quote;<span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">use</span><span style="color:#bbb"> </span>syn::{Data,<span style="color:#bbb"> </span>DeriveInput,<span style="color:#bbb"> </span>Type};<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020">#[proc_macro_derive(MyMacro)]</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">mymacro_derive</span>(input: <span style="color:#0e84b5;font-weight:bold">TokenStream</span>)<span style="color:#bbb"> </span>-&gt; <span style="color:#0e84b5;font-weight:bold">TokenStream</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>ast: <span style="color:#0e84b5;font-weight:bold">DeriveInput</span><span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>syn::parse(input).unwrap();<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#60a0b0;font-style:italic">// 提取结构名称
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>name<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>ast.ident;<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#60a0b0;font-style:italic">// 只支持为结构类型派生
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>fields<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>Data::Struct(s)<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>ast.data<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">        </span>s.fields<span style="color:#bbb">
-</span><span style="color:#bbb">    </span>}<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">else</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">        </span>panic<span style="color:#666">!</span>(<span style="color:#4070a0">&#34;derive MyMacro must on struct&#34;</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">    </span>};<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#60a0b0;font-style:italic">// 提取所有属性名称及其类型
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>fields: <span style="color:#007020">Vec</span><span style="color:#666">&lt;</span><span style="color:#007020">String</span><span style="color:#666">&gt;</span><span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>fields<span style="color:#bbb">
-</span><span style="color:#bbb">        </span>.into_iter()<span style="color:#bbb">
-</span><span style="color:#bbb">        </span>.map(<span style="color:#666">|</span>f<span style="color:#666">|</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">            </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>f_name<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>f.ident.unwrap();<span style="color:#bbb">
-</span><span style="color:#bbb">            </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>f_type<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>f.ty;<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">            </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>p<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>Type::Path(p)<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>f_type<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">                </span>p<span style="color:#bbb">
-</span><span style="color:#bbb">            </span>}<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">else</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">                </span>panic<span style="color:#666">!</span>(<span style="color:#4070a0">&#34;field type must be Path&#34;</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">            </span>};<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">            </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>f_type: <span style="color:#007020">Vec</span><span style="color:#666">&lt;</span><span style="color:#007020">String</span><span style="color:#666">&gt;</span><span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>p<span style="color:#bbb">
-</span><span style="color:#bbb">                </span>.path<span style="color:#bbb">
-</span><span style="color:#bbb">                </span>.segments<span style="color:#bbb">
-</span><span style="color:#bbb">                </span>.into_iter()<span style="color:#bbb">
-</span><span style="color:#bbb">                </span>.map(<span style="color:#666">|</span>s<span style="color:#666">|</span><span style="color:#bbb"> </span>s.ident.to_string())<span style="color:#bbb">
-</span><span style="color:#bbb">                </span>.collect();<span style="color:#bbb">
-</span><span style="color:#bbb">            </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>f_type<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>f_type.join(<span style="color:#4070a0">&#34;::&#34;</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">            </span>format<span style="color:#666">!</span>(<span style="color:#4070a0">&#34;{}: {}&#34;</span>,<span style="color:#bbb"> </span>f_name,<span style="color:#bbb"> </span>f_type)<span style="color:#bbb">
-</span><span style="color:#bbb">        </span>})<span style="color:#bbb">
-</span><span style="color:#bbb">        </span>.collect();<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#60a0b0;font-style:italic">// 格式化成文本
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>fields_txt<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>format<span style="color:#666">!</span>(<span style="color:#bbb">
-</span><span style="color:#bbb">        </span>r<span style="">#&#34;</span>{{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span>{}<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}}<span style="">&#34;#</span>,<span style="color:#bbb">
-</span><span style="color:#bbb">        </span>fields.join(<span style="color:#4070a0">&#34;\n    &#34;</span>)<span style="color:#bbb">
-</span><span style="color:#bbb">    </span>);<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#60a0b0;font-style:italic">// 为输入的结构实现 MyMacro
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>gen<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>quote<span style="color:#666">!</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">        </span><span style="color:#007020;font-weight:bold">impl</span><span style="color:#bbb"> </span>MyMacro<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">for</span><span style="color:#bbb"> </span><span style="">#</span>name<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">            </span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">show_fields</span>()<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">                </span>println<span style="color:#666">!</span>(<span style="color:#4070a0">&#34;{}&#34;</span>,<span style="color:#bbb"> </span><span style="">#</span>fields_txt);<span style="color:#bbb">
-</span><span style="color:#bbb">            </span>}<span style="color:#bbb">
-</span><span style="color:#bbb">        </span>}<span style="color:#bbb">
-</span><span style="color:#bbb">    </span>};<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#60a0b0;font-style:italic">// 输出 TokenStream
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">    </span>TokenStream::from(gen)<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span></code></pre></div><p><code>quote!</code> 这个宏帮助我们以Rust的语法方式生成需要输出的结构，并且提供了 <code>#</code> 模板语法，将名字替换成对应的值，最后将生成的结构输出成标记流。</p>
+<pre><code class="language-rust">extern crate proc_macro;
+
+use proc_macro::TokenStream;
+use quote::quote;
+use syn::{Data, DeriveInput, Type};
+
+#[proc_macro_derive(MyMacro)]
+pub fn mymacro_derive(input: TokenStream) -&gt; TokenStream {
+    let ast: DeriveInput = syn::parse(input).unwrap();
+
+    // 提取结构名称
+    let name = ast.ident;
+
+    // 只支持为结构类型派生
+    let fields = if let Data::Struct(s) = ast.data {
+        s.fields
+    } else {
+        panic!(&quot;derive MyMacro must on struct&quot;);
+    };
+
+    // 提取所有属性名称及其类型
+    let fields: Vec&lt;String&gt; = fields
+        .into_iter()
+        .map(|f| {
+            let f_name = f.ident.unwrap();
+            let f_type = f.ty;
+
+            let p = if let Type::Path(p) = f_type {
+                p
+            } else {
+                panic!(&quot;field type must be Path&quot;);
+            };
+
+            let f_type: Vec&lt;String&gt; = p
+                .path
+                .segments
+                .into_iter()
+                .map(|s| s.ident.to_string())
+                .collect();
+            let f_type = f_type.join(&quot;::&quot;);
+
+            format!(&quot;{}: {}&quot;, f_name, f_type)
+        })
+        .collect();
+
+    // 格式化成文本
+    let fields_txt = format!(
+        r#&quot;{{
+    {}
+}}&quot;#,
+        fields.join(&quot;\n    &quot;)
+    );
+
+    // 为输入的结构实现 MyMacro
+    let gen = quote! {
+        impl MyMacro for #name {
+            fn show_fields() {
+                println!(&quot;{}&quot;, #fields_txt);
+            }
+        }
+    };
+
+    // 输出 TokenStream
+    TokenStream::from(gen)
+}
+</code></pre>
+<p><code>quote!</code> 这个宏帮助我们以Rust的语法方式生成需要输出的结构，并且提供了 <code>#</code> 模板语法，将名字替换成对应的值，最后将生成的结构输出成标记流。</p>
 <p>再运行下测试：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sh" data-lang="sh">$ cargo <span style="color:#007020">test</span> dog_show -- --nocapture
-</code></pre></div><p>输出如下：</p>
+<pre><code class="language-bash">$ cargo test dog_show -- --nocapture
+</code></pre>
+<p>输出如下：</p>
 <pre><code>...
 running 1 test
 {
@@ -288,40 +303,42 @@ running 1 test
 test test::dog_show ... ok
 
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
-</code></pre><p>成功输出了 <code>Dog</code> 结构的所有属性名称及类型。我们可以运行以下命令打印出展开后的代码：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sh" data-lang="sh">$ cargo rustc -- -Z unstable-options --pretty<span style="color:#666">=</span>expanded
-
-<span style="color:#60a0b0;font-style:italic">#![feature(prelude_import)]</span>
-<span style="color:#60a0b0;font-style:italic">#[prelude_import]</span>
+</code></pre>
+<p>成功输出了 <code>Dog</code> 结构的所有属性名称及类型。我们可以运行以下命令打印出展开后的代码：</p>
+<pre><code class="language-bash">$ cargo rustc -- -Z unstable-options --pretty=expanded
+</code></pre>
+<pre><code class="language-rust">#![feature(prelude_import)]
+#[prelude_import]
 use std::prelude::v1::*;
-<span style="color:#60a0b0;font-style:italic">#[macro_use]</span>
+#[macro_use]
 extern crate std;
 pub use mymacro_derive::*;
 
-pub trait MyMacro <span style="color:#666">{</span>
-    fn show_fields<span style="color:#666">()</span>;
-<span style="color:#666">}</span>
+pub trait MyMacro {
+    fn show_fields();
+}
 
-struct Dog <span style="color:#666">{</span>
+struct Dog {
     name: String,
     age: u8,
-<span style="color:#666">}</span>
-impl MyMacro <span style="color:#007020;font-weight:bold">for</span> Dog <span style="color:#666">{</span>
-    fn show_fields<span style="color:#666">()</span> <span style="color:#666">{</span>
+}
+impl MyMacro for Dog {
+    fn show_fields() {
 
 
-        <span style="color:#666">{</span>
-            ::std::io::_print<span style="color:#666">(</span>::core::fmt::Arguments::new_v1<span style="color:#666">(</span>&amp;<span style="color:#666">[</span><span style="color:#4070a0">&#34;&#34;</span>, <span style="color:#4070a0">&#34;\n&#34;</span><span style="color:#666">]</span>,
-                                                             &amp;match <span style="color:#666">(</span>&amp;<span style="color:#4070a0">&#34;{\n    name: String\n    age: u8\n}&#34;</span>,<span style="color:#666">)</span>
-                                                                  <span style="color:#666">{</span>
-                                                                  <span style="color:#666">(</span>arg0,<span style="color:#666">)</span> <span style="color:#666">=</span>&gt;
-                                                                  <span style="color:#666">[</span>::core::fmt::ArgumentV1::new<span style="color:#666">(</span>arg0,
-                                                                                                ::core::fmt::Display::fmt<span style="color:#666">)]</span>,
-                                                              <span style="color:#666">}))</span>;
-        <span style="color:#666">}</span>;
-    <span style="color:#666">}</span>
-<span style="color:#666">}</span>
-</code></pre></div><p>可以看到展开后的代码，编译器已经为我们实现了 <code>MyMacro</code>，<code>show_fields</code> 方法打印出了 <code>Dog</code> 结构的所有属性。</p>
+        {
+            ::std::io::_print(::core::fmt::Arguments::new_v1(&amp;[&quot;&quot;, &quot;\n&quot;],
+                                                             &amp;match (&amp;&quot;{\n    name: String\n    age: u8\n}&quot;,)
+                                                                  {
+                                                                  (arg0,) =&gt;
+                                                                  [::core::fmt::ArgumentV1::new(arg0,
+                                                                                                ::core::fmt::Display::fmt)],
+                                                              }));
+        };
+    }
+}
+</code></pre>
+<p>可以看到展开后的代码，编译器已经为我们实现了 <code>MyMacro</code>，<code>show_fields</code> 方法打印出了 <code>Dog</code> 结构的所有属性。</p>
 <p>利用 <code>derive</code> 派生宏可以方便地为我们自动实现 <code>trait</code> ，访问结构的元信息，并且不会有任何运行时开销！</p>
 <p>待续 &hellip;</p>
 </article>
@@ -346,49 +363,49 @@ impl MyMacro <span style="color:#007020;font-weight:bold">for</span> Dog <span s
                 
                 <li class="pure-menu-item">
                     <a href="/posts/rust-procedural-macro-1/" class="pure-menu-link">Rust过程宏（一）<br>
-                        <small></small>
+                        <small>开始Rust元编程，利用Rust的derive派生宏，消除重复的样板代码。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/rust-closure/" class="pure-menu-link">Rust闭包<br>
-                        <small></small>
+                        <small>Rust也可以函数式，像动态创建&#34;函数&#34;一样使用闭包。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/go-mysql-driver-race/" class="pure-menu-link">关于Go Mysql Driver引入QueryContext带来的数据竞争<br>
-                        <small></small>
+                        <small>并发编程里的常见问题--数据竞争。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/go-mysql-driver-eof/" class="pure-menu-link">关于Go Mysql Driver的unexpected EOF错误<br>
-                        <small></small>
+                        <small>应该是大多数Golang开发者日志里的东西了。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/socket-optimize/" class="pure-menu-link">关于Socket应用的性能优化<br>
-                        <small></small>
+                        <small>一点网络优化的小技巧。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/two-queue/" class="pure-menu-link">2Q(双链)缓存淘汰策略<br>
-                        <small></small>
+                        <small>经典LRU算法的实用变体。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/sched-and-timer/" class="pure-menu-link">Linux进程调度与定时器<br>
-                        <small></small>
+                        <small>操作系统的时间概念。</small>
                     </a>
                 </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/dma/" class="pure-menu-link">DMA(直接内存访问)和零拷贝<br>
-                        <small></small>
+                        <small>Linux的多样化IO技术。</small>
                     </a>
                 </li>
                 
@@ -471,5 +488,9 @@ impl MyMacro <span style="color:#007020;font-weight:bold">for</span> Dog <span s
 	<script defer src="https://use.fontawesome.com/releases/v5.0.9/js/all.js"
 		integrity="sha384-8iPTk2s/jMVj81dnzb/iFR2sdA7u06vHJyyLlAd4snFpCl/SnyUjRrbdJsw1pGIl"
 		crossorigin="anonymous"></script>
-</div></div></body>
+</div>
+</div><script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.20.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.20.0/plugins/autoloader/prism-autoloader.min.js"></script>
+<script>Prism.plugins.autoloader.languages_path = 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.20.0/components/'</script>
+</body>
 </html>
