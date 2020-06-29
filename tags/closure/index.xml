@@ -17,12 +17,24 @@
       <pubDate>Tue, 23 Jun 2020 22:59:21 +0800</pubDate>
       
       <guid>/posts/rust-closure/</guid>
-      <description>闭包(Closure)的实现原理 闭包在调用形式上和函数非常相似：
- 传递参数 执行一段代码 返回结果  但是闭包可以捕获当前上下文环境中的变量，而函数不可以（访问全局静态变量除外，但是这和闭包的实现完全不一样）。
-闭包的创建和调用：
-letenv_var=1;letfn1=|x|x+env_var;letresult1=fn1(2);assert_eq!(result1,3);letresult2=fn1(3);assert_eq!(result2,4);编译器在编译过程中会创建对应的匿名结构，并根据需要实现三个 trait：FnOnce、FnMut、Fn ，而闭包的创建就是该匿名结构的实例化，闭包调用则是3个 trait 的方法调用。
-以下是3个 trait 的定义：
-pubtraitFnOnce&amp;lt;Args&amp;gt;{/// The returned type after the call operator is used. #[stable(feature = &amp;#34;fn_once_output&amp;#34;, since = &amp;#34;1.12.0&amp;#34;)]type Output;/// Performs the call operation. #[unstable(feature = &amp;#34;fn_traits&amp;#34;, issue = &amp;#34;29625&amp;#34;)]extern&amp;#34;rust-call&amp;#34;fn call_once(self,args: Args)-&amp;gt; Self::Output;}pubtraitFnMut&amp;lt;Args&amp;gt;: FnOnce&amp;lt;Args&amp;gt;{/// Performs the call operation. #[unstable(feature = &amp;#34;fn_traits&amp;#34;, issue = &amp;#34;29625&amp;#34;)]extern&amp;#34;rust-call&amp;#34;fn call_mut(&amp;amp;mutself,args: Args)-&amp;gt; Self::Output;}pubtraitFn&amp;lt;Args&amp;gt;: FnMut&amp;lt;Args&amp;gt;{/// Performs the call operation. #[unstable(feature = &amp;#34;fn_traits&amp;#34;, issue = &amp;#34;29625&amp;#34;)]extern&amp;#34;rust-call&amp;#34;fn call(&amp;amp;self,args: Args)-&amp;gt; Self::Output;}其中 Args 为闭包参数类型，使用元组 ( Tuple) 来表示参数列表，Output 是返回值类型。</description>
+      <description>&lt;h3 id=&#34;闭包closure的实现原理&#34;&gt;闭包(Closure)的实现原理&lt;/h3&gt;
+&lt;p&gt;闭包在调用形式上和函数非常相似：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;传递参数&lt;/li&gt;
+&lt;li&gt;执行一段代码&lt;/li&gt;
+&lt;li&gt;返回结果&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;但是闭包可以捕获当前上下文环境中的变量，而函数不可以（访问全局静态变量除外，但是这和闭包的实现完全不一样）。&lt;/p&gt;
+&lt;p&gt;闭包的创建和调用：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-rust&#34; data-lang=&#34;rust&#34;&gt;&lt;span style=&#34;color:#007020;font-weight:bold&#34;&gt;let&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;env_var&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;&lt;span style=&#34;color:#666&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;&lt;span style=&#34;color:#40a070&#34;&gt;1&lt;/span&gt;;&lt;span style=&#34;color:#bbb&#34;&gt;
+&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#007020;font-weight:bold&#34;&gt;let&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;fn1&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;&lt;span style=&#34;color:#666&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;&lt;span style=&#34;color:#666&#34;&gt;|&lt;/span&gt;x&lt;span style=&#34;color:#666&#34;&gt;|&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;x&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;&lt;span style=&#34;color:#666&#34;&gt;+&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;env_var;&lt;span style=&#34;color:#bbb&#34;&gt;
+&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt;
+&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#007020;font-weight:bold&#34;&gt;let&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;result1&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;&lt;span style=&#34;color:#666&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;fn1(&lt;span style=&#34;color:#40a070&#34;&gt;2&lt;/span&gt;);&lt;span style=&#34;color:#bbb&#34;&gt;
+&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt;&lt;/span&gt;assert_eq&lt;span style=&#34;color:#666&#34;&gt;!&lt;/span&gt;(result1,&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;&lt;span style=&#34;color:#40a070&#34;&gt;3&lt;/span&gt;);&lt;span style=&#34;color:#bbb&#34;&gt;
+&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt;
+&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#007020;font-weight:bold&#34;&gt;let&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;result2&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;&lt;span style=&#34;color:#666&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;fn1(&lt;span style=&#34;color:#40a070&#34;&gt;3&lt;/span&gt;);&lt;span style=&#34;color:#bbb&#34;&gt;
+&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt;&lt;/span&gt;assert_eq&lt;span style=&#34;color:#666&#34;&gt;!&lt;/span&gt;(result2,&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;&lt;span style=&#34;color:#40a070&#34;&gt;4&lt;/span&gt;);&lt;span style=&#34;color:#bbb&#34;&gt;
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;</description>
     </item>
     
   </channel>

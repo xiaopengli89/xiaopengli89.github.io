@@ -119,214 +119,13 @@
 <li>装饰 <code>field</code> 或 函数，使用 <code>attribute</code> 属性宏</li>
 <li>实现 <code>DSL</code>，使用 <code>function</code> 函数宏</li>
 </ol>
-<h3 id="过程宏的编写">过程宏的编写</h3>
-<p>过程宏的构建有特殊的规则，过程宏的定义必须置于独立的 <code>crate</code> 中，并且需要指明 <code>lib</code> 开启 <code>proc-macro</code> 。</p>
-<p>首先创建一个 <code>mymacro</code> 的 <code>lib</code> 项目：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sh" data-lang="sh">$ cargo new mymacro --lib
-</code></pre></div><p>然后再在 <code>mymacro</code> 内创建个 <code>mymacro_derive</code> 的 <code>lib</code> 项目：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sh" data-lang="sh">$ <span style="color:#007020">cd</span> mymacro
-$ cargo new mymacro_derive --lib
-</code></pre></div><p>在 <code>mymacro/Cargo.toml</code> 内添加 <code>mymacro_derive</code> 的依赖：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-toml" data-lang="toml">[dependencies]
-mymacro_derive = <span style="">{</span> path = <span style="color:#4070a0">&#34;mymacro_derive&#34;</span> <span style="">}</span>
-</code></pre></div><p>在 <code>mymacro/mymacro_derive/Cargo.toml</code> 内开启 <code>proc-macro</code>：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-toml" data-lang="toml">[lib]
-proc<span style="">-</span>macro = <span style="color:#007020;font-weight:bold">true</span>
-</code></pre></div><p>在 <code>mymacro/mymacro_derive/src/lib.rs</code> 中需要引入 <code>proc_macro</code> ：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#007020;font-weight:bold">extern</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">crate</span><span style="color:#bbb"> </span>proc_macro;<span style="color:#bbb">
-</span></code></pre></div><p>接下来就可以实现我们的过程宏了。先从 <code>derive</code> 派生宏 开始吧。</p>
-<h3 id="derive-派生宏"><code>derive</code> 派生宏</h3>
-<p><code>derive</code> 派生宏可以自动实现我们的自定义 <code>trait</code>，为此我们先在 <code>mymacro/src/lib.rs</code> 定义我们的 <code>trait</code>：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">trait</span><span style="color:#bbb"> </span>MyMacro<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">show_fields</span>();<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span></code></pre></div><p>然后在 <code>mymacro/mymacro_derive/src/lib.rs</code> 下面实现我们的代码：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#007020;font-weight:bold">extern</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">crate</span><span style="color:#bbb"> </span>proc_macro;<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">use</span><span style="color:#bbb"> </span>proc_macro::TokenStream;<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020">#[proc_macro_derive(MyMacro)]</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">mymacro_derive</span>(input: <span style="color:#0e84b5;font-weight:bold">TokenStream</span>)<span style="color:#bbb"> </span>-&gt; <span style="color:#0e84b5;font-weight:bold">TokenStream</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span>todo<span style="color:#666">!</span>()<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span></code></pre></div><p><code>#[proc_macro_derive(MyMacro)]</code> 指示我们为 <code>MyMacro</code> 实现 <code>derive</code> 派生宏；函数 <code>mymacro_derive</code> 的参数和返回值都是 <code>proc_macro::TokenStream</code> 标记流。</p>
-<p>不过直接操作 <code>proc_macro::TokenStream</code> 十分不便，为此有2个 <code>crate</code> 可以帮助我们：<code>syn</code> 和 <code>quote</code>。<code>syn</code> 可以帮我们把标记流转换成语法树，<code>quote</code> 可以再把 <code>syn</code> 的数据结构转换回标记流。我们添加下 <code>syn</code> 和 <code>quote</code> 的依赖：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-toml" data-lang="toml">[dependencies]
-syn = <span style="">{</span> version = <span style="color:#4070a0">&#34;1.0&#34;</span>, features = [ <span style="color:#4070a0">&#34;extra-traits&#34;</span> ] <span style="">}</span>
-quote = <span style="color:#4070a0">&#34;1.0&#34;</span>
-</code></pre></div><p>把标记流转换为语法树：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#007020;font-weight:bold">use</span><span style="color:#bbb"> </span>syn::DeriveInput;<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020">#[proc_macro_derive(MyMacro)]</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">mymacro_derive</span>(input: <span style="color:#0e84b5;font-weight:bold">TokenStream</span>)<span style="color:#bbb"> </span>-&gt; <span style="color:#0e84b5;font-weight:bold">TokenStream</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>ast: <span style="color:#0e84b5;font-weight:bold">DeriveInput</span><span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>syn::parse(input).unwrap();<span style="color:#bbb">
-</span><span style="color:#bbb">    </span>dbg<span style="color:#666">!</span>(ast);<span style="color:#bbb">
-</span><span style="color:#bbb">    </span>todo<span style="color:#666">!</span>()<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span></code></pre></div><p>这里我们把转换后的语法树打印了出来（需要在 <code>sync</code> 依赖中启用 <code>extra-traits</code> 这个 <code>feature</code>）。</p>
-<p>在 <code>mymacro/src/lib.rs</code> 中写个测试：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">use</span><span style="color:#bbb"> </span>mymacro_derive::<span style="color:#666">*</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#60a0b0;font-style:italic">// --snip--
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020">#[derive(MyMacro)]</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">struct</span> <span style="color:#0e84b5;font-weight:bold">Dog</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>name: <span style="color:#007020">String</span>,<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>age: <span style="color:#902000">u8</span>,<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020">#[cfg(test)]</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">mod</span> <span style="color:#0e84b5;font-weight:bold">test</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">use</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">super</span>::<span style="color:#666">*</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020">#[test]</span><span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">dog_show</span>()<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">        </span>Dog::show_fields();<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>}<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span></code></pre></div><p>执行测试：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sh" data-lang="sh">$ cargo <span style="color:#007020">test</span> dog_show
-</code></pre></div><p>会得到下面的输出：</p>
-<pre><code>[mymacro_derive/src/lib.rs:9] ast = DeriveInput {
-    attrs: [],
-    vis: Inherited,
-    ident: Ident {
-        ident: &quot;Dog&quot;,
-        span: #0 bytes(131..134),
-    },
-    generics: Generics {
-        lt_token: None,
-        params: [],
-        gt_token: None,
-        where_clause: None,
-    },
-    data: Struct(
-...
-error: proc-macro derive panicked
- --&gt; src/lib.rs:9:14
-  |
-9 |     #[derive(MyMacro)]
-  |              ^^^^^^^
-  |
-  = help: message: not yet implemented
-...
-</code></pre><p>因为我们还没有具体实现，所以编译器提示编译失败。不过我们可以在其中看到 <code>ast</code> 中的很多有用的内容。</p>
-<p>我们利用 <code>ast</code> 中的信息实现 <code>MyMacro</code> 中的 <code>show_fields</code> 关联方法：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#007020;font-weight:bold">extern</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">crate</span><span style="color:#bbb"> </span>proc_macro;<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">use</span><span style="color:#bbb"> </span>proc_macro::TokenStream;<span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">use</span><span style="color:#bbb"> </span>quote::quote;<span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">use</span><span style="color:#bbb"> </span>syn::{Data,<span style="color:#bbb"> </span>DeriveInput,<span style="color:#bbb"> </span>Type};<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020">#[proc_macro_derive(MyMacro)]</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">mymacro_derive</span>(input: <span style="color:#0e84b5;font-weight:bold">TokenStream</span>)<span style="color:#bbb"> </span>-&gt; <span style="color:#0e84b5;font-weight:bold">TokenStream</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>ast: <span style="color:#0e84b5;font-weight:bold">DeriveInput</span><span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>syn::parse(input).unwrap();<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#60a0b0;font-style:italic">// 提取结构名称
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>name<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>ast.ident;<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#60a0b0;font-style:italic">// 只支持为结构类型派生
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>fields<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>Data::Struct(s)<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>ast.data<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">        </span>s.fields<span style="color:#bbb">
-</span><span style="color:#bbb">    </span>}<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">else</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">        </span>panic<span style="color:#666">!</span>(<span style="color:#4070a0">&#34;derive MyMacro must on struct&#34;</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">    </span>};<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#60a0b0;font-style:italic">// 提取所有属性名称及其类型
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>fields: <span style="color:#007020">Vec</span><span style="color:#666">&lt;</span><span style="color:#007020">String</span><span style="color:#666">&gt;</span><span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>fields<span style="color:#bbb">
-</span><span style="color:#bbb">        </span>.into_iter()<span style="color:#bbb">
-</span><span style="color:#bbb">        </span>.map(<span style="color:#666">|</span>f<span style="color:#666">|</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">            </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>f_name<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>f.ident.unwrap();<span style="color:#bbb">
-</span><span style="color:#bbb">            </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>f_type<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>f.ty;<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">            </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>p<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>Type::Path(p)<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>f_type<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">                </span>p<span style="color:#bbb">
-</span><span style="color:#bbb">            </span>}<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">else</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">                </span>panic<span style="color:#666">!</span>(<span style="color:#4070a0">&#34;field type must be Path&#34;</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">            </span>};<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">            </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>f_type: <span style="color:#007020">Vec</span><span style="color:#666">&lt;</span><span style="color:#007020">String</span><span style="color:#666">&gt;</span><span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>p<span style="color:#bbb">
-</span><span style="color:#bbb">                </span>.path<span style="color:#bbb">
-</span><span style="color:#bbb">                </span>.segments<span style="color:#bbb">
-</span><span style="color:#bbb">                </span>.into_iter()<span style="color:#bbb">
-</span><span style="color:#bbb">                </span>.map(<span style="color:#666">|</span>s<span style="color:#666">|</span><span style="color:#bbb"> </span>s.ident.to_string())<span style="color:#bbb">
-</span><span style="color:#bbb">                </span>.collect();<span style="color:#bbb">
-</span><span style="color:#bbb">            </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>f_type<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>f_type.join(<span style="color:#4070a0">&#34;::&#34;</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">            </span>format<span style="color:#666">!</span>(<span style="color:#4070a0">&#34;{}: {}&#34;</span>,<span style="color:#bbb"> </span>f_name,<span style="color:#bbb"> </span>f_type)<span style="color:#bbb">
-</span><span style="color:#bbb">        </span>})<span style="color:#bbb">
-</span><span style="color:#bbb">        </span>.collect();<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#60a0b0;font-style:italic">// 格式化成文本
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>fields_txt<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>format<span style="color:#666">!</span>(<span style="color:#bbb">
-</span><span style="color:#bbb">        </span>r<span style="">#&#34;</span>{{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span>{}<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}}<span style="">&#34;#</span>,<span style="color:#bbb">
-</span><span style="color:#bbb">        </span>fields.join(<span style="color:#4070a0">&#34;\n    &#34;</span>)<span style="color:#bbb">
-</span><span style="color:#bbb">    </span>);<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#60a0b0;font-style:italic">// 为输入的结构实现 MyMacro
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>gen<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>quote<span style="color:#666">!</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">        </span><span style="color:#007020;font-weight:bold">impl</span><span style="color:#bbb"> </span>MyMacro<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">for</span><span style="color:#bbb"> </span><span style="">#</span>name<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">            </span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">show_fields</span>()<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">                </span>println<span style="color:#666">!</span>(<span style="color:#4070a0">&#34;{}&#34;</span>,<span style="color:#bbb"> </span><span style="">#</span>fields_txt);<span style="color:#bbb">
-</span><span style="color:#bbb">            </span>}<span style="color:#bbb">
-</span><span style="color:#bbb">        </span>}<span style="color:#bbb">
-</span><span style="color:#bbb">    </span>};<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#60a0b0;font-style:italic">// 输出 TokenStream
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">    </span>TokenStream::from(gen)<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span></code></pre></div><p><code>quote!</code> 这个宏帮助我们以Rust的语法方式生成需要输出的结构，并且提供了 <code>#</code> 模板语法，将名字替换成对应的值，最后将生成的结构输出成标记流。</p>
-<p>再运行下测试：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sh" data-lang="sh">$ cargo <span style="color:#007020">test</span> dog_show -- --nocapture
-</code></pre></div><p>输出如下：</p>
-<pre><code>...
-running 1 test
-{
-    name: String
-    age: u8
-}
-test test::dog_show ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
-</code></pre><p>成功输出了 <code>Dog</code> 结构的所有属性名称及类型。我们可以运行以下命令打印出展开后的代码：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sh" data-lang="sh">$ cargo rustc -- -Z unstable-options --pretty<span style="color:#666">=</span>expanded
-
-<span style="color:#60a0b0;font-style:italic">#![feature(prelude_import)]</span>
-<span style="color:#60a0b0;font-style:italic">#[prelude_import]</span>
-use std::prelude::v1::*;
-<span style="color:#60a0b0;font-style:italic">#[macro_use]</span>
-extern crate std;
-pub use mymacro_derive::*;
-
-pub trait MyMacro <span style="color:#666">{</span>
-    fn show_fields<span style="color:#666">()</span>;
-<span style="color:#666">}</span>
-
-struct Dog <span style="color:#666">{</span>
-    name: String,
-    age: u8,
-<span style="color:#666">}</span>
-impl MyMacro <span style="color:#007020;font-weight:bold">for</span> Dog <span style="color:#666">{</span>
-    fn show_fields<span style="color:#666">()</span> <span style="color:#666">{</span>
-
-
-        <span style="color:#666">{</span>
-            ::std::io::_print<span style="color:#666">(</span>::core::fmt::Arguments::new_v1<span style="color:#666">(</span>&amp;<span style="color:#666">[</span><span style="color:#4070a0">&#34;&#34;</span>, <span style="color:#4070a0">&#34;\n&#34;</span><span style="color:#666">]</span>,
-                                                             &amp;match <span style="color:#666">(</span>&amp;<span style="color:#4070a0">&#34;{\n    name: String\n    age: u8\n}&#34;</span>,<span style="color:#666">)</span>
-                                                                  <span style="color:#666">{</span>
-                                                                  <span style="color:#666">(</span>arg0,<span style="color:#666">)</span> <span style="color:#666">=</span>&gt;
-                                                                  <span style="color:#666">[</span>::core::fmt::ArgumentV1::new<span style="color:#666">(</span>arg0,
-                                                                                                ::core::fmt::Display::fmt<span style="color:#666">)]</span>,
-                                                              <span style="color:#666">}))</span>;
-        <span style="color:#666">}</span>;
-    <span style="color:#666">}</span>
-<span style="color:#666">}</span>
-</code></pre></div><p>可以看到展开后的代码，编译器已经为我们实现了 <code>MyMacro</code>，<code>show_fields</code> 方法打印出了 <code>Dog</code> 结构的所有属性。</p>
-<p>利用 <code>derive</code> 派生宏可以方便地为我们自动实现 <code>trait</code> ，访问结构的元信息，并且不会有任何运行时开销！</p>
-<p>待续 &hellip;</p>
-
+	
+	
+	<p>
+	  <a href="/posts/rust-procedural-macro-1/">Read More…</a>
+	</p>
+	
 </article>
 </div>
     <div class="pad"></div>
@@ -367,170 +166,14 @@ impl MyMacro <span style="color:#007020;font-weight:bold">for</span> Dog <span s
 </span><span style="color:#bbb">
 </span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>result2<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>fn1(<span style="color:#40a070">3</span>);<span style="color:#bbb">
 </span><span style="color:#bbb"></span>assert_eq<span style="color:#666">!</span>(result2,<span style="color:#bbb"> </span><span style="color:#40a070">4</span>);<span style="color:#bbb">
-</span></code></pre></div><p>编译器在编译过程中会创建对应的匿名结构，并根据需要实现三个 <code>trait</code>：<a href="https://doc.rust-lang.org/std/ops/trait.FnOnce.html">FnOnce</a>、<a href="https://doc.rust-lang.org/std/ops/trait.FnMut.html">FnMut</a>、<a href="https://doc.rust-lang.org/std/ops/trait.Fn.html">Fn</a> ，而闭包的创建就是该匿名结构的实例化，闭包调用则是3个 <code>trait</code> 的方法调用。</p>
-<p>以下是3个 <code>trait</code> 的定义：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">trait</span><span style="color:#bbb"> </span><span style="color:#007020">FnOnce</span><span style="color:#666">&lt;</span>Args<span style="color:#666">&gt;</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#4070a0;font-style:italic">/// The returned type after the call operator is used.
-</span><span style="color:#4070a0;font-style:italic"></span><span style="color:#bbb">    </span><span style="color:#007020">#[stable(feature = </span><span style="color:#4070a0">&#34;fn_once_output&#34;</span><span style="color:#007020">, since = </span><span style="color:#4070a0">&#34;1.12.0&#34;</span><span style="color:#007020">)]</span><span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">type</span> <span style="color:#0e84b5;font-weight:bold">Output</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#4070a0;font-style:italic">/// Performs the call operation.
-</span><span style="color:#4070a0;font-style:italic"></span><span style="color:#bbb">    </span><span style="color:#007020">#[unstable(feature = </span><span style="color:#4070a0">&#34;fn_traits&#34;</span><span style="color:#007020">, issue = </span><span style="color:#4070a0">&#34;29625&#34;</span><span style="color:#007020">)]</span><span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">extern</span><span style="color:#bbb"> </span><span style="color:#4070a0">&#34;rust-call&#34;</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">call_once</span>(self,<span style="color:#bbb"> </span>args: <span style="color:#0e84b5;font-weight:bold">Args</span>)<span style="color:#bbb"> </span>-&gt; <span style="color:#0e84b5;font-weight:bold">Self</span>::Output;<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">trait</span><span style="color:#bbb"> </span><span style="color:#007020">FnMut</span><span style="color:#666">&lt;</span>Args<span style="color:#666">&gt;</span>: <span style="color:#007020">FnOnce</span><span style="color:#666">&lt;</span>Args<span style="color:#666">&gt;</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#4070a0;font-style:italic">/// Performs the call operation.
-</span><span style="color:#4070a0;font-style:italic"></span><span style="color:#bbb">    </span><span style="color:#007020">#[unstable(feature = </span><span style="color:#4070a0">&#34;fn_traits&#34;</span><span style="color:#007020">, issue = </span><span style="color:#4070a0">&#34;29625&#34;</span><span style="color:#007020">)]</span><span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">extern</span><span style="color:#bbb"> </span><span style="color:#4070a0">&#34;rust-call&#34;</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">call_mut</span>(<span style="color:#666">&amp;</span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>self,<span style="color:#bbb"> </span>args: <span style="color:#0e84b5;font-weight:bold">Args</span>)<span style="color:#bbb"> </span>-&gt; <span style="color:#0e84b5;font-weight:bold">Self</span>::Output;<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">trait</span><span style="color:#bbb"> </span><span style="color:#007020">Fn</span><span style="color:#666">&lt;</span>Args<span style="color:#666">&gt;</span>: <span style="color:#007020">FnMut</span><span style="color:#666">&lt;</span>Args<span style="color:#666">&gt;</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#4070a0;font-style:italic">/// Performs the call operation.
-</span><span style="color:#4070a0;font-style:italic"></span><span style="color:#bbb">    </span><span style="color:#007020">#[unstable(feature = </span><span style="color:#4070a0">&#34;fn_traits&#34;</span><span style="color:#007020">, issue = </span><span style="color:#4070a0">&#34;29625&#34;</span><span style="color:#007020">)]</span><span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">extern</span><span style="color:#bbb"> </span><span style="color:#4070a0">&#34;rust-call&#34;</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">call</span>(<span style="color:#666">&amp;</span>self,<span style="color:#bbb"> </span>args: <span style="color:#0e84b5;font-weight:bold">Args</span>)<span style="color:#bbb"> </span>-&gt; <span style="color:#0e84b5;font-weight:bold">Self</span>::Output;<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span></code></pre></div><p>其中 <code>Args</code> 为闭包参数类型，使用元组 ( <code>Tuple</code>) 来表示参数列表，<code>Output</code> 是返回值类型。</p>
-<p>并且可以发现 <code>FnMut</code> 派生自 <code>FnOnce</code>，而 <code>Fn</code> 又派生自 <code>FnMut</code>，这里需要这样理解：</p>
-<p><em><strong>如果一个函数接收一个 <code>FnOnce</code> 参数，总可以传递一个 <code>FnMut</code></strong></em><br>
-<em><strong>如果一个函数接收一个 <code>FnMut</code>，总可以传递一个 <code>Fn</code></strong></em></p>
-<p>我们可以手动构造一个 <code>FnOnce</code> 闭包结构实现：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#007020">#![feature(unboxed_closures)]</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020">#![feature(fn_traits)]</span><span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">use</span><span style="color:#bbb"> </span>std::ops::{<span style="color:#007020">Fn</span>,<span style="color:#bbb"> </span><span style="color:#007020">FnMut</span>,<span style="color:#bbb"> </span><span style="color:#007020">FnOnce</span>};<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">struct</span> <span style="color:#0e84b5;font-weight:bold">MyFn</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span>env_var: <span style="color:#007020">String</span>,<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">impl</span><span style="color:#bbb"> </span><span style="color:#007020">FnOnce</span><span style="color:#666">&lt;</span>(<span style="color:#902000">i32</span>,<span style="color:#bbb"> </span><span style="color:#902000">i32</span>)<span style="color:#666">&gt;</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">for</span><span style="color:#bbb"> </span>MyFn<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">type</span> <span style="color:#0e84b5;font-weight:bold">Output</span><span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020">String</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">	
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">extern</span><span style="color:#bbb"> </span><span style="color:#4070a0">&#34;rust-call&#34;</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">call_once</span>(self,<span style="color:#bbb"> </span>args: (<span style="color:#902000">i32</span>,<span style="color:#bbb"> </span><span style="color:#902000">i32</span>))<span style="color:#bbb"> </span>-&gt; <span style="color:#0e84b5;font-weight:bold">Self</span>::Output<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">        </span>println<span style="color:#666">!</span>(<span style="color:#4070a0">&#34;{}&#34;</span>,<span style="color:#bbb"> </span>args.<span style="color:#40a070">0</span><span style="color:#bbb"> </span><span style="color:#666">+</span><span style="color:#bbb"> </span>args.<span style="color:#40a070">1</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">        </span>self.env_var<span style="color:#bbb">
-</span><span style="color:#bbb">    </span>}<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">main</span>()<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>env_var<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020">String</span>::from(<span style="color:#4070a0">&#34;env_var&#34;</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>my_fn<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>MyFn<span style="color:#bbb"> </span>{<span style="color:#bbb"> </span>env_var,<span style="color:#bbb"> </span>};<span style="color:#bbb">
-</span><span style="color:#bbb">	
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>o1: <span style="color:#007020">String</span> <span style="color:#666">=</span><span style="color:#bbb"> </span>my_fn(<span style="color:#40a070">1</span>,<span style="color:#bbb"> </span><span style="color:#40a070">1</span>);<span style="color:#bbb"> </span><span style="color:#60a0b0;font-style:italic">// 这里调用 call_once 方法, my_fn 变量 move 进方法
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">	</span>assert_eq<span style="color:#666">!</span>(o1,<span style="color:#bbb"> </span><span style="color:#007020">String</span>::from(<span style="color:#4070a0">&#34;env_var&#34;</span>));<span style="color:#bbb">
-</span><span style="color:#bbb">	
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>o2: <span style="color:#007020">String</span> <span style="color:#666">=</span><span style="color:#bbb"> </span>my_fn(<span style="color:#40a070">2</span>,<span style="color:#bbb"> </span><span style="color:#40a070">2</span>);<span style="color:#bbb"> </span><span style="color:#60a0b0;font-style:italic">// 编译不过，因为 my_fn 变量已经被 move 掉了
-</span><span style="color:#60a0b0;font-style:italic"></span>}<span style="color:#bbb">
-</span></code></pre></div><p>接着为 <code>MyFn</code> 实现 <code>FnMut</code>：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#60a0b0;font-style:italic">// ...
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#007020;font-weight:bold">struct</span> <span style="color:#0e84b5;font-weight:bold">MyFn</span><span style="color:#666">&lt;</span><span style="color:#4070a0">&#39;a</span><span style="color:#666">&gt;</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span>env_var: <span style="color:#007020">&amp;</span><span style="color:#4070a0">&#39;a</span><span style="color:#bbb"> </span><span style="color:#902000">str</span>,<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">impl</span><span style="color:#666">&lt;</span><span style="color:#4070a0">&#39;a</span><span style="color:#666">&gt;</span><span style="color:#bbb"> </span><span style="color:#007020">FnOnce</span><span style="color:#666">&lt;</span>(<span style="color:#902000">i32</span>,<span style="color:#bbb"> </span><span style="color:#902000">i32</span>)<span style="color:#666">&gt;</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">for</span><span style="color:#bbb"> </span>MyFn<span style="color:#666">&lt;</span><span style="color:#4070a0">&#39;a</span><span style="color:#666">&gt;</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">type</span> <span style="color:#0e84b5;font-weight:bold">Output</span><span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020">String</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">extern</span><span style="color:#bbb"> </span><span style="color:#4070a0">&#34;rust-call&#34;</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">call_once</span>(<span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>self,<span style="color:#bbb"> </span>args: (<span style="color:#902000">i32</span>,<span style="color:#bbb"> </span><span style="color:#902000">i32</span>))<span style="color:#bbb"> </span>-&gt; <span style="color:#0e84b5;font-weight:bold">Self</span>::Output<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">        </span>self.call_mut(args)<span style="color:#bbb">
-</span><span style="color:#bbb">    </span>}<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">impl</span><span style="color:#666">&lt;</span><span style="color:#4070a0">&#39;a</span><span style="color:#666">&gt;</span><span style="color:#bbb"> </span><span style="color:#007020">FnMut</span><span style="color:#666">&lt;</span>(<span style="color:#902000">i32</span>,<span style="color:#bbb"> </span><span style="color:#902000">i32</span>)<span style="color:#666">&gt;</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">for</span><span style="color:#bbb"> </span>MyFn<span style="color:#666">&lt;</span><span style="color:#4070a0">&#39;a</span><span style="color:#666">&gt;</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">extern</span><span style="color:#bbb"> </span><span style="color:#4070a0">&#34;rust-call&#34;</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">call_mut</span>(<span style="color:#666">&amp;</span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>self,<span style="color:#bbb"> </span>args: (<span style="color:#902000">i32</span>,<span style="color:#bbb"> </span><span style="color:#902000">i32</span>))<span style="color:#bbb"> </span>-&gt; <span style="color:#0e84b5;font-weight:bold">Self</span>::Output<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">        </span>println<span style="color:#666">!</span>(<span style="color:#4070a0">&#34;{}&#34;</span>,<span style="color:#bbb"> </span>args.<span style="color:#40a070">0</span><span style="color:#bbb"> </span><span style="color:#666">+</span><span style="color:#bbb"> </span>args.<span style="color:#40a070">1</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">        </span>self.env_var.to_owned()<span style="color:#bbb">
-</span><span style="color:#bbb">    </span>}<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">main</span>()<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>env_var<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020">String</span>::from(<span style="color:#4070a0">&#34;env_var&#34;</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>my_fn<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>MyFn<span style="color:#bbb"> </span>{<span style="color:#bbb"> </span>env_var: <span style="color:#007020">&amp;</span><span style="color:#0e84b5;font-weight:bold">env_var</span><span style="color:#bbb"> </span>};<span style="color:#bbb">
-</span><span style="color:#bbb">	
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>o1: <span style="color:#007020">String</span> <span style="color:#666">=</span><span style="color:#bbb"> </span>my_fn(<span style="color:#40a070">1</span>,<span style="color:#bbb"> </span><span style="color:#40a070">1</span>);<span style="color:#bbb"> </span><span style="color:#60a0b0;font-style:italic">// 这里调用 call_mut 方法, my_fn 变量 mut borrow 进方法
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">	</span>assert_eq<span style="color:#666">!</span>(o1,<span style="color:#bbb"> </span><span style="color:#007020">String</span>::from(<span style="color:#4070a0">&#34;env_var&#34;</span>));<span style="color:#bbb">
-</span><span style="color:#bbb">	
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>o2: <span style="color:#007020">String</span> <span style="color:#666">=</span><span style="color:#bbb"> </span>my_fn(<span style="color:#40a070">2</span>,<span style="color:#bbb"> </span><span style="color:#40a070">2</span>);<span style="color:#bbb"> </span><span style="color:#60a0b0;font-style:italic">// 还是调用 call_mut 方法，my_fn 变量依然有效
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">	</span>assert_eq<span style="color:#666">!</span>(o2,<span style="color:#bbb"> </span><span style="color:#007020">String</span>::from(<span style="color:#4070a0">&#34;env_var&#34;</span>));<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span></code></pre></div><p>这里可以看到，如果某个参数如果需要调用 <code>call_once</code> 方法的话，<code>call_once</code> 内部只要再次调用 <code>call_mut</code> 即可，因为一个 <code>Ownership</code> 总可以转成一个 <code>Mut Borrow</code>，同理 <code>Mut Borrow</code> 总可以转成 <code>Borrow</code> 。</p>
-<p>测试一个函数接受 <code>FnOnce</code>，传递一个 <code>FnMut</code>：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#60a0b0;font-style:italic">// ...
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">expect_fn_once</span><span style="color:#666">&lt;</span>F<span style="color:#666">&gt;</span>(f: <span style="color:#0e84b5;font-weight:bold">F</span>)<span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">where</span><span style="color:#bbb">
-</span><span style="color:#bbb">    </span>F: <span style="color:#007020">FnOnce</span><span style="color:#666">&lt;</span>(<span style="color:#902000">i32</span>,<span style="color:#bbb"> </span><span style="color:#902000">i32</span>),<span style="color:#bbb"> </span>Output<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020">String</span><span style="color:#666">&gt;</span>,<span style="color:#bbb">
-</span><span style="color:#bbb"></span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>_: <span style="color:#007020">String</span> <span style="color:#666">=</span><span style="color:#bbb"> </span>f(<span style="color:#40a070">1</span>,<span style="color:#bbb"> </span><span style="color:#40a070">2</span>);<span style="color:#bbb"> </span><span style="color:#60a0b0;font-style:italic">// 这里调用的是 call_once
-</span><span style="color:#60a0b0;font-style:italic"></span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">main</span>()<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>env_var<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020">String</span>::from(<span style="color:#4070a0">&#34;env_var&#34;</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>my_fn<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>MyFn<span style="color:#bbb"> </span>{<span style="color:#bbb"> </span>env_var: <span style="color:#007020">&amp;</span><span style="color:#0e84b5;font-weight:bold">env_var</span><span style="color:#bbb"> </span>};<span style="color:#bbb">
-</span><span style="color:#bbb">	
-</span><span style="color:#bbb">	</span>expect_fn_once(my_fn);<span style="color:#bbb"> </span><span style="color:#60a0b0;font-style:italic">// 因为 my_fn 实现了 FnOnce，所以可以作为参数传递
-</span><span style="color:#60a0b0;font-style:italic"></span>}<span style="color:#bbb">
-</span></code></pre></div><p>另外，<code>FnOnce</code> 、<code>FnMut</code> 、<code>Fn</code> 有3个语法糖表示：</p>
-<p><code>FnOnce(T1, T2) -&gt; T3</code> 可以用来表示 <code>FnOnce&lt;(T1, T2), Output = T3&gt;</code></p>
-<p>因此上面的 <code>expect_fn_once</code> 方法可以简写为：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">expect_fn_once</span>(f: <span style="color:#0e84b5;font-weight:bold">impl</span><span style="color:#bbb"> </span><span style="color:#007020">FnOnce</span>(<span style="color:#902000">i32</span>,<span style="color:#bbb"> </span><span style="color:#902000">i32</span>)<span style="color:#bbb"> </span>-&gt; <span style="color:#007020">String</span>)<span style="color:#bbb">
-</span><span style="color:#bbb"></span>{<span style="color:#bbb">
-</span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>_: <span style="color:#007020">String</span> <span style="color:#666">=</span><span style="color:#bbb"> </span>f(<span style="color:#40a070">1</span>,<span style="color:#bbb"> </span><span style="color:#40a070">2</span>);<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span></code></pre></div><p><code>FnMut</code> 、<code>Fn</code> 同理。</p>
-<h3 id="编译器闭包的生成规则">编译器闭包的生成规则</h3>
-<ol>
-<li>
-<p>如果闭包只需要上下文环境的 <code>Borrow</code> ，优先生成 <code>Fn</code> ，方法默认调用 <code>call</code> ，因为上下文环境可以被同时 <code>Borrow</code> 多次，例如：<br>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>a<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#40a070">1</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>fn1<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#666">||</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>_<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#666">&amp;</span>a;<span style="color:#bbb">
-</span><span style="color:#bbb"></span>};<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>fn2<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#666">||</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>_<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#666">&amp;</span>a;<span style="color:#bbb">
-</span><span style="color:#bbb"></span>};<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span>println<span style="color:#666">!</span>(<span style="color:#4070a0">&#34;{}&#34;</span>,<span style="color:#bbb"> </span>a);<span style="color:#bbb">
-</span></code></pre></div></p>
-</li>
-<li>
-<p>如果闭包需要上下文环境的 <code>Mut Borrow</code>，则生成 <code>FnMut</code>，方法默认调用 <code>call_mut</code>，因为不会丢失 <code>Ownership</code>，闭包可以被多次调用，上下文环境 <code>Mut Borrow</code> 进闭包结构，当闭包被 <code>drop</code> 掉后，外部才能再次使用被捕获的变量，例如：<br>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#bbb"> 
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>a<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#40a070">1</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>fn1<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#666">||</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>_<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#666">&amp;</span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>a;<span style="color:#bbb">
-</span><span style="color:#bbb"></span>};<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>fn2<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#666">||</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>_<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#666">&amp;</span>a;<span style="color:#bbb"> </span><span style="color:#60a0b0;font-style:italic">// 这里无法编译通过，因为 f1 已经 mut borrow 了 a
-</span><span style="color:#60a0b0;font-style:italic"></span>};<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span>fn1();<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span>println<span style="color:#666">!</span>(<span style="color:#4070a0">&#34;{}&#34;</span>,<span style="color:#bbb"> </span>a);<span style="color:#bbb">
-</span></code></pre></div></p>
-</li>
-<li>
-<p>如果闭包需要上下文的 <code>Ownership</code>，则生成 <code>FnOcne</code>，方法调用 <code>call_once</code>，因为调用闭包会导致失去 <code>Ownership</code> ，所以闭包只能调用一次，上下文环境被 <code>move</code> 进闭包，外部不再能使用被捕获的变量，例如：<br>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#bbb"> 
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>a<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020">String</span>::from(<span style="color:#4070a0">&#34;a&#34;</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>fn1<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#666">||</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>b: <span style="color:#007020">String</span> <span style="color:#666">=</span><span style="color:#bbb"> </span>a;<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>b<span style="color:#bbb">
-</span><span style="color:#bbb"></span>};<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>fn2<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#666">||</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>b: <span style="color:#007020">String</span> <span style="color:#666">=</span><span style="color:#bbb"> </span>a;<span style="color:#bbb"> </span><span style="color:#60a0b0;font-style:italic">// 这里无法编译通过，因为 a 变量已经被 move 进了 fn1
-</span><span style="color:#60a0b0;font-style:italic"></span>};<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span>println<span style="color:#666">!</span>(<span style="color:#4070a0">&#34;{}&#34;</span>,<span style="color:#bbb"> </span>a);<span style="color:#bbb"> </span><span style="color:#60a0b0;font-style:italic">// 这里也无法编译通过
-</span></code></pre></div></p>
-</li>
-</ol>
-<p>有时我们需要强制捕获变量的 <code>Ownership</code> ，可以在闭包上修饰 <code>move</code> 关键字，这在多线程/异步环境下很常见。</p>
+</span></code></pre></div>
 
+	
+	
+	<p>
+	  <a href="/posts/rust-closure/">Read More…</a>
+	</p>
+	
 </article>
 </div>
     <div class="pad"></div>
@@ -575,218 +218,14 @@ impl MyMacro <span style="color:#007020;font-weight:bold">for</span> Dog <span s
     }
     <span style="color:#60a0b0;font-style:italic">// ...
 </span><span style="color:#60a0b0;font-style:italic"></span>}
-</code></pre></div><ol>
-<li><code>db.Query</code> 返回一个 <code>Rows</code> 游标对象</li>
-<li>注册一个 <code>rows.Close</code> 延迟函数用于关闭 <code>Rows</code> 对象</li>
-<li>通过 <code>rows.Next</code> 迭代器读取每一行数据</li>
-<li>通过 <code>rows.Scan</code> 将当前行的数据存入声明的变量中</li>
-</ol>
-<p>整个代码片段会有2种结果</p>
-<ol>
-<li>读取了所有数据</li>
-<li>未读取或读取了部分数据，然后发生错误</li>
-</ol>
-<p>第一种情况由于读取了所有数据，满足<strong>使用完毕</strong>的条件，可以放回连接池；第二种情况，由于发生了错误，连接失效，后续会重新打开新连接，新连接自然是满足<strong>使用完毕</strong>条件的。</p>
-<p>如果在 <code>rows.Next</code> 迭代器中，中途退出（未发生错误的情况下），那接收缓冲区中还有未读取的数据，因此对应的SQL驱动需要在 <code>rows.Close</code> 方法中冲刷掉还未读取的数据，直至缓冲区中读取至EOF为止。如果 <code>rows.Close</code> 不被调用，不但接收缓冲区中有残留的数据，同时连接也不会被放回连接池，切记不可遗忘 <code>rows.Close</code> 调用。</p>
-<p>在 <a href="https://golang.org/pkg/database/sql/">database/sql</a> 引入 <code>QueryContext</code> 后，执行SQL操作时，会单独创建一个新的Goroutine用于超时取消：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#007020;font-weight:bold">func</span> (rs <span style="color:#666">*</span>Rows) <span style="color:#06287e">initContextClose</span>(ctx, txctx context.Context) {
-	<span style="color:#007020;font-weight:bold">if</span> ctx.<span style="color:#06287e">Done</span>() <span style="color:#666">==</span> <span style="color:#007020;font-weight:bold">nil</span> <span style="color:#666">&amp;&amp;</span> (txctx <span style="color:#666">==</span> <span style="color:#007020;font-weight:bold">nil</span> <span style="color:#666">||</span> txctx.<span style="color:#06287e">Done</span>() <span style="color:#666">==</span> <span style="color:#007020;font-weight:bold">nil</span>) {
-		<span style="color:#007020;font-weight:bold">return</span>
-	}
-	<span style="color:#007020;font-weight:bold">if</span> bypassRowsAwaitDone {
-		<span style="color:#007020;font-weight:bold">return</span>
-	}
-	ctx, rs.cancel = context.<span style="color:#06287e">WithCancel</span>(ctx)
-	<span style="color:#007020;font-weight:bold">go</span> rs.<span style="color:#06287e">awaitDone</span>(ctx, txctx)
-}
+</code></pre></div>
 
-<span style="color:#60a0b0;font-style:italic">// awaitDone blocks until either ctx or txctx is canceled. The ctx is provided
-</span><span style="color:#60a0b0;font-style:italic">// from the query context and is canceled when the query Rows is closed.
-</span><span style="color:#60a0b0;font-style:italic">// If the query was issued in a transaction, the transaction&#39;s context
-</span><span style="color:#60a0b0;font-style:italic">// is also provided in txctx to ensure Rows is closed if the Tx is closed.
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#007020;font-weight:bold">func</span> (rs <span style="color:#666">*</span>Rows) <span style="color:#06287e">awaitDone</span>(ctx, txctx context.Context) {
-	<span style="color:#007020;font-weight:bold">var</span> txctxDone <span style="color:#666">&lt;-</span><span style="color:#007020;font-weight:bold">chan</span> <span style="color:#007020;font-weight:bold">struct</span>{}
-	<span style="color:#007020;font-weight:bold">if</span> txctx <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span> {
-		txctxDone = txctx.<span style="color:#06287e">Done</span>()
-	}
-	<span style="color:#007020;font-weight:bold">select</span> {
-	<span style="color:#007020;font-weight:bold">case</span> <span style="color:#666">&lt;-</span>ctx.<span style="color:#06287e">Done</span>():
-	<span style="color:#007020;font-weight:bold">case</span> <span style="color:#666">&lt;-</span>txctxDone:
-	}
-	rs.<span style="color:#007020">close</span>(ctx.<span style="color:#06287e">Err</span>())
-}
-</code></pre></div><p>这样在 <code>Context</code> 超时取消后，这个单独的Goroutine会马上执行 <code>rows.Close</code> ，冲刷缓冲区后把连接放回连接池，防止因业务Goroutine长期阻塞导致连接无法放回连接池。</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#007020;font-weight:bold">func</span> (rs <span style="color:#666">*</span>Rows) <span style="color:#007020">close</span>(err <span style="color:#902000">error</span>) <span style="color:#902000">error</span> {
-	rs.closemu.<span style="color:#06287e">Lock</span>()
-	<span style="color:#007020;font-weight:bold">defer</span> rs.closemu.<span style="color:#06287e">Unlock</span>()
-
-	<span style="color:#007020;font-weight:bold">if</span> rs.closed {
-		<span style="color:#007020;font-weight:bold">return</span> <span style="color:#007020;font-weight:bold">nil</span>
-	}
-	rs.closed = <span style="color:#007020;font-weight:bold">true</span>
-
-	<span style="color:#007020;font-weight:bold">if</span> rs.lasterr <span style="color:#666">==</span> <span style="color:#007020;font-weight:bold">nil</span> {
-		rs.lasterr = err
-	}
-
-	<span style="color:#06287e">withLock</span>(rs.dc, <span style="color:#007020;font-weight:bold">func</span>() {
-		err = rs.rowsi.<span style="color:#06287e">Close</span>()
-	})
-	<span style="color:#007020;font-weight:bold">if</span> fn <span style="color:#666">:=</span> <span style="color:#06287e">rowsCloseHook</span>(); fn <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span> {
-		<span style="color:#06287e">fn</span>(rs, <span style="color:#666">&amp;</span>err)
-	}
-	<span style="color:#007020;font-weight:bold">if</span> rs.cancel <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span> {
-		rs.<span style="color:#06287e">cancel</span>()
-	}
-
-	<span style="color:#007020;font-weight:bold">if</span> rs.closeStmt <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span> {
-		rs.closeStmt.<span style="color:#06287e">Close</span>()
-	}
-	rs.<span style="color:#06287e">releaseConn</span>(err)
-	<span style="color:#007020;font-weight:bold">return</span> err
-}
-</code></pre></div><p>但是当这个Goroutine正在冲刷缓冲区的同时，业务Goroutine正在执行 <code>rows.Scan</code> 方法，这个方法会读取缓冲区中的数据，这里就发生了2个Goroutine的数据竞争。但是和 <code>rows.Next</code> 方法却不会导致数据竞争，是因为 <code>rows.Next</code> 和 <code>rows.Close</code> 使用了互斥锁保护临界区。<code>rows.Scan</code> 并没有保护 <code>convertAssignRows</code> 方法，同时 <a href="https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc">github.com/go-sql-driver/mysql</a> 为了性能，共享了缓冲区和 <code>lastcols</code> 的内存。</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#007020;font-weight:bold">func</span> (rs <span style="color:#666">*</span>Rows) <span style="color:#007020">close</span>(err <span style="color:#902000">error</span>) <span style="color:#902000">error</span> {
-	rs.closemu.<span style="color:#06287e">Lock</span>()
-	<span style="color:#007020;font-weight:bold">defer</span> rs.closemu.<span style="color:#06287e">Unlock</span>()
-
-	<span style="color:#007020;font-weight:bold">if</span> rs.closed {
-		<span style="color:#007020;font-weight:bold">return</span> <span style="color:#007020;font-weight:bold">nil</span>
-	}
-	rs.closed = <span style="color:#007020;font-weight:bold">true</span>
-
-	<span style="color:#007020;font-weight:bold">if</span> rs.lasterr <span style="color:#666">==</span> <span style="color:#007020;font-weight:bold">nil</span> {
-		rs.lasterr = err
-	}
-
-	<span style="color:#06287e">withLock</span>(rs.dc, <span style="color:#007020;font-weight:bold">func</span>() {
-		err = rs.rowsi.<span style="color:#06287e">Close</span>()
-	})
-	<span style="color:#007020;font-weight:bold">if</span> fn <span style="color:#666">:=</span> <span style="color:#06287e">rowsCloseHook</span>(); fn <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span> {
-		<span style="color:#06287e">fn</span>(rs, <span style="color:#666">&amp;</span>err)
-	}
-	<span style="color:#007020;font-weight:bold">if</span> rs.cancel <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span> {
-		rs.<span style="color:#06287e">cancel</span>()
-	}
-
-	<span style="color:#007020;font-weight:bold">if</span> rs.closeStmt <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span> {
-		rs.closeStmt.<span style="color:#06287e">Close</span>()
-	}
-	rs.<span style="color:#06287e">releaseConn</span>(err)
-	<span style="color:#007020;font-weight:bold">return</span> err
-}
-
-<span style="color:#007020;font-weight:bold">func</span> (rs <span style="color:#666">*</span>Rows) <span style="color:#06287e">Next</span>() <span style="color:#902000">bool</span> {
-	<span style="color:#007020;font-weight:bold">var</span> doClose, ok <span style="color:#902000">bool</span>
-	<span style="color:#06287e">withLock</span>(rs.closemu.<span style="color:#06287e">RLocker</span>(), <span style="color:#007020;font-weight:bold">func</span>() {
-		doClose, ok = rs.<span style="color:#06287e">nextLocked</span>()
-	})
-	<span style="color:#007020;font-weight:bold">if</span> doClose {
-		rs.<span style="color:#06287e">Close</span>()
-	}
-	<span style="color:#007020;font-weight:bold">return</span> ok
-}
-
-<span style="color:#007020;font-weight:bold">func</span> (rs <span style="color:#666">*</span>Rows) <span style="color:#06287e">Scan</span>(dest <span style="color:#666">...</span><span style="color:#007020;font-weight:bold">interface</span>{}) <span style="color:#902000">error</span> {
-	rs.closemu.<span style="color:#06287e">RLock</span>()
-
-	<span style="color:#007020;font-weight:bold">if</span> rs.lasterr <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span> <span style="color:#666">&amp;&amp;</span> rs.lasterr <span style="color:#666">!=</span> io.EOF {
-		rs.closemu.<span style="color:#06287e">RUnlock</span>()
-		<span style="color:#007020;font-weight:bold">return</span> rs.lasterr
-	}
-	<span style="color:#007020;font-weight:bold">if</span> rs.closed {
-		err <span style="color:#666">:=</span> rs.<span style="color:#06287e">lasterrOrErrLocked</span>(errRowsClosed)
-		rs.closemu.<span style="color:#06287e">RUnlock</span>()
-		<span style="color:#007020;font-weight:bold">return</span> err
-	}
-	rs.closemu.<span style="color:#06287e">RUnlock</span>()
-
-	<span style="color:#007020;font-weight:bold">if</span> rs.lastcols <span style="color:#666">==</span> <span style="color:#007020;font-weight:bold">nil</span> {
-		<span style="color:#007020;font-weight:bold">return</span> errors.<span style="color:#06287e">New</span>(<span style="color:#4070a0">&#34;sql: Scan called without calling Next&#34;</span>)
-	}
-	<span style="color:#007020;font-weight:bold">if</span> <span style="color:#007020">len</span>(dest) <span style="color:#666">!=</span> <span style="color:#007020">len</span>(rs.lastcols) {
-		<span style="color:#007020;font-weight:bold">return</span> fmt.<span style="color:#06287e">Errorf</span>(<span style="color:#4070a0">&#34;sql: expected %d destination arguments in Scan, not %d&#34;</span>, <span style="color:#007020">len</span>(rs.lastcols), <span style="color:#007020">len</span>(dest))
-	}
-	<span style="color:#007020;font-weight:bold">for</span> i, sv <span style="color:#666">:=</span> <span style="color:#007020;font-weight:bold">range</span> rs.lastcols {
-		err <span style="color:#666">:=</span> <span style="color:#06287e">convertAssignRows</span>(dest[i], sv, rs)
-		<span style="color:#007020;font-weight:bold">if</span> err <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span> {
-			<span style="color:#007020;font-weight:bold">return</span> fmt.<span style="color:#06287e">Errorf</span>(<span style="color:#4070a0">`sql: Scan error on column index %d, name %q: %v`</span>, i, rs.rowsi.<span style="color:#06287e">Columns</span>()[i], err)
-		}
-	}
-	<span style="color:#007020;font-weight:bold">return</span> <span style="color:#007020;font-weight:bold">nil</span>
-}
-</code></pre></div><p>为此在 <a href="https://golang.org/doc/go1.10#database/sql/driver">Go 1.10 Release Notes</a> 中专门提到，驱动勿在 <code>rows.Close</code> 方法中修改缓冲区：</p>
-<blockquote>
-<p>Drivers that currently hold on to the destination buffer provided by driver.Rows.Next should ensure they no longer write to a buffer assigned to the destination array outside of that call. Drivers must be careful that underlying buffers are not modified when closing driver.Rows.</p>
-</blockquote>
-<p>为了避免在这种情况下发生数据竞争，<a href="https://github.com/go-sql-driver/mysql/pull/943">PR#943</a> 使用了双缓冲来冲刷缓冲区。</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#60a0b0;font-style:italic">// A buffer which is used for both reading and writing.
-</span><span style="color:#60a0b0;font-style:italic">// This is possible since communication on each connection is synchronous.
-</span><span style="color:#60a0b0;font-style:italic">// In other words, we can&#39;t write and read simultaneously on the same connection.
-</span><span style="color:#60a0b0;font-style:italic">// The buffer is similar to bufio.Reader / Writer but zero-copy-ish
-</span><span style="color:#60a0b0;font-style:italic">// Also highly optimized for this particular use case.
-</span><span style="color:#60a0b0;font-style:italic">// This buffer is backed by two byte slices in a double-buffering scheme
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#007020;font-weight:bold">type</span> buffer <span style="color:#007020;font-weight:bold">struct</span> {
-	buf     []<span style="color:#902000">byte</span> <span style="color:#60a0b0;font-style:italic">// buf is a byte buffer who&#39;s length and capacity are equal.
-</span><span style="color:#60a0b0;font-style:italic"></span>	nc      net.Conn
-	idx     <span style="color:#902000">int</span>
-	length  <span style="color:#902000">int</span>
-	timeout time.Duration
-	dbuf    [<span style="color:#40a070">2</span>][]<span style="color:#902000">byte</span> <span style="color:#60a0b0;font-style:italic">// dbuf is an array with the two byte slices that back this buffer
-</span><span style="color:#60a0b0;font-style:italic"></span>	flipcnt <span style="color:#902000">uint</span>      <span style="color:#60a0b0;font-style:italic">// flipccnt is the current buffer counter for double-buffering
-</span><span style="color:#60a0b0;font-style:italic"></span>}
-
-<span style="color:#60a0b0;font-style:italic">// flip replaces the active buffer with the background buffer
-</span><span style="color:#60a0b0;font-style:italic">// this is a delayed flip that simply increases the buffer counter;
-</span><span style="color:#60a0b0;font-style:italic">// the actual flip will be performed the next time we call `buffer.fill`
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#007020;font-weight:bold">func</span> (b <span style="color:#666">*</span>buffer) <span style="color:#06287e">flip</span>() {
-	b.flipcnt <span style="color:#666">+=</span> <span style="color:#40a070">1</span>
-}
-
-<span style="color:#60a0b0;font-style:italic">// fill reads into the buffer until at least _need_ bytes are in it
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#007020;font-weight:bold">func</span> (b <span style="color:#666">*</span>buffer) <span style="color:#06287e">fill</span>(need <span style="color:#902000">int</span>) <span style="color:#902000">error</span> {
-    <span style="color:#60a0b0;font-style:italic">// ...
-</span><span style="color:#60a0b0;font-style:italic"></span>    <span style="color:#60a0b0;font-style:italic">// fill data into its double-buffering target: if we&#39;ve called
-</span><span style="color:#60a0b0;font-style:italic"></span>	<span style="color:#60a0b0;font-style:italic">// flip on this buffer, we&#39;ll be copying to the background buffer,
-</span><span style="color:#60a0b0;font-style:italic"></span>	<span style="color:#60a0b0;font-style:italic">// and then filling it with network data; otherwise we&#39;ll just move
-</span><span style="color:#60a0b0;font-style:italic"></span>	<span style="color:#60a0b0;font-style:italic">// the contents of the current buffer to the front before filling it
-</span><span style="color:#60a0b0;font-style:italic"></span>	dest <span style="color:#666">:=</span> b.dbuf[b.flipcnt<span style="color:#666">&amp;</span><span style="color:#40a070">1</span>]
-
-	<span style="color:#60a0b0;font-style:italic">// grow buffer if necessary to fit the whole packet.
-</span><span style="color:#60a0b0;font-style:italic"></span>	<span style="color:#007020;font-weight:bold">if</span> need &gt; <span style="color:#007020">len</span>(dest) {
-		<span style="color:#60a0b0;font-style:italic">// Round up to the next multiple of the default size
-</span><span style="color:#60a0b0;font-style:italic"></span>		dest = <span style="color:#007020">make</span>([]<span style="color:#902000">byte</span>, ((need<span style="color:#666">/</span>defaultBufSize)<span style="color:#666">+</span><span style="color:#40a070">1</span>)<span style="color:#666">*</span>defaultBufSize)
-
-		<span style="color:#60a0b0;font-style:italic">// if the allocated buffer is not too large, move it to backing storage
-</span><span style="color:#60a0b0;font-style:italic"></span>		<span style="color:#60a0b0;font-style:italic">// to prevent extra allocations on applications that perform large reads
-</span><span style="color:#60a0b0;font-style:italic"></span>		<span style="color:#007020;font-weight:bold">if</span> <span style="color:#007020">len</span>(dest) <span style="color:#666">&lt;=</span> maxCachedBufSize {
-			b.dbuf[b.flipcnt<span style="color:#666">&amp;</span><span style="color:#40a070">1</span>] = dest
-		}
-	}
-
-	<span style="color:#60a0b0;font-style:italic">// if we&#39;re filling the fg buffer, move the existing data to the start of it.
-</span><span style="color:#60a0b0;font-style:italic"></span>	<span style="color:#60a0b0;font-style:italic">// if we&#39;re filling the bg buffer, copy over the data
-</span><span style="color:#60a0b0;font-style:italic"></span>	<span style="color:#007020;font-weight:bold">if</span> n &gt; <span style="color:#40a070">0</span> {
-		<span style="color:#007020">copy</span>(dest[:n], b.buf[b.idx:])
-	}
-
-	b.buf = dest
-    b.idx = <span style="color:#40a070">0</span>
-    <span style="color:#60a0b0;font-style:italic">// ...
-</span><span style="color:#60a0b0;font-style:italic"></span>}
-
-<span style="color:#007020;font-weight:bold">func</span> (rows <span style="color:#666">*</span>mysqlRows) <span style="color:#06287e">Close</span>() (err <span style="color:#902000">error</span>) {
-    <span style="color:#60a0b0;font-style:italic">// ...
-</span><span style="color:#60a0b0;font-style:italic"></span>    <span style="color:#60a0b0;font-style:italic">// flip the buffer for this connection if we need to drain it.
-</span><span style="color:#60a0b0;font-style:italic"></span>	<span style="color:#60a0b0;font-style:italic">// note that for a successful query (i.e. one where rows.next()
-</span><span style="color:#60a0b0;font-style:italic"></span>	<span style="color:#60a0b0;font-style:italic">// has been called until it returns false), `rows.mc` will be nil
-</span><span style="color:#60a0b0;font-style:italic"></span>	<span style="color:#60a0b0;font-style:italic">// by the time the user calls `(*Rows).Close`, so we won&#39;t reach this
-</span><span style="color:#60a0b0;font-style:italic"></span>	<span style="color:#60a0b0;font-style:italic">// see: https://github.com/golang/go/commit/651ddbdb5056ded455f47f9c494c67b389622a47
-</span><span style="color:#60a0b0;font-style:italic"></span>    mc.buf.<span style="color:#06287e">flip</span>()
-    <span style="color:#60a0b0;font-style:italic">// ...
-</span><span style="color:#60a0b0;font-style:italic"></span>}
-</code></pre></div><p>当调用 <code>rows.Close</code> 时，交换 <code>fg buffer</code> 和 <code>bg buffer</code> 2个缓冲区，这样在冲刷缓冲区时用到的就是 <code>bg buffer</code> ，而 <code>rows.Scan</code> 读取的是旧的 <code>fg buffer</code>，从而避免了数据竞争。</p>
-
+	
+	
+	<p>
+	  <a href="/posts/go-mysql-driver-race/">Read More…</a>
+	</p>
+	
 </article>
 </div>
     <div class="pad"></div>
@@ -819,91 +258,13 @@ impl MyMacro <span style="color:#007020;font-weight:bold">for</span> Dog <span s
     <p>在使用 <a href="https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc">github.com/go-sql-driver/mysql</a> 作为客户端连接Mysql时，日志中偶然会出现下面的错误：</p>
 <pre><code>[mysql] 2019/08/26 16:07:00 packets.go:36: unexpected EOF
 </code></pre><p><a href="https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc">github.com/go-sql-driver/mysql</a> 为了复用TCP连接以提高性能，内部实现了连接池。当需要一次SQL操作时，会先从连接池中拿出一条可用的空闲连接去执行操作。如果没有空闲的连接，或者连接已经失效，就打开一条新的TCP连接、SSL认证（如果使用SSL连接的话）、协议握手、认证等，完成初始化连接，再使用这条连接执行操作，使用完后再放回连接池。连接失效的标记可以在上一次使用连接后根据对应的错误来完成，或者本次操作指令发送失败也标记为连接失效，driver会重新执行上面的步骤来进行重试，应用层不会感知。</p>
-<p>到这里，好像一切都没有什么问题，可是上面的错误是怎么回事？如果是连接失效的话，应该会进行重试，对应用透明。</p>
-<p>其实上面的错误来源于服务器主动关闭超时连接造成的TCP半关闭状态，错误的形成原因可以用下面的图简单解释：</p>
-<div style="padding:2em;text-align:center">
-    <img src="/img/go-mysql-driver-eof.svg">
-</div>
-<p>当需要重新打开一条Mysql连接时，先是完成基本的TCP连接握手，然后完成Mysql的协议握手、认证，之后就可以在这条连接上发送指令了。一次操作完成后，连接被放回连接池中，如果之后一段时间这条连接都没有被使用过，Mysql服务器会根据相应的配置，主动关闭这条连接。此时服务器内核会向客户端内核发送一个[FIN, ACK]的TCP段，客户端内核回应一个ACK段，此时这条TCP连接会进入半关闭状态：服务器不会再向客户端发送数据，但是客户端可以向服务器发送数据。</p>
-<p>此时一个新的SQL操作从连接池中拿出了这条连接，发送指令，但是在读取的时候，客户端内核已经知道服务器不会再返回数据，因此直接给应用程序返回了EOF错误。然后重点是，此时的连接状态并不是真正意义上的无效连接状态，由于客户端已经把指令发送了出去，尤其如果是一条UPDATE指令的话，是无法执行安全的重试操作的。服务器对这条指令的处理，客户端是完全无法知晓的。</p>
-<p>通常一种简单的解决办法是，设置客户端的空闲超时时间，并且短于服务器的空闲超时时间，然而 <a href="https://golang.org/pkg/database/sql/">database/sql</a> 并没有提供类似&quot;maximum idle duration&quot;的API，不过可以退一步使用 <a href="https://golang.org/pkg/database/sql/#DB.SetConnMaxLifetime">func (*DB) SetConnMaxLifetime</a> 这个API。然而带来的坏处就是，限制了连接的重用时间，即使连接一直处于活跃状态。</p>
-<p>另一种办法是，每次从连接池中拿出连接，在发送第一条指令前发送一个 <code>PING</code> 包来检查连接是否健康，由于 <code>PING</code> 包不会产生副作用，因此后续的操作都是安全的。这种办法的坏处也显而易见，由于从连接池中取出连接是个非常频繁的操作，而每次都会增加至少一次RTT延迟。</p>
-<p>好在 <a href="https://github.com/go-sql-driver/mysql/pull/934">PR#934</a> 通过非常巧妙的方式解决了这一问题。作者的解决思路如下：</p>
-<p>首先需要提到一个Go 1.10后 <code>sql/driver</code> 增加的一个接口：<a href="https://golang.org/pkg/database/sql/driver/#SessionResetter">driver.SessionResetter</a> ，其中 <code>ResetSession</code> 方法会在每次连接放入连接池时执行，这里作者先简单地添加了一个 <code>reset</code> 标记。</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#007020;font-weight:bold">type</span> mysqlConn <span style="color:#007020;font-weight:bold">struct</span> {
-    <span style="color:#60a0b0;font-style:italic">// ...
-</span><span style="color:#60a0b0;font-style:italic"></span>    reset            <span style="color:#902000">bool</span> <span style="color:#60a0b0;font-style:italic">// set when the Go SQL package calls ResetSession
-</span><span style="color:#60a0b0;font-style:italic"></span>    <span style="color:#60a0b0;font-style:italic">// ...
-</span><span style="color:#60a0b0;font-style:italic"></span>}
 
-<span style="color:#60a0b0;font-style:italic">// ResetSession implements driver.SessionResetter.
-</span><span style="color:#60a0b0;font-style:italic">// (From Go 1.10)
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#007020;font-weight:bold">func</span> (mc <span style="color:#666">*</span>mysqlConn) <span style="color:#06287e">ResetSession</span>(ctx context.Context) <span style="color:#902000">error</span> {
-    <span style="color:#007020;font-weight:bold">if</span> mc.closed.<span style="color:#06287e">IsSet</span>() {
-        <span style="color:#007020;font-weight:bold">return</span> driver.ErrBadConn
-    }
-    mc.reset = <span style="color:#007020;font-weight:bold">true</span>
-    <span style="color:#007020;font-weight:bold">return</span> <span style="color:#007020;font-weight:bold">nil</span>
-}
-</code></pre></div><p>之后连接被拿出来，在执行发送第一条指令前，会先根据之前添加的 <code>reset</code> 标记检查连接是否可用（liveness check），由于前面的标记是连接在放入连接池时加上的，因此可以做到只在第一次取出后检查（检查后把 <code>reset</code> 取消就行），后续在使用过程中无需再检查，除非再次被放回了连接池。</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#60a0b0;font-style:italic">// Write packet buffer &#39;data&#39;
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#007020;font-weight:bold">func</span> (mc <span style="color:#666">*</span>mysqlConn) <span style="color:#06287e">writePacket</span>(data []<span style="color:#902000">byte</span>) <span style="color:#902000">error</span> {
-    <span style="color:#60a0b0;font-style:italic">// ...
-</span><span style="color:#60a0b0;font-style:italic"></span>    <span style="color:#60a0b0;font-style:italic">// Perform a stale connection check. We only perform this check for
-</span><span style="color:#60a0b0;font-style:italic"></span> 	<span style="color:#60a0b0;font-style:italic">// the first query on a connection that has been checked out of the
-</span><span style="color:#60a0b0;font-style:italic"></span> 	<span style="color:#60a0b0;font-style:italic">// connection pool: a fresh connection from the pool is more likely
-</span><span style="color:#60a0b0;font-style:italic"></span> 	<span style="color:#60a0b0;font-style:italic">// to be stale, and it has not performed any previous writes that
-</span><span style="color:#60a0b0;font-style:italic"></span> 	<span style="color:#60a0b0;font-style:italic">// could cause data corruption, so it&#39;s safe to return ErrBadConn
-</span><span style="color:#60a0b0;font-style:italic"></span> 	<span style="color:#60a0b0;font-style:italic">// if the check fails.
-</span><span style="color:#60a0b0;font-style:italic"></span> 	<span style="color:#007020;font-weight:bold">if</span> mc.reset {
- 		mc.reset = <span style="color:#007020;font-weight:bold">false</span>
- 		conn <span style="color:#666">:=</span> mc.netConn
- 		<span style="color:#007020;font-weight:bold">if</span> mc.rawConn <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span> {
- 			conn = mc.rawConn
- 		}
- 		<span style="color:#007020;font-weight:bold">if</span> err <span style="color:#666">:=</span> <span style="color:#06287e">connCheck</span>(conn); err <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span> {
- 			errLog.<span style="color:#06287e">Print</span>(<span style="color:#4070a0">&#34;closing bad idle connection: &#34;</span>, err)
- 			mc.<span style="color:#06287e">Close</span>()
- 			<span style="color:#007020;font-weight:bold">return</span> driver.ErrBadConn
- 		}
-     }
-     <span style="color:#60a0b0;font-style:italic">// ...
-</span><span style="color:#60a0b0;font-style:italic"></span>}
-</code></pre></div><p>而检查连接是否可用的方法用到了Go 1.9后 <code>net.Conn</code> 增加的 <code>syscall.Conn</code> 接口，这个接口可以获取原始连接的文件描述符。先调用 <code>syscall.Read</code> ，传入1个字节的缓冲区，由于还没有发送任何指令，并且由Go runtime创建的Socket都设置了非阻塞（O_NONBLOCK）模式，所以方法会立即返回。如果没有返回错误（或者 <code>EAGAIN</code> / <code>EWOULDBLOCK</code> 这2种错误）且读取的数据长度为0，则说明连接依然有效，反之连接已经失效。之所以不直接使用Go的原生接口 <code>net.Conn.Read</code> ，是因为Go的调度器会立即使当前Goroutine睡眠，导致多次Goroutine上下文切换，影响性能。</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-go" data-lang="go"><span style="color:#007020;font-weight:bold">func</span> <span style="color:#06287e">connCheck</span>(c net.Conn) <span style="color:#902000">error</span> {
- 	<span style="color:#007020;font-weight:bold">var</span> (
- 		n    <span style="color:#902000">int</span>
- 		err  <span style="color:#902000">error</span>
- 		buff [<span style="color:#40a070">1</span>]<span style="color:#902000">byte</span>
- 	)
-
-  	sconn, ok <span style="color:#666">:=</span> c.(syscall.Conn)
- 	<span style="color:#007020;font-weight:bold">if</span> !ok {
- 		<span style="color:#007020;font-weight:bold">return</span> <span style="color:#007020;font-weight:bold">nil</span>
- 	}
- 	rc, err <span style="color:#666">:=</span> sconn.<span style="color:#06287e">SyscallConn</span>()
- 	<span style="color:#007020;font-weight:bold">if</span> err <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span> {
- 		<span style="color:#007020;font-weight:bold">return</span> err
- 	}
- 	rerr <span style="color:#666">:=</span> rc.<span style="color:#06287e">Read</span>(<span style="color:#007020;font-weight:bold">func</span>(fd <span style="color:#902000">uintptr</span>) <span style="color:#902000">bool</span> {
- 		n, err = syscall.<span style="color:#06287e">Read</span>(<span style="color:#007020">int</span>(fd), buff[:])
- 		<span style="color:#007020;font-weight:bold">return</span> <span style="color:#007020;font-weight:bold">true</span>
- 	})
- 	<span style="color:#007020;font-weight:bold">switch</span> {
- 	<span style="color:#007020;font-weight:bold">case</span> rerr <span style="color:#666">!=</span> <span style="color:#007020;font-weight:bold">nil</span>:
- 		<span style="color:#007020;font-weight:bold">return</span> rerr
- 	<span style="color:#007020;font-weight:bold">case</span> n <span style="color:#666">==</span> <span style="color:#40a070">0</span> <span style="color:#666">&amp;&amp;</span> err <span style="color:#666">==</span> <span style="color:#007020;font-weight:bold">nil</span>:
- 		<span style="color:#007020;font-weight:bold">return</span> io.EOF
- 	<span style="color:#007020;font-weight:bold">case</span> n &gt; <span style="color:#40a070">0</span>:
- 		<span style="color:#007020;font-weight:bold">return</span> errUnexpectedRead
- 	<span style="color:#007020;font-weight:bold">case</span> err <span style="color:#666">==</span> syscall.EAGAIN <span style="color:#666">||</span> err <span style="color:#666">==</span> syscall.EWOULDBLOCK:
- 		<span style="color:#007020;font-weight:bold">return</span> <span style="color:#007020;font-weight:bold">nil</span>
- 	<span style="color:#007020;font-weight:bold">default</span>:
- 		<span style="color:#007020;font-weight:bold">return</span> err
- 	}
-}
-</code></pre></div><p>- 完</p>
-
+	
+	
+	<p>
+	  <a href="/posts/go-mysql-driver-eof/">Read More…</a>
+	</p>
+	
 </article>
 </div>
     <div class="pad"></div>
@@ -931,48 +292,13 @@ impl MyMacro <span style="color:#007020;font-weight:bold">for</span> Dog <span s
         
     </div>
     <p>TCP/IP协议栈是计算机网络的基础通信架构，其中IP协议完成了跨链路的路由、寻址，TCP协议完成了面向连接的可靠字节流抽象，提供数据的分段、重传、重组，流量控制和拥塞控制，使得建立在TCP/IP协议之上的应用协议不用再关心各种硬件、网络环境，TCP/IP协议是今天的互联网的基石。</p>
-<h1 id="网络套接字socket">网络套接字Socket</h1>
-<p>Socket是操作系统用于网络编程的应用程序接口（API），可支持多种协议，现代常见的Socket套接字接口（Unix Socket、Windows Socket等）都源自Berkeley套接字<sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup>。接口实现用于TCP/IP协议，因此它是维持Internet的基本技术之一。同时也被用于Unix域套接字（Unix domain sockets），可实现在单机上为进程间通讯（IPC）的接口。</p>
-<p>不同的Socket应用程序除了满足最基本的通信需求外，也会有一些根据业务相关的特殊需求，本篇记录关于几个Linux下网络Socket应用的优化技巧：</p>
-<h2 id="低延迟需求">低延迟需求</h2>
-<p>由于TCP协议是面向字节流的协议，但是用于承载TCP的底层协议无法直接支持字节流，以太网协议需要一帧一帧地发送，一次发送的最大字节数受限于MTU；IP协议虽然支持数据的分包发送，但是大多数情况下我们需要避免IP协议分包，因为这会影响中间跳点的处理性能，所以TCP协议引入了分段（Segment）机制，在TCP层对数据进行拆分，保证IP数据包都是完整的。而通常情况下，我们希望每次发送的数据尽可能的多，也就是正好填满IP数据包，以此减少网络传输的次数（包括发送与接收方确认的次数），同时减少了总的包头数据量，以此提高整体的网络吞吐量。</p>
-<p>Nagle算法实现了对数据的合并，该算法会把多个小的数据合并成一个完整的报文段，以此最大化报文段，减少在线路上传输报文的次数，但是同时也会带来延迟，因为写入缓冲区的数据并不会马上发送出去。在低延迟需求的应用中，可以禁用Nagle算法：</p>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#007020;font-weight:bold">use</span><span style="color:#bbb"> </span>std::net::SocketAddr;<span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">use</span><span style="color:#bbb"> </span>socket2::{Socket,<span style="color:#bbb"> </span>Domain,<span style="color:#bbb"> </span>Type};<span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">use</span><span style="color:#bbb"> </span>anyhow::<span style="color:#007020">Result</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">no_delay</span>()<span style="color:#bbb"> </span>-&gt; <span style="color:#007020">Result</span><span style="color:#666">&lt;</span>()<span style="color:#666">&gt;</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">  </span><span style="color:#60a0b0;font-style:italic">// create a TCP listener bound to two addresses
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">  </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>socket<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>Socket::new(Domain::ipv4(),<span style="color:#bbb"> </span>Type::stream(),<span style="color:#bbb"> </span><span style="color:#007020">None</span>)<span style="color:#666">?</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">  </span>socket.bind(<span style="color:#666">&amp;</span><span style="color:#4070a0">&#34;127.0.0.1:12345&#34;</span>.parse::<span style="color:#666">&lt;</span>SocketAddr<span style="color:#666">&gt;</span>()<span style="color:#666">?</span>.into())<span style="color:#666">?</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">  </span><span style="color:#60a0b0;font-style:italic">// sets the value of the TCP_NODELAY option on this socket
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">  </span>socket.set_nodelay(<span style="color:#007020;font-weight:bold">true</span>)<span style="color:#666">?</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">  </span>socket.listen(<span style="color:#40a070">128</span>)<span style="color:#666">?</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">  </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>listener<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>socket.into_tcp_listener();<span style="color:#bbb">
-</span><span style="color:#bbb">  </span><span style="color:#60a0b0;font-style:italic">// ...
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">  </span><span style="color:#007020">Ok</span>(())<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span></code></pre></div><h2 id="减少系统调用">减少系统调用</h2>
-<p>由于网络接口的调用属于系统调用，会跨越应用程序空间和内核空间的边界，导致应用程序空间和内核空间的上下文切换，因此在希望减少内核调用负载的场景中，可以在应用程序中尽可能使用能支持的最大缓冲区，这样可以最大化一次系统调用能发送或读取的数据量。</p>
-<h2 id="增加内核缓冲区上限">增加内核缓冲区上限</h2>
-<p>在<a href="/posts/dma/">DMA(直接内存访问)和零拷贝</a>中记录过大多数文件系统默认的IO操作都是缓存IO(Buffered I/O)，Socket接口同样如此，如果网络环境足够好，发送、接收双方的处理能力足够好的话，缓冲区的大小会成为网络通信的瓶颈（因为发送、接收窗口的上限就是内核Socket缓冲区大小）。现代的操作系统都可以动态地调整Socket缓冲区大小（如果你在接口调用里强制指定了缓冲区大小，那么内核就不会动态调整了，因此建议不要在接口调用的时候指定，因为网络环境会随时变化），但是会受一些内核参数的约束。在Linux中，发送、接收缓冲区的上限受以下内核参数的影响：</p>
-<pre><code>net.core.wmem_max
-net.core.rmem_max
-</code></pre><p>一般这个上限的理想值是带宽时延积（Bandwidth Delay Product），取决于链路带宽和往返时延（RTT）。如果网络环境较好，你不想浪费你机器的内存，同时你的应用程序效率足够高的话，不妨增加内核缓冲区上限吧！</p>
-<h2 id="利用以太网巨帧">利用以太网巨帧</h2>
-<p>在之前提到，以太网协议需要一帧一帧的发送报文，原因在于信号在链路上传输过程中无法避免信号的丢失或错误，一旦有一个bit信号发生错误，那之后的信号就没有任何意义了。采用以太网帧的方式，可以将这种影响降低，一个以太网帧的错误，不影响其他以太网帧，如果要重传也只需要重传出错的以太网帧。越小的以太网帧，出错的几率越小，但是网络的吞吐量也越小；越大的以太网帧反过来，出错的几率越大，但是网络的吞吐量越大（包含了出错的无效帧）。因此链路上的每一个节点都有一个最大传输单元（MTU），用于限制传输的以太网帧大小，通常该值为1500。</p>
-<p>但是MTU的大小多少最合适，要看所处的网络环境，带宽大小、网络拥堵情况、物理网络硬件性能等。如果是本地内部网络，拥有较好的网络环境，也就是链路信号出错的概率非常低，可以将MTU的值适当地调大，甚至是非常大（即以太网巨帧），可以有效地增加网络吞吐量。</p>
-<section class="footnotes" role="doc-endnotes">
-<hr>
-<ol>
-<li id="fn:1" role="doc-endnote">
-<p>Berkeley套接字 - <a href="https://zh.wikipedia.org/wiki/Berkeley%E5%A5%97%E6%8E%A5%E5%AD%97">维基百科词条</a> <a href="#fnref:1" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
-</li>
-</ol>
-</section>
 
+	
+	
+	<p>
+	  <a href="/posts/socket-optimize/">Read More…</a>
+	</p>
+	
 </article>
 </div>
     <div class="pad"></div>
@@ -1007,217 +333,13 @@ net.core.rmem_max
 </ol>
 <p>但是这个简单的实现并不能很好地应付很多场景，缓存的理想情况是预测未来数据的使用情况，尽可能的从缓存中读取数据，减少实际IO操作。</p>
 <p>今天的记录是关于1个LRU的变种算法：2Q(双链)，该算法在Linux页高速缓存回收中被应用。</p>
-<h1 id="2q双链">2Q(双链)</h1>
-<p>原始LRU算法描述的是数据使用的最近时间点，越靠近头节点的数据使用的时间点越近，但是没有描述数据使用的频率，像对于数据库的遍历操作，新数据会立即将缓存中的所有数据淘汰，但是遍历完后，缓存中的数据在之后使用的概率非常低，即缓存污染。</p>
-<p>2Q淘汰算法是便是对以上情况的一种优化，淘汰策略是使用2个队列实现，1个FIFO队列记录只访问了一次的数据，1个普通LRU队列记录访问了2次以上的数据。</p>
-<ol>
-<li>当第1次访问时，将数据添加到FIFO队列，如果FIFO队列超过限制，淘汰FIFO里最旧的数据</li>
-<li>当第2次访问时，将数据从FIFO队列移动到LRU队列的头节点，如果LRU队列超过限制，将LRU里最旧的数据移动到FIFO队列的头节点</li>
-<li>当第3次以上访问时，按照LRU规则更新LRU队列</li>
-</ol>
-<div class="highlight"><pre style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-rust" data-lang="rust"><span style="color:#007020;font-weight:bold">use</span><span style="color:#bbb"> </span>std::ptr::NonNull;<span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">use</span><span style="color:#bbb"> </span>std::fmt::Debug;<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">struct</span> <span style="color:#0e84b5;font-weight:bold">Node</span><span style="color:#666">&lt;</span>T: <span style="color:#0e84b5;font-weight:bold">Debug</span><span style="color:#666">&gt;</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span>val: <span style="color:#0e84b5;font-weight:bold">T</span>,<span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span>prev: <span style="color:#007020">Option</span><span style="color:#666">&lt;</span>NonNull<span style="color:#666">&lt;</span>Node<span style="color:#666">&lt;</span>T<span style="color:#666">&gt;&gt;&gt;</span>,<span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span>next: <span style="color:#007020">Option</span><span style="color:#666">&lt;</span>NonNull<span style="color:#666">&lt;</span>Node<span style="color:#666">&lt;</span>T<span style="color:#666">&gt;&gt;&gt;</span>,<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">struct</span> <span style="color:#0e84b5;font-weight:bold">List</span><span style="color:#666">&lt;</span>T: <span style="color:#0e84b5;font-weight:bold">Debug</span><span style="color:#666">&gt;</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span>head: <span style="color:#007020">Option</span><span style="color:#666">&lt;</span>NonNull<span style="color:#666">&lt;</span>Node<span style="color:#666">&lt;</span>T<span style="color:#666">&gt;&gt;&gt;</span>,<span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span>tail: <span style="color:#007020">Option</span><span style="color:#666">&lt;</span>NonNull<span style="color:#666">&lt;</span>Node<span style="color:#666">&lt;</span>T<span style="color:#666">&gt;&gt;&gt;</span>,<span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span>len: <span style="color:#902000">usize</span>,<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">impl</span><span style="color:#bbb"> </span><span style="color:#666">&lt;</span>T: <span style="color:#0e84b5;font-weight:bold">Debug</span><span style="color:#666">&gt;</span><span style="color:#bbb"> </span>List<span style="color:#666">&lt;</span>T<span style="color:#666">&gt;</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">new</span>()<span style="color:#bbb"> </span>-&gt; <span style="color:#0e84b5;font-weight:bold">Self</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>Self<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>head: <span style="color:#007020">None</span>,<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>tail: <span style="color:#007020">None</span>,<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>len: <span style="color:#40a070">0</span>,<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">push_front</span>(<span style="color:#666">&amp;</span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>self,<span style="color:#bbb"> </span>val: <span style="color:#0e84b5;font-weight:bold">T</span>)<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>node<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020">Box</span>::new(Node<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>val,<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>prev: <span style="color:#007020">None</span>,<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>next: <span style="color:#0e84b5;font-weight:bold">self</span>.head,<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>});<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>node<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>NonNull::new(<span style="color:#007020">Box</span>::into_raw(node));<span style="color:#bbb">
-</span><span style="color:#bbb">		
-</span><span style="color:#bbb">		</span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(<span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>old_head)<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>self.head<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">			</span><span style="color:#007020;font-weight:bold">unsafe</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">				</span>old_head.as_mut().prev<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>node;<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>}<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">else</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>self.tail<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>node;<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>self.head<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>node;<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>self.len<span style="color:#bbb"> </span><span style="color:#666">+=</span><span style="color:#bbb">  </span><span style="color:#40a070">1</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">push_front_node</span>(<span style="color:#666">&amp;</span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>self,<span style="color:#bbb"> </span>node: <span style="color:#0e84b5;font-weight:bold">NonNull</span><span style="color:#666">&lt;</span>Node<span style="color:#666">&lt;</span>T<span style="color:#666">&gt;&gt;</span>)<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>node<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(node);<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(<span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>old_head)<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>self.head<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">			</span><span style="color:#007020;font-weight:bold">unsafe</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">				</span>old_head.as_mut().prev<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>node;<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>}<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">else</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>self.tail<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>node;<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>self.head<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>node;<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>self.len<span style="color:#bbb"> </span><span style="color:#666">+=</span><span style="color:#bbb">  </span><span style="color:#40a070">1</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">pop_back</span>(<span style="color:#666">&amp;</span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>self)<span style="color:#bbb"> </span>-&gt; <span style="color:#007020">Option</span><span style="color:#666">&lt;</span>NonNull<span style="color:#666">&lt;</span>Node<span style="color:#666">&lt;</span>T<span style="color:#666">&gt;&gt;&gt;</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(<span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>old_tail)<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>self.tail<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">			</span><span style="color:#007020;font-weight:bold">unsafe</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">				</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>tail<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>old_tail.as_mut().prev;<span style="color:#bbb">
-</span><span style="color:#bbb">				</span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(<span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>tail)<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>tail<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">					</span>tail.as_mut().next<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020">None</span>;<span style="color:#bbb">	
-</span><span style="color:#bbb">				</span>}<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">else</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">					</span>self.head<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020">None</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">				</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">				</span>self.tail<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>tail;<span style="color:#bbb">
-</span><span style="color:#bbb">				</span>self.len<span style="color:#bbb"> </span><span style="color:#666">-=</span><span style="color:#bbb"> </span><span style="color:#40a070">1</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">				</span><span style="color:#007020;font-weight:bold">return</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(old_tail);<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020">None</span><span style="color:#bbb">
-</span><span style="color:#bbb">	</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">pub</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">print</span>(<span style="color:#666">&amp;</span>self)<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>cur<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>self.head.as_ref();<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020;font-weight:bold">unsafe</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">			</span><span style="color:#007020;font-weight:bold">while</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(c)<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>cur<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">				</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>r<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>c.as_ref();<span style="color:#bbb">
-</span><span style="color:#bbb">				</span>println<span style="color:#666">!</span>(<span style="color:#4070a0">&#34;{:?}&#34;</span>,<span style="color:#bbb"> </span>r.val);<span style="color:#bbb">
-</span><span style="color:#bbb">				</span>cur<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>r.next.as_ref();<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>}<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">struct</span> <span style="color:#0e84b5;font-weight:bold">TwoQueue</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>fifo: <span style="color:#0e84b5;font-weight:bold">List</span><span style="color:#666">&lt;</span>(<span style="color:#007020">String</span>,<span style="color:#bbb"> </span><span style="color:#902000">i32</span>)<span style="color:#666">&gt;</span>,<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>fifo_limit: <span style="color:#902000">usize</span>,<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>lru: <span style="color:#0e84b5;font-weight:bold">List</span><span style="color:#666">&lt;</span>(<span style="color:#007020">String</span>,<span style="color:#bbb"> </span><span style="color:#902000">i32</span>)<span style="color:#666">&gt;</span>,<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>lru_limit: <span style="color:#902000">usize</span>,<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">impl</span><span style="color:#bbb"> </span>TwoQueue<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">new</span>(fifo_limit: <span style="color:#902000">usize</span>,<span style="color:#bbb"> </span>lru_limit: <span style="color:#902000">usize</span>)<span style="color:#bbb"> </span>-&gt; <span style="color:#0e84b5;font-weight:bold">Self</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>Self<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>fifo: <span style="color:#0e84b5;font-weight:bold">List</span>::new(),<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>fifo_limit,<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>lru: <span style="color:#0e84b5;font-weight:bold">List</span>::new(),<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>lru_limit,<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">	
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">get</span>(<span style="color:#666">&amp;</span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>self,<span style="color:#bbb"> </span>key: <span style="color:#007020">&amp;</span><span style="color:#902000">str</span>)<span style="color:#bbb"> </span>-&gt; <span style="color:#007020">Option</span><span style="color:#666">&lt;</span><span style="color:#902000">i32</span><span style="color:#666">&gt;</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>r<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>self.find_in_lru(key);<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span>r.is_some()<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">			</span><span style="color:#007020;font-weight:bold">return</span><span style="color:#bbb"> </span>r;<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>self.find_in_fifo(key)<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">find_in_fifo</span>(<span style="color:#666">&amp;</span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>self,<span style="color:#bbb"> </span>key: <span style="color:#007020">&amp;</span><span style="color:#902000">str</span>)<span style="color:#bbb"> </span>-&gt; <span style="color:#007020">Option</span><span style="color:#666">&lt;</span><span style="color:#902000">i32</span><span style="color:#666">&gt;</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>cur<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>self.fifo.head;<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020;font-weight:bold">while</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(c0)<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>cur<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">			</span><span style="color:#007020;font-weight:bold">unsafe</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">				</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>c<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#666">&amp;</span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span><span style="color:#666">*</span>c0.as_ptr();<span style="color:#bbb">			
-</span><span style="color:#bbb">				</span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span>c.val.<span style="color:#40a070">0</span><span style="color:#bbb"> </span><span style="color:#666">==</span><span style="color:#bbb"> </span>key<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">					</span><span style="color:#60a0b0;font-style:italic">// 取下
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">					</span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(<span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>p)<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>c.prev<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">						</span>p.as_mut().next<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>c.next;<span style="color:#bbb">
-</span><span style="color:#bbb">					</span>}<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">else</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">						</span>self.fifo.head<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>c.next;<span style="color:#bbb">
-</span><span style="color:#bbb">					</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">					</span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(<span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>n)<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>c.next<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">						</span>n.as_mut().prev<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>c.prev;<span style="color:#bbb">
-</span><span style="color:#bbb">					</span>}<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">else</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">						</span>self.fifo.tail<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>c.prev;<span style="color:#bbb">
-</span><span style="color:#bbb">					</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">					</span>self.fifo.len<span style="color:#bbb"> </span><span style="color:#666">-=</span><span style="color:#bbb"> </span><span style="color:#40a070">1</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">					</span><span style="color:#60a0b0;font-style:italic">// 移动到lru队列
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">					</span>self.lru.push_front_node(c0);<span style="color:#bbb">
-</span><span style="color:#bbb">					</span><span style="color:#60a0b0;font-style:italic">// 检查lru是否满
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">					</span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span>self.lru.len<span style="color:#bbb"> </span><span style="color:#666">&gt;</span><span style="color:#bbb"> </span>self.lru_limit<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">						</span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(node_from_lru)<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>self.lru.pop_back()<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">							</span>self.fifo.push_front_node(node_from_lru);<span style="color:#bbb">
-</span><span style="color:#bbb">						</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">					</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">					</span><span style="color:#60a0b0;font-style:italic">// 返回
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">					</span><span style="color:#007020;font-weight:bold">return</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(c.val.<span style="color:#40a070">1</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">				</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">				</span>cur<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>c.next;<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020">None</span><span style="color:#bbb">
-</span><span style="color:#bbb">	</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">find_in_lru</span>(<span style="color:#666">&amp;</span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>self,<span style="color:#bbb"> </span>key: <span style="color:#007020">&amp;</span><span style="color:#902000">str</span>)<span style="color:#bbb"> </span>-&gt; <span style="color:#007020">Option</span><span style="color:#666">&lt;</span><span style="color:#902000">i32</span><span style="color:#666">&gt;</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>cur<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>self.lru.head;<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020;font-weight:bold">while</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(c0)<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>cur<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">			</span><span style="color:#007020;font-weight:bold">unsafe</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">				</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>c<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#666">&amp;</span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span><span style="color:#666">*</span>c0.as_ptr();<span style="color:#bbb">
-</span><span style="color:#bbb">				</span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span>c.val.<span style="color:#40a070">0</span><span style="color:#bbb"> </span><span style="color:#666">==</span><span style="color:#bbb"> </span>key<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">					</span><span style="color:#60a0b0;font-style:italic">// 取下
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">					</span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(<span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>p)<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>c.prev<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">						</span>p.as_mut().next<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>c.next;<span style="color:#bbb">
-</span><span style="color:#bbb">					</span>}<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">else</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">						</span>self.lru.head<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>c.next;<span style="color:#bbb">
-</span><span style="color:#bbb">					</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">					</span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(<span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>n)<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>c.next<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">						</span>n.as_mut().prev<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>c.prev;<span style="color:#bbb">
-</span><span style="color:#bbb">					</span>}<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">else</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">						</span>self.lru.tail<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>c.prev;<span style="color:#bbb">
-</span><span style="color:#bbb">					</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">					</span><span style="color:#60a0b0;font-style:italic">// 移动至头节点
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">					</span>c.prev<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020">None</span>;<span style="color:#bbb">
-</span><span style="color:#bbb">					</span>c.next<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>self.lru.head;<span style="color:#bbb">
-</span><span style="color:#bbb">					</span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(<span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>h)<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>self.lru.head<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">						</span>h.as_mut().prev<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(c0);<span style="color:#bbb">
-</span><span style="color:#bbb">					</span>}<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">else</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">						</span>self.lru.tail<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(c0);<span style="color:#bbb">
-</span><span style="color:#bbb">					</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">					</span>self.lru.head<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(c0);<span style="color:#bbb">
-</span><span style="color:#bbb">					</span><span style="color:#60a0b0;font-style:italic">// 返回
-</span><span style="color:#60a0b0;font-style:italic"></span><span style="color:#bbb">					</span><span style="color:#007020;font-weight:bold">return</span><span style="color:#bbb"> </span><span style="color:#007020">Some</span>(c.val.<span style="color:#40a070">1</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">				</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">				</span>cur<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>c.next;<span style="color:#bbb">
-</span><span style="color:#bbb">			</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020">None</span><span style="color:#bbb">
-</span><span style="color:#bbb">	</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">put</span>(<span style="color:#666">&amp;</span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>self,<span style="color:#bbb"> </span>key: <span style="color:#007020">String</span>,<span style="color:#bbb"> </span>val: <span style="color:#902000">i32</span>)<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>self.fifo.push_front((key,<span style="color:#bbb"> </span>val));<span style="color:#bbb">
-</span><span style="color:#bbb">		</span><span style="color:#007020;font-weight:bold">if</span><span style="color:#bbb"> </span>self.fifo.len<span style="color:#bbb"> </span><span style="color:#666">&gt;</span><span style="color:#bbb"> </span>self.fifo_limit<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">			</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span>_<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>self.fifo.pop_back();<span style="color:#bbb">
-</span><span style="color:#bbb">		</span>}<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>}<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020">#[test]</span><span style="color:#bbb">
-</span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">fn</span> <span style="color:#06287e">two_queue</span>()<span style="color:#bbb"> </span>{<span style="color:#bbb">
-</span><span style="color:#bbb">	</span><span style="color:#007020;font-weight:bold">let</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">mut</span><span style="color:#bbb"> </span>tq<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>TwoQueue::new(<span style="color:#40a070">3</span>,<span style="color:#bbb"> </span><span style="color:#40a070">3</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>tq.put(<span style="color:#4070a0">&#34;a&#34;</span>.into(),<span style="color:#bbb"> </span><span style="color:#40a070">1</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>tq.put(<span style="color:#4070a0">&#34;b&#34;</span>.into(),<span style="color:#bbb"> </span><span style="color:#40a070">2</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>tq.put(<span style="color:#4070a0">&#34;c&#34;</span>.into(),<span style="color:#bbb"> </span><span style="color:#40a070">3</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>tq.put(<span style="color:#4070a0">&#34;d&#34;</span>.into(),<span style="color:#bbb"> </span><span style="color:#40a070">4</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>tq.get(<span style="color:#4070a0">&#34;b&#34;</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>println<span style="color:#666">!</span>(<span style="color:#4070a0">&#34;fifo&#34;</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>tq.fifo.print();<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>println<span style="color:#666">!</span>(<span style="color:#4070a0">&#34;lru&#34;</span>);<span style="color:#bbb">
-</span><span style="color:#bbb">	</span>tq.lru.print();<span style="color:#bbb">
-</span><span style="color:#bbb"></span>}<span style="color:#bbb">
-</span></code></pre></div><p>- 完</p>
 
+	
+	
+	<p>
+	  <a href="/posts/two-queue/">Read More…</a>
+	</p>
+	
 </article>
 </div>
     <div class="pad"></div>
@@ -1251,29 +373,13 @@ net.core.rmem_max
 <blockquote>
 <p>Linux与Microsoft Windows等操作系统不同，并没有单独的线程机制，一组线程仅仅是共享了虚拟内存地址空间、打开的文件等资源的进程。</p>
 </blockquote>
-<h1 id="linux进程调度">Linux进程调度</h1>
-<p>操作系统的一个重要职责是将有限的资源通过特定的机制分配给多个用户使用，这里的资源包括CPU、内存、IO等，用户既可以指操作计算机的人，而人是给计算机下达任务的，因此更宽泛地指任务，也就是进程。</p>
-<p>由于实际场景中，进程的数量是大于CPU处理器数量，多任务就是指同时并发地让进程交替使用CPU资源，让进程产生自己独占CPU的错觉，虚拟内存也是同理。</p>
-<p>抢占(preemptoin)就是指不需要经过进程主动出让，内核调度器可以强制让进程让出CPU资源，然后去执行其他进程。</p>
-<blockquote>
-<p>与抢占式多任务相对应的，叫做协作式(cooperative)多任务，Go的goroutine便是一个应用范例。</p>
-</blockquote>
-<p>由于本篇日志的主题是进程调度与定时器的关系，所以抢占(preemptoin)便是这里的切入点。</p>
-<p>由于进程正在执行代码，内核如果要去执行抢占操作，比如执行 schedule()，那必然需要去执行内核代码，而这里触发执行内核代码的其中之一，便是定时器中断。</p>
-<p>不论是最早的Unix调度算法，2.5内核版本的O(1)调度算法，以及2.6之后出现的CFS完全公平调度算法，其中计算进程已经消耗的时间片(timeslice)都依赖于计算机的时间概念，而计算机的时间概念也是通过定时器实现的。</p>
-<h1 id="定时器">定时器</h1>
-<p>系统定时器是一种可编程硬件芯片，它能以固定的频率产生中断，这就是定时器中断。如果该中断信号没有被屏蔽，CPU便会去执行对应的中断处理程序，就可以去执行一些需要定时执行的代码，包括：</p>
-<ol>
-<li>更新系统运行的时间</li>
-<li>更新实际时间</li>
-<li>在SMP(对称多处理器)系统上，均衡各个处理器上的运行队列</li>
-<li>检查当前进程是否用尽了时间片，如果用尽了则重新调度</li>
-<li>运行已经超时的动态定时器</li>
-<li>更新资源消耗、处理器时间的统计信息</li>
-</ol>
-<p>系统在启动时，便会根据系统定时器的节拍率设置硬件。在x86体系结构中，系统定时器的默认节拍率是100HZ，也就是说每秒会触发100次定时器中断。该值可以自定义，越高产生中断的频率就越高，时钟中断的解析度也越高，像poll()和select()等系统调用的精度也越高，同理进程消耗的时间片计算和调度时机也更精确。</p>
-<p>但是高节拍率也会带来副作用，意味着执行定时器中断处理程序的次数更多，这不但减少了执行其他任务的时间，同时还会打乱处理器的高速缓存（高速缓存依赖于空间和时间局部性）和增加耗电。</p>
 
+	
+	
+	<p>
+	  <a href="/posts/sched-and-timer/">Read More…</a>
+	</p>
+	
 </article>
 </div>
     <div class="pad"></div>
@@ -1307,37 +413,13 @@ net.core.rmem_max
 <p>许多设备都可以临时控制总线。这些设备可以执行涉及主内存和其他设备的数据传送。由于设备执行这些操作的过程中无需借助于 CPU，因此该类型的数据传送称为直接内存访问 (direct memory access, DMA)。<sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup></p>
 </blockquote>
 <p>大多数文件系统默认的IO操作都是缓存IO(Buffered I/O)，对于读(Read)操作，即IO设备先把数据发送到内核缓存区(Page Cache)，内核再将数据拷贝到应用程序地址空间的数据缓存区，而对于写(Write)操作，即反过来，从应用程序地址空间的数据缓存区拷贝到内核缓存区，内核再将数据发送到IO设备。</p>
-<p>缓存IO的优势：</p>
-<ol>
-<li>可以利用内核缓存，如果数据已经在页缓存内，则不需要再读取IO设备，直接返回页缓存中的数据</li>
-<li>对于写操作，应用程序只需要将数据拷贝到内核缓冲区即可返回，接下来应用程序缓冲区可以再次使用，而不需要等内核将数据写到IO设备(依赖于应用程序采用的写操作机制)。在一些场景下，比如应用程序每次只写1Byte，缓存IO可以将多次的写操作合并成一次IO写操作，有效地减少了IO操作次数，从而提供系统性能</li>
-</ol>
-<p>缓存IO的劣势：</p>
-<ol>
-<li>数据从IO设备到应用程序地址空间需要经过内核缓冲区的中转，也就是拷贝操作，这些拷贝操作会消耗CPU，增加了系统负载。在某些场景下，比如网络文件服务，数据到达应用程序缓冲区后，又会原样的再次拷贝到内核缓冲区以发送到IO设备，这里的中转次数又增加了一倍</li>
-<li>用于中转的缓冲区，不论是应用程序地址空间，还是内核空间，都会占用内存，加大了空间消耗</li>
-</ol>
-<h1 id="零拷贝">零拷贝</h1>
-<p>在一些场景下，我们需要减少数据拷贝的次数，以提高系统性能，零拷贝技术便是用来解决这个问题。在Linux操作系统中，有以下几种方式来实现零拷贝：</p>
-<h4 id="内存映射mmap">内存映射（mmap)</h4>
-<p>mmap机制是先将数据从IO设备读取到内核缓冲区，然后通过应用程序地址空间和内核共享该内核缓冲区，这样就不需要拷贝了。</p>
-<p>但是这里也会带来一次虚拟存储操作，而虚拟存储操作需要修改页表以及冲刷TLB(translate lookaside buffer，翻译后缓冲器)来维持存储的一致性，这里的开销也不小，但是如果传输的数据较大，那还是值得的。</p>
-<h4 id="sendfile">sendfile</h4>
-<p>mmap会有虚拟转储开销，同时如果是发送网络数据的话，还需要把数据从内核缓冲区发送到socket缓冲区，最后发送到协议引擎中去，这里还是会有拷贝操作(内核拷贝)。sendfile机制可以再进一步的减少拷贝次数，同时避免虚拟转储操作。</p>
-<p>sendfile利用DMA引擎将数据拷贝到内核缓冲区中，然后将带有文件位置和长度信息的缓冲区描述符添加到socket缓冲区中(这里不需要拷贝完整的数据)，DMA引擎将直接从内核缓冲区拷贝到协议引擎中去，这里避免了内核缓冲区到socket缓冲区的拷贝，同时没有映射内存。</p>
-<h1 id="dma直接内存访问">DMA（直接内存访问）</h1>
-<p>前面提到了零拷贝技术中应用了DMA，可以跳过应用程序地址空间的中转，但是如果应用需要读取或修改数据呢？这时DMA也可以跳过内核缓冲区，实现数据从IO设备到用户地址空间的直接数据交换。</p>
-<p>像数据库管理系统，希望自己管理页缓存，因为数据库知道自己存储的是什么数据，该如何换页等等。比如在提交事务时，需要redo log写入磁盘，才算事务提交完成，而buffer pool中的脏页并不需要立即写入磁盘，可以在换页时或者定时写入；在换页的时候，决定哪些页需要从buffer pool中换出，需要根据数据库自己的机制判断，依赖操作系统的换页机制将大大降低数据库系统的性能。</p>
-<p>当然并不是所有地址空间都支持DMA，受限与硬件，在Linux中，只有ZONE_DMA区的内存可支持DMA操作，详情可参考Linux内存管理。</p>
-<section class="footnotes" role="doc-endnotes">
-<hr>
-<ol>
-<li id="fn:1" role="doc-endnote">
-<p>第 9 章 直接内存访问 (Direct Memory Access, DMA) - <a href="https://docs.oracle.com/cd/E19253-01/819-7057/dma-29901/index.html">docs.oracle.com</a> <a href="#fnref:1" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
-</li>
-</ol>
-</section>
 
+	
+	
+	<p>
+	  <a href="/posts/dma/">Read More…</a>
+	</p>
+	
 </article>
 </div>
     <div class="pad"></div>

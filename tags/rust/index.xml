@@ -17,14 +17,15 @@
       <pubDate>Sat, 27 Jun 2020 17:22:04 +0800</pubDate>
       
       <guid>/posts/rust-procedural-macro-1/</guid>
-      <description>Rust宏 宏属于元编程，用于生成代码，减少重复代码的编写，同时不同于运行时反射，宏会在编译时被展开，没有运行时开销。在Rust中，宏大体分为2类：声明宏和过程宏。
-声明宏较为简单，类似模式匹配，利用递归和替换把重复的代码片段隐藏起来，典型的实现是标准库中 vec!，println!。
-过程宏则稍微复杂，但是功能强大的多，可以精确地控制语法树的生成。同时过程宏使用Rust代码编写，灵活性和表达能力丰富。过程宏经常被用于3种情景下：
- 自动实现 trait，使用 derive 派生宏 装饰 field 或 函数，使用 attribute 属性宏 实现 DSL，使用 function 函数宏  过程宏的编写 过程宏的构建有特殊的规则，过程宏的定义必须置于独立的 crate 中，并且需要指明 lib 开启 proc-macro 。
-首先创建一个 mymacro 的 lib 项目：
-$ cargo new mymacro --lib 然后再在 mymacro 内创建个 mymacro_derive 的 lib 项目：
-$ cd mymacro $ cargo new mymacro_derive --lib 在 mymacro/Cargo.toml 内添加 mymacro_derive 的依赖：
-[dependencies] mymacro_derive = { path = &amp;#34;mymacro_derive&amp;#34; } 在 mymacro/mymacro_derive/Cargo.toml 内开启 proc-macro：</description>
+      <description>&lt;h3 id=&#34;rust宏&#34;&gt;Rust宏&lt;/h3&gt;
+&lt;p&gt;宏属于元编程，用于生成代码，减少重复代码的编写，同时不同于运行时反射，宏会在编译时被展开，没有运行时开销。在Rust中，宏大体分为2类：声明宏和过程宏。&lt;/p&gt;
+&lt;p&gt;声明宏较为简单，类似模式匹配，利用递归和替换把重复的代码片段隐藏起来，典型的实现是标准库中 &lt;code&gt;vec!&lt;/code&gt;，&lt;code&gt;println!&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;过程宏则稍微复杂，但是功能强大的多，可以精确地控制语法树的生成。同时过程宏使用Rust代码编写，灵活性和表达能力丰富。过程宏经常被用于3种情景下：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;自动实现 &lt;code&gt;trait&lt;/code&gt;，使用 &lt;code&gt;derive&lt;/code&gt; 派生宏&lt;/li&gt;
+&lt;li&gt;装饰 &lt;code&gt;field&lt;/code&gt; 或 函数，使用 &lt;code&gt;attribute&lt;/code&gt; 属性宏&lt;/li&gt;
+&lt;li&gt;实现 &lt;code&gt;DSL&lt;/code&gt;，使用 &lt;code&gt;function&lt;/code&gt; 函数宏&lt;/li&gt;
+&lt;/ol&gt;</description>
     </item>
     
     <item>
@@ -33,12 +34,24 @@ $ cd mymacro $ cargo new mymacro_derive --lib 在 mymacro/Cargo.toml 内添加 m
       <pubDate>Tue, 23 Jun 2020 22:59:21 +0800</pubDate>
       
       <guid>/posts/rust-closure/</guid>
-      <description>闭包(Closure)的实现原理 闭包在调用形式上和函数非常相似：
- 传递参数 执行一段代码 返回结果  但是闭包可以捕获当前上下文环境中的变量，而函数不可以（访问全局静态变量除外，但是这和闭包的实现完全不一样）。
-闭包的创建和调用：
-letenv_var=1;letfn1=|x|x+env_var;letresult1=fn1(2);assert_eq!(result1,3);letresult2=fn1(3);assert_eq!(result2,4);编译器在编译过程中会创建对应的匿名结构，并根据需要实现三个 trait：FnOnce、FnMut、Fn ，而闭包的创建就是该匿名结构的实例化，闭包调用则是3个 trait 的方法调用。
-以下是3个 trait 的定义：
-pubtraitFnOnce&amp;lt;Args&amp;gt;{/// The returned type after the call operator is used. #[stable(feature = &amp;#34;fn_once_output&amp;#34;, since = &amp;#34;1.12.0&amp;#34;)]type Output;/// Performs the call operation. #[unstable(feature = &amp;#34;fn_traits&amp;#34;, issue = &amp;#34;29625&amp;#34;)]extern&amp;#34;rust-call&amp;#34;fn call_once(self,args: Args)-&amp;gt; Self::Output;}pubtraitFnMut&amp;lt;Args&amp;gt;: FnOnce&amp;lt;Args&amp;gt;{/// Performs the call operation. #[unstable(feature = &amp;#34;fn_traits&amp;#34;, issue = &amp;#34;29625&amp;#34;)]extern&amp;#34;rust-call&amp;#34;fn call_mut(&amp;amp;mutself,args: Args)-&amp;gt; Self::Output;}pubtraitFn&amp;lt;Args&amp;gt;: FnMut&amp;lt;Args&amp;gt;{/// Performs the call operation. #[unstable(feature = &amp;#34;fn_traits&amp;#34;, issue = &amp;#34;29625&amp;#34;)]extern&amp;#34;rust-call&amp;#34;fn call(&amp;amp;self,args: Args)-&amp;gt; Self::Output;}其中 Args 为闭包参数类型，使用元组 ( Tuple) 来表示参数列表，Output 是返回值类型。</description>
+      <description>&lt;h3 id=&#34;闭包closure的实现原理&#34;&gt;闭包(Closure)的实现原理&lt;/h3&gt;
+&lt;p&gt;闭包在调用形式上和函数非常相似：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;传递参数&lt;/li&gt;
+&lt;li&gt;执行一段代码&lt;/li&gt;
+&lt;li&gt;返回结果&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;但是闭包可以捕获当前上下文环境中的变量，而函数不可以（访问全局静态变量除外，但是这和闭包的实现完全不一样）。&lt;/p&gt;
+&lt;p&gt;闭包的创建和调用：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-rust&#34; data-lang=&#34;rust&#34;&gt;&lt;span style=&#34;color:#007020;font-weight:bold&#34;&gt;let&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;env_var&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;&lt;span style=&#34;color:#666&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;&lt;span style=&#34;color:#40a070&#34;&gt;1&lt;/span&gt;;&lt;span style=&#34;color:#bbb&#34;&gt;
+&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#007020;font-weight:bold&#34;&gt;let&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;fn1&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;&lt;span style=&#34;color:#666&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;&lt;span style=&#34;color:#666&#34;&gt;|&lt;/span&gt;x&lt;span style=&#34;color:#666&#34;&gt;|&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;x&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;&lt;span style=&#34;color:#666&#34;&gt;+&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;env_var;&lt;span style=&#34;color:#bbb&#34;&gt;
+&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt;
+&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#007020;font-weight:bold&#34;&gt;let&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;result1&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;&lt;span style=&#34;color:#666&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;fn1(&lt;span style=&#34;color:#40a070&#34;&gt;2&lt;/span&gt;);&lt;span style=&#34;color:#bbb&#34;&gt;
+&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt;&lt;/span&gt;assert_eq&lt;span style=&#34;color:#666&#34;&gt;!&lt;/span&gt;(result1,&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;&lt;span style=&#34;color:#40a070&#34;&gt;3&lt;/span&gt;);&lt;span style=&#34;color:#bbb&#34;&gt;
+&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt;
+&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt;&lt;/span&gt;&lt;span style=&#34;color:#007020;font-weight:bold&#34;&gt;let&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;result2&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;&lt;span style=&#34;color:#666&#34;&gt;=&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;fn1(&lt;span style=&#34;color:#40a070&#34;&gt;3&lt;/span&gt;);&lt;span style=&#34;color:#bbb&#34;&gt;
+&lt;/span&gt;&lt;span style=&#34;color:#bbb&#34;&gt;&lt;/span&gt;assert_eq&lt;span style=&#34;color:#666&#34;&gt;!&lt;/span&gt;(result2,&lt;span style=&#34;color:#bbb&#34;&gt; &lt;/span&gt;&lt;span style=&#34;color:#40a070&#34;&gt;4&lt;/span&gt;);&lt;span style=&#34;color:#bbb&#34;&gt;
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;</description>
     </item>
     
     <item>
@@ -47,18 +60,7 @@ pubtraitFnOnce&amp;lt;Args&amp;gt;{/// The returned type after the call operator
       <pubDate>Thu, 21 May 2020 21:58:01 +0800</pubDate>
       
       <guid>/posts/socket-optimize/</guid>
-      <description>TCP/IP协议栈是计算机网络的基础通信架构，其中IP协议完成了跨链路的路由、寻址，TCP协议完成了面向连接的可靠字节流抽象，提供数据的分段、重传、重组，流量控制和拥塞控制，使得建立在TCP/IP协议之上的应用协议不用再关心各种硬件、网络环境，TCP/IP协议是今天的互联网的基石。
-网络套接字Socket Socket是操作系统用于网络编程的应用程序接口（API），可支持多种协议，现代常见的Socket套接字接口（Unix Socket、Windows Socket等）都源自Berkeley套接字1。接口实现用于TCP/IP协议，因此它是维持Internet的基本技术之一。同时也被用于Unix域套接字（Unix domain sockets），可实现在单机上为进程间通讯（IPC）的接口。
-不同的Socket应用程序除了满足最基本的通信需求外，也会有一些根据业务相关的特殊需求，本篇记录关于几个Linux下网络Socket应用的优化技巧：
-低延迟需求 由于TCP协议是面向字节流的协议，但是用于承载TCP的底层协议无法直接支持字节流，以太网协议需要一帧一帧地发送，一次发送的最大字节数受限于MTU；IP协议虽然支持数据的分包发送，但是大多数情况下我们需要避免IP协议分包，因为这会影响中间跳点的处理性能，所以TCP协议引入了分段（Segment）机制，在TCP层对数据进行拆分，保证IP数据包都是完整的。而通常情况下，我们希望每次发送的数据尽可能的多，也就是正好填满IP数据包，以此减少网络传输的次数（包括发送与接收方确认的次数），同时减少了总的包头数据量，以此提高整体的网络吞吐量。
-Nagle算法实现了对数据的合并，该算法会把多个小的数据合并成一个完整的报文段，以此最大化报文段，减少在线路上传输报文的次数，但是同时也会带来延迟，因为写入缓冲区的数据并不会马上发送出去。在低延迟需求的应用中，可以禁用Nagle算法：
-usestd::net::SocketAddr;usesocket2::{Socket,Domain,Type};useanyhow::Result;fn no_delay()-&amp;gt; Result&amp;lt;()&amp;gt;{// create a TCP listener bound to two addresses letsocket=Socket::new(Domain::ipv4(),Type::stream(),None)?;socket.bind(&amp;amp;&amp;#34;127.0.0.1:12345&amp;#34;.parse::&amp;lt;SocketAddr&amp;gt;()?.into())?;// sets the value of the TCP_NODELAY option on this socket socket.set_nodelay(true)?;socket.listen(128)?;letlistener=socket.into_tcp_listener();// ... Ok(())}减少系统调用 由于网络接口的调用属于系统调用，会跨越应用程序空间和内核空间的边界，导致应用程序空间和内核空间的上下文切换，因此在希望减少内核调用负载的场景中，可以在应用程序中尽可能使用能支持的最大缓冲区，这样可以最大化一次系统调用能发送或读取的数据量。
-增加内核缓冲区上限 在DMA(直接内存访问)和零拷贝中记录过大多数文件系统默认的IO操作都是缓存IO(Buffered I/O)，Socket接口同样如此，如果网络环境足够好，发送、接收双方的处理能力足够好的话，缓冲区的大小会成为网络通信的瓶颈（因为发送、接收窗口的上限就是内核Socket缓冲区大小）。现代的操作系统都可以动态地调整Socket缓冲区大小（如果你在接口调用里强制指定了缓冲区大小，那么内核就不会动态调整了，因此建议不要在接口调用的时候指定，因为网络环境会随时变化），但是会受一些内核参数的约束。在Linux中，发送、接收缓冲区的上限受以下内核参数的影响：
-net.core.wmem_max net.core.rmem_max 一般这个上限的理想值是带宽时延积（Bandwidth Delay Product），取决于链路带宽和往返时延（RTT）。如果网络环境较好，你不想浪费你机器的内存，同时你的应用程序效率足够高的话，不妨增加内核缓冲区上限吧！
-利用以太网巨帧 在之前提到，以太网协议需要一帧一帧的发送报文，原因在于信号在链路上传输过程中无法避免信号的丢失或错误，一旦有一个bit信号发生错误，那之后的信号就没有任何意义了。采用以太网帧的方式，可以将这种影响降低，一个以太网帧的错误，不影响其他以太网帧，如果要重传也只需要重传出错的以太网帧。越小的以太网帧，出错的几率越小，但是网络的吞吐量也越小；越大的以太网帧反过来，出错的几率越大，但是网络的吞吐量越大（包含了出错的无效帧）。因此链路上的每一个节点都有一个最大传输单元（MTU），用于限制传输的以太网帧大小，通常该值为1500。
-但是MTU的大小多少最合适，要看所处的网络环境，带宽大小、网络拥堵情况、物理网络硬件性能等。如果是本地内部网络，拥有较好的网络环境，也就是链路信号出错的概率非常低，可以将MTU的值适当地调大，甚至是非常大（即以太网巨帧），可以有效地增加网络吞吐量。
-  Berkeley套接字 - 维基百科词条 &amp;#x21a9;&amp;#xfe0e;
-   </description>
+      <description>&lt;p&gt;TCP/IP协议栈是计算机网络的基础通信架构，其中IP协议完成了跨链路的路由、寻址，TCP协议完成了面向连接的可靠字节流抽象，提供数据的分段、重传、重组，流量控制和拥塞控制，使得建立在TCP/IP协议之上的应用协议不用再关心各种硬件、网络环境，TCP/IP协议是今天的互联网的基石。&lt;/p&gt;</description>
     </item>
     
     <item>
@@ -67,12 +69,14 @@ net.core.wmem_max net.core.rmem_max 一般这个上限的理想值是带宽时�
       <pubDate>Tue, 19 May 2020 00:00:00 +0000</pubDate>
       
       <guid>/posts/two-queue/</guid>
-      <description>LRU(最近使用)算法经常用于缓存应用中，最简单的实现是通过一个链表实现：
- 插入数据时向头节点插入 更新数据时，移动节点到头节点 淘汰数据时删除尾节点  但是这个简单的实现并不能很好地应付很多场景，缓存的理想情况是预测未来数据的使用情况，尽可能的从缓存中读取数据，减少实际IO操作。
-今天的记录是关于1个LRU的变种算法：2Q(双链)，该算法在Linux页高速缓存回收中被应用。
-2Q(双链) 原始LRU算法描述的是数据使用的最近时间点，越靠近头节点的数据使用的时间点越近，但是没有描述数据使用的频率，像对于数据库的遍历操作，新数据会立即将缓存中的所有数据淘汰，但是遍历完后，缓存中的数据在之后使用的概率非常低，即缓存污染。
-2Q淘汰算法是便是对以上情况的一种优化，淘汰策略是使用2个队列实现，1个FIFO队列记录只访问了一次的数据，1个普通LRU队列记录访问了2次以上的数据。
- 当第1次访问时，将数据添加到FIFO队列，如果FIFO队列超过限制，淘汰FIFO里最旧的数据 当第2次访问时，将数据从FIFO队列移动到LRU队列的头节点，如果LRU队列超过限制，将LRU里最旧的数据移动到FIFO队列的头节点 当第3次以上访问时，按照LRU规则更新LRU队列  usestd::ptr::NonNull;usestd::fmt::Debug;pubstruct Node&amp;lt;T: Debug&amp;gt;{pubval: T,pubprev: Option&amp;lt;NonNull&amp;lt;Node&amp;lt;T&amp;gt;&amp;gt;&amp;gt;,pubnext: Option&amp;lt;NonNull&amp;lt;Node&amp;lt;T&amp;gt;&amp;gt;&amp;gt;,}pubstruct List&amp;lt;T: Debug&amp;gt;{pubhead: Option&amp;lt;NonNull&amp;lt;Node&amp;lt;T&amp;gt;&amp;gt;&amp;gt;,pubtail: Option&amp;lt;NonNull&amp;lt;Node&amp;lt;T&amp;gt;&amp;gt;&amp;gt;,publen: usize,}impl&amp;lt;T: Debug&amp;gt;List&amp;lt;T&amp;gt;{pubfn new()-&amp;gt; Self{Self{head: None,tail: None,len: 0,}}pubfn push_front(&amp;amp;mutself,val: T){letnode=Box::new(Node{val,prev: None,next: self.head,});letnode=NonNull::new(Box::into_raw(node));ifletSome(mutold_head)=self.head{unsafe{old_head.as_mut().prev=node;}}else{self.tail=node;}self.head=node;self.len+=1;}pubfn push_front_node(&amp;amp;mutself,node: NonNull&amp;lt;Node&amp;lt;T&amp;gt;&amp;gt;){letnode=Some(node);ifletSome(mutold_head)=self.head{unsafe{old_head.as_mut().prev=node;}}else{self.tail=node;}self.head=node;self.len+=1;}pubfn pop_back(&amp;amp;mutself)-&amp;gt; Option&amp;lt;NonNull&amp;lt;Node&amp;lt;T&amp;gt;&amp;gt;&amp;gt;{ifletSome(mutold_tail)=self.tail{unsafe{lettail=old_tail.as_mut().prev;ifletSome(muttail)=tail{tail.as_mut().next=None;}else{self.head=None;}self.tail=tail;self.len-=1;returnSome(old_tail);}}None}pubfn print(&amp;amp;self){letmutcur=self.head.as_ref();unsafe{whileletSome(c)=cur{letr=c.as_ref();println!(&amp;#34;{:?}&amp;#34;,r.val);cur=r.next.as_ref();}}}}struct TwoQueue{fifo: List&amp;lt;(String,i32)&amp;gt;,fifo_limit: usize,lru: List&amp;lt;(String,i32)&amp;gt;,lru_limit: usize,}implTwoQueue{fn new(fifo_limit: usize,lru_limit: usize)-&amp;gt; Self{Self{fifo: List::new(),fifo_limit,lru: List::new(),lru_limit,}}fn get(&amp;amp;mutself,key: &amp;amp;str)-&amp;gt; Option&amp;lt;i32&amp;gt;{letr=self.find_in_lru(key);ifr.is_some(){returnr;}self.find_in_fifo(key)}fn find_in_fifo(&amp;amp;mutself,key: &amp;amp;str)-&amp;gt; Option&amp;lt;i32&amp;gt;{letmutcur=self.fifo.head;whileletSome(c0)=cur{unsafe{letc=&amp;amp;mut*c0.as_ptr();ifc.val.0==key{// 取下 ifletSome(mutp)=c.prev{p.as_mut().next=c.next;}else{self.fifo.head=c.next;}ifletSome(mutn)=c.next{n.as_mut().prev=c.prev;}else{self.fifo.tail=c.prev;}self.fifo.len-=1;// 移动到lru队列 self.lru.push_front_node(c0);// 检查lru是否满 ifself.lru.len&amp;gt;self.lru_limit{ifletSome(node_from_lru)=self.lru.pop_back(){self.fifo.push_front_node(node_from_lru);}}// 返回 returnSome(c.val.1);}cur=c.next;}}None}fn find_in_lru(&amp;amp;mutself,key: &amp;amp;str)-&amp;gt; Option&amp;lt;i32&amp;gt;{letmutcur=self.lru.head;whileletSome(c0)=cur{unsafe{letc=&amp;amp;mut*c0.as_ptr();ifc.val.0==key{// 取下 ifletSome(mutp)=c.</description>
+      <description>&lt;p&gt;LRU(最近使用)算法经常用于缓存应用中，最简单的实现是通过一个链表实现：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;插入数据时向头节点插入&lt;/li&gt;
+&lt;li&gt;更新数据时，移动节点到头节点&lt;/li&gt;
+&lt;li&gt;淘汰数据时删除尾节点&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;但是这个简单的实现并不能很好地应付很多场景，缓存的理想情况是预测未来数据的使用情况，尽可能的从缓存中读取数据，减少实际IO操作。&lt;/p&gt;
+&lt;p&gt;今天的记录是关于1个LRU的变种算法：2Q(双链)，该算法在Linux页高速缓存回收中被应用。&lt;/p&gt;</description>
     </item>
     
   </channel>

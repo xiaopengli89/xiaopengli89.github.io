@@ -17,11 +17,22 @@
       <pubDate>Sun, 24 May 2020 14:50:06 +0800</pubDate>
       
       <guid>/posts/go-mysql-driver-race/</guid>
-      <description>在关于Go Mysql Driver的unexpected EOF错误里提到了连接池，当连接使用完毕后会放回连接池以便其他的操作可以复用这条连接。这里的使用完毕有非常明确的定义：发送缓冲区中不再有未发送的指令，接收缓冲区不再有未接收的数据，下次能读取的数据必须是下一次发送的指令的响应。
-通常情况下的SQL操作如下：
-rows, err := db.Query(&amp;#34;SELECT a, b FROM some_table&amp;#34;) if err != nil { return err } defer rows.Close() for rows.Next() { var a, b string if err := rows.Scan(&amp;amp;a, &amp;amp;b); err != nil { return err } // ... }  db.Query 返回一个 Rows 游标对象 注册一个 rows.Close 延迟函数用于关闭 Rows 对象 通过 rows.Next 迭代器读取每一行数据 通过 rows.Scan 将当前行的数据存入声明的变量中  整个代码片段会有2种结果
- 读取了所有数据 未读取或读取了部分数据，然后发生错误  第一种情况由于读取了所有数据，满足使用完毕的条件，可以放回连接池；第二种情况，由于发生了错误，连接失效，后续会重新打开新连接，新连接自然是满足使用完毕条件的。
-如果在 rows.Next 迭代器中，中途退出（未发生错误的情况下），那接收缓冲区中还有未读取的数据，因此对应的SQL驱动需要在 rows.</description>
+      <description>&lt;p&gt;在&lt;a href=&#34;/posts/go-mysql-driver-eof/&#34;&gt;关于Go Mysql Driver的unexpected EOF错误&lt;/a&gt;里提到了连接池，当连接&lt;strong&gt;使用完毕&lt;/strong&gt;后会放回连接池以便其他的操作可以复用这条连接。这里的&lt;strong&gt;使用完毕&lt;/strong&gt;有非常明确的定义：发送缓冲区中不再有未发送的指令，接收缓冲区不再有未接收的数据，下次能读取的数据必须是下一次发送的指令的响应。&lt;/p&gt;
+&lt;p&gt;通常情况下的SQL操作如下：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;rows, err &lt;span style=&#34;color:#666&#34;&gt;:=&lt;/span&gt; db.&lt;span style=&#34;color:#06287e&#34;&gt;Query&lt;/span&gt;(&lt;span style=&#34;color:#4070a0&#34;&gt;&amp;#34;SELECT a, b FROM some_table&amp;#34;&lt;/span&gt;)
+&lt;span style=&#34;color:#007020;font-weight:bold&#34;&gt;if&lt;/span&gt; err &lt;span style=&#34;color:#666&#34;&gt;!=&lt;/span&gt; &lt;span style=&#34;color:#007020;font-weight:bold&#34;&gt;nil&lt;/span&gt; {
+    &lt;span style=&#34;color:#007020;font-weight:bold&#34;&gt;return&lt;/span&gt; err
+}
+&lt;span style=&#34;color:#007020;font-weight:bold&#34;&gt;defer&lt;/span&gt; rows.&lt;span style=&#34;color:#06287e&#34;&gt;Close&lt;/span&gt;()
+
+&lt;span style=&#34;color:#007020;font-weight:bold&#34;&gt;for&lt;/span&gt; rows.&lt;span style=&#34;color:#06287e&#34;&gt;Next&lt;/span&gt;() {
+    &lt;span style=&#34;color:#007020;font-weight:bold&#34;&gt;var&lt;/span&gt; a, b &lt;span style=&#34;color:#902000&#34;&gt;string&lt;/span&gt;
+    &lt;span style=&#34;color:#007020;font-weight:bold&#34;&gt;if&lt;/span&gt; err &lt;span style=&#34;color:#666&#34;&gt;:=&lt;/span&gt; rows.&lt;span style=&#34;color:#06287e&#34;&gt;Scan&lt;/span&gt;(&lt;span style=&#34;color:#666&#34;&gt;&amp;amp;&lt;/span&gt;a, &lt;span style=&#34;color:#666&#34;&gt;&amp;amp;&lt;/span&gt;b); err &lt;span style=&#34;color:#666&#34;&gt;!=&lt;/span&gt; &lt;span style=&#34;color:#007020;font-weight:bold&#34;&gt;nil&lt;/span&gt; {
+        &lt;span style=&#34;color:#007020;font-weight:bold&#34;&gt;return&lt;/span&gt; err
+    }
+    &lt;span style=&#34;color:#60a0b0;font-style:italic&#34;&gt;// ...
+&lt;/span&gt;&lt;span style=&#34;color:#60a0b0;font-style:italic&#34;&gt;&lt;/span&gt;}
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;</description>
     </item>
     
     <item>
@@ -30,17 +41,9 @@ rows, err := db.Query(&amp;#34;SELECT a, b FROM some_table&amp;#34;) if err != n
       <pubDate>Sat, 23 May 2020 11:55:30 +0800</pubDate>
       
       <guid>/posts/go-mysql-driver-eof/</guid>
-      <description>在使用 github.com/go-sql-driver/mysql 作为客户端连接Mysql时，日志中偶然会出现下面的错误：
-[mysql] 2019/08/26 16:07:00 packets.go:36: unexpected EOF github.com/go-sql-driver/mysql 为了复用TCP连接以提高性能，内部实现了连接池。当需要一次SQL操作时，会先从连接池中拿出一条可用的空闲连接去执行操作。如果没有空闲的连接，或者连接已经失效，就打开一条新的TCP连接、SSL认证（如果使用SSL连接的话）、协议握手、认证等，完成初始化连接，再使用这条连接执行操作，使用完后再放回连接池。连接失效的标记可以在上一次使用连接后根据对应的错误来完成，或者本次操作指令发送失败也标记为连接失效，driver会重新执行上面的步骤来进行重试，应用层不会感知。
-到这里，好像一切都没有什么问题，可是上面的错误是怎么回事？如果是连接失效的话，应该会进行重试，对应用透明。
-其实上面的错误来源于服务器主动关闭超时连接造成的TCP半关闭状态，错误的形成原因可以用下面的图简单解释：
- 当需要重新打开一条Mysql连接时，先是完成基本的TCP连接握手，然后完成Mysql的协议握手、认证，之后就可以在这条连接上发送指令了。一次操作完成后，连接被放回连接池中，如果之后一段时间这条连接都没有被使用过，Mysql服务器会根据相应的配置，主动关闭这条连接。此时服务器内核会向客户端内核发送一个[FIN, ACK]的TCP段，客户端内核回应一个ACK段，此时这条TCP连接会进入半关闭状态：服务器不会再向客户端发送数据，但是客户端可以向服务器发送数据。
-此时一个新的SQL操作从连接池中拿出了这条连接，发送指令，但是在读取的时候，客户端内核已经知道服务器不会再返回数据，因此直接给应用程序返回了EOF错误。然后重点是，此时的连接状态并不是真正意义上的无效连接状态，由于客户端已经把指令发送了出去，尤其如果是一条UPDATE指令的话，是无法执行安全的重试操作的。服务器对这条指令的处理，客户端是完全无法知晓的。
-通常一种简单的解决办法是，设置客户端的空闲超时时间，并且短于服务器的空闲超时时间，然而 database/sql 并没有提供类似&amp;quot;maximum idle duration&amp;quot;的API，不过可以退一步使用 func (*DB) SetConnMaxLifetime 这个API。然而带来的坏处就是，限制了连接的重用时间，即使连接一直处于活跃状态。
-另一种办法是，每次从连接池中拿出连接，在发送第一条指令前发送一个 PING 包来检查连接是否健康，由于 PING 包不会产生副作用，因此后续的操作都是安全的。这种办法的坏处也显而易见，由于从连接池中取出连接是个非常频繁的操作，而每次都会增加至少一次RTT延迟。
-好在 PR#934 通过非常巧妙的方式解决了这一问题。作者的解决思路如下：
-首先需要提到一个Go 1.10后 sql/driver 增加的一个接口：driver.SessionResetter ，其中 ResetSession 方法会在每次连接放入连接池时执行，这里作者先简单地添加了一个 reset 标记。
-type mysqlConn struct { // ...  reset bool // set when the Go SQL package calls ResetSession  // ... } // ResetSession implements driver.SessionResetter. // (From Go 1.</description>
+      <description>&lt;p&gt;在使用 &lt;a href=&#34;https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc&#34;&gt;github.com/go-sql-driver/mysql&lt;/a&gt; 作为客户端连接Mysql时，日志中偶然会出现下面的错误：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;[mysql] 2019/08/26 16:07:00 packets.go:36: unexpected EOF
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;&lt;a href=&#34;https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc&#34;&gt;github.com/go-sql-driver/mysql&lt;/a&gt; 为了复用TCP连接以提高性能，内部实现了连接池。当需要一次SQL操作时，会先从连接池中拿出一条可用的空闲连接去执行操作。如果没有空闲的连接，或者连接已经失效，就打开一条新的TCP连接、SSL认证（如果使用SSL连接的话）、协议握手、认证等，完成初始化连接，再使用这条连接执行操作，使用完后再放回连接池。连接失效的标记可以在上一次使用连接后根据对应的错误来完成，或者本次操作指令发送失败也标记为连接失效，driver会重新执行上面的步骤来进行重试，应用层不会感知。&lt;/p&gt;</description>
     </item>
     
   </channel>

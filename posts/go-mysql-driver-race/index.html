@@ -337,7 +337,6 @@
     <span style="color:#60a0b0;font-style:italic">// ...
 </span><span style="color:#60a0b0;font-style:italic"></span>}
 </code></pre></div><p>当调用 <code>rows.Close</code> 时，交换 <code>fg buffer</code> 和 <code>bg buffer</code> 2个缓冲区，这样在冲刷缓冲区时用到的就是 <code>bg buffer</code> ，而 <code>rows.Scan</code> 读取的是旧的 <code>fg buffer</code>，从而避免了数据竞争。</p>
-
 </article>
 
     </div>
