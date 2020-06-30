@@ -6,10 +6,46 @@
     <description>Recent content in Tags on </description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-gb</language>
-    <lastBuildDate>Sat, 27 Jun 2020 17:22:04 +0800</lastBuildDate>
+    <lastBuildDate>Wed, 01 Jul 2020 00:02:35 +0800</lastBuildDate>
     
 	<atom:link href="/tags/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>libc</title>
+      <link>/tags/libc/</link>
+      <pubDate>Wed, 01 Jul 2020 00:02:35 +0800</pubDate>
+      
+      <guid>/tags/libc/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>no_std</title>
+      <link>/tags/no_std/</link>
+      <pubDate>Wed, 01 Jul 2020 00:02:35 +0800</pubDate>
+      
+      <guid>/tags/no_std/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>panic</title>
+      <link>/tags/panic/</link>
+      <pubDate>Wed, 01 Jul 2020 00:02:35 +0800</pubDate>
+      
+      <guid>/tags/panic/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>rust</title>
+      <link>/tags/rust/</link>
+      <pubDate>Wed, 01 Jul 2020 00:02:35 +0800</pubDate>
+      
+      <guid>/tags/rust/</guid>
+      <description></description>
+    </item>
     
     <item>
       <title>macro</title>
@@ -26,15 +62,6 @@
       <pubDate>Sat, 27 Jun 2020 17:22:04 +0800</pubDate>
       
       <guid>/tags/mataprogramming/</guid>
-      <description></description>
-    </item>
-    
-    <item>
-      <title>rust</title>
-      <link>/tags/rust/</link>
-      <pubDate>Sat, 27 Jun 2020 17:22:04 +0800</pubDate>
-      
-      <guid>/tags/rust/</guid>
       <description></description>
     </item>
     

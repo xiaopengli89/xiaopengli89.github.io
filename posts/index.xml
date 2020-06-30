@@ -6,10 +6,19 @@
     <description>Recent content in Posts on </description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-gb</language>
-    <lastBuildDate>Sat, 27 Jun 2020 17:22:04 +0800</lastBuildDate>
+    <lastBuildDate>Wed, 01 Jul 2020 00:02:35 +0800</lastBuildDate>
     
 	<atom:link href="/posts/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>不使用Rust标准库编写一个可运行的程序</title>
+      <link>/posts/rust-no-std/</link>
+      <pubDate>Wed, 01 Jul 2020 00:02:35 +0800</pubDate>
+      
+      <guid>/posts/rust-no-std/</guid>
+      <description>&lt;p&gt;Rust是一门系统编程语言，比如使得编写操作系统内核变得可能。而在编写内核时，是不能有任何和操作系统相关的依赖的，因为操作系统内核是运行于裸机之上的，这就像鸡和鸡蛋的关系。而标准库的实现是基于操作系统的，诸如线程、文件、网络等等。因此在编写内核代码时不能使用标准库。这篇文章将介绍如何不使用Rust标准库编写一个可运行的程序。&lt;/p&gt;</description>
+    </item>
     
     <item>
       <title>Rust过程宏（一）</title>

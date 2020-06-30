@@ -93,6 +93,43 @@
 
     <div class="pad">
 <div class="date">
+    <time pubdate="2020-07-01">July 1, 2020</time>
+    <span class="author">by Xiaopeng Li</span>
+</div>
+
+<article>
+    <h1><a href="/posts/rust-no-std/">不使用Rust标准库编写一个可运行的程序</a></h1>
+    <div class="tags">
+        
+        
+        <a href="/tags/rust" class="pure-button">rust</a>
+        
+        
+        <a href="/tags/no_std" class="pure-button">no_std</a>
+        
+        
+        <a href="/tags/libc" class="pure-button">libc</a>
+        
+        
+        <a href="/tags/panic" class="pure-button">panic</a>
+        
+    </div>
+    <p>Rust是一门系统编程语言，比如使得编写操作系统内核变得可能。而在编写内核时，是不能有任何和操作系统相关的依赖的，因为操作系统内核是运行于裸机之上的，这就像鸡和鸡蛋的关系。而标准库的实现是基于操作系统的，诸如线程、文件、网络等等。因此在编写内核代码时不能使用标准库。这篇文章将介绍如何不使用Rust标准库编写一个可运行的程序。</p>
+
+	
+	
+	<p>
+	  <a href="/posts/rust-no-std/">Read More…</a>
+	</p>
+	
+</article>
+</div>
+    <div class="pad"></div>
+
+    
+
+    <div class="pad">
+<div class="date">
     <time pubdate="2020-06-27">June 27, 2020</time>
     <span class="author">by Xiaopeng Li</span>
 </div>
@@ -455,6 +492,12 @@ for rows.Next() {
             <ul class="pure-menu-list">
                 
                 <li class="pure-menu-item">
+                    <a href="/posts/rust-no-std/" class="pure-menu-link">不使用Rust标准库编写一个可运行的程序<br>
+                        <small>Rust是一门真正的系统编程语言。</small>
+                    </a>
+                </li>
+                
+                <li class="pure-menu-item">
                     <a href="/posts/rust-procedural-macro-1/" class="pure-menu-link">Rust过程宏（一）<br>
                         <small>开始Rust元编程，利用Rust的derive派生宏，消除重复的样板代码。</small>
                     </a>
@@ -510,7 +553,7 @@ for rows.Next() {
             
             
             <a href="/tags/rust" class="pure-button"> rust
-                <small>(4)</small></a>
+                <small>(5)</small></a>
             
             
             
@@ -541,6 +584,12 @@ for rows.Next() {
             
             <a href="/tags/tcp" class="pure-button"> tcp
                 <small>(2)</small></a>
+            
+            
+            
+            
+            
+            
             
             
             
