@@ -31,7 +31,7 @@
     
     <meta name="keywords" content="rust,macro,mataprogramming">
     
-    <meta name="author" content="Xiaopeng Li"><link href="https://cdn.jsdelivr.net/npm/prism-themes@1.4.0/themes/prism-base16-ateliersulphurpool.light.css" rel="stylesheet" />
+    <meta name="author" content="Xiaopeng Li"><link href="https://atelierbram.github.io/syntax-highlighting/prism/demo/assets/css/prism-base16-ashes.dark.css" rel="stylesheet" />
 </head>
 <body>
         <div class="container"><div id="navbar" class="pure-menu pure-menu-open pure-menu-horizontal pure-menu-scrollable">
@@ -197,7 +197,7 @@ mod test {
 <pre><code class="language-bash">$ cargo test dog_show
 </code></pre>
 <p>会得到下面的输出：</p>
-<pre><code>[mymacro_derive/src/lib.rs:9] ast = DeriveInput {
+<pre><code class="language-none">[mymacro_derive/src/lib.rs:9] ast = DeriveInput {
     attrs: [],
     vis: Inherited,
     ident: Ident {
@@ -294,7 +294,7 @@ pub fn mymacro_derive(input: TokenStream) -&gt; TokenStream {
 <pre><code class="language-bash">$ cargo test dog_show -- --nocapture
 </code></pre>
 <p>输出如下：</p>
-<pre><code>...
+<pre><code class="language-none">...
 running 1 test
 {
     name: String
@@ -405,7 +405,7 @@ impl MyMacro for Dog {
                 
                 <li class="pure-menu-item">
                     <a href="/posts/dma/" class="pure-menu-link">DMA(直接内存访问)和零拷贝<br>
-                        <small>Linux的多样化IO技术。</small>
+                        <small>利用Linux的多样化IO技术减少数据拷贝。</small>
                     </a>
                 </li>
                 

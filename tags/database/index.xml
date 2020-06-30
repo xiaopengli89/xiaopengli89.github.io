@@ -42,7 +42,7 @@ for rows.Next() {
       
       <guid>/posts/go-mysql-driver-eof/</guid>
       <description>&lt;p&gt;在使用 &lt;a href=&#34;https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc&#34;&gt;github.com/go-sql-driver/mysql&lt;/a&gt; 作为客户端连接Mysql时，日志中偶然会出现下面的错误：&lt;/p&gt;
-&lt;pre&gt;&lt;code&gt;[mysql] 2019/08/26 16:07:00 packets.go:36: unexpected EOF
+&lt;pre&gt;&lt;code class=&#34;language-none&#34;&gt;[mysql] 2019/08/26 16:07:00 packets.go:36: unexpected EOF
 &lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;&lt;a href=&#34;https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc&#34;&gt;github.com/go-sql-driver/mysql&lt;/a&gt; 为了复用TCP连接以提高性能，内部实现了连接池。当需要一次SQL操作时，会先从连接池中拿出一条可用的空闲连接去执行操作。如果没有空闲的连接，或者连接已经失效，就打开一条新的TCP连接、SSL认证（如果使用SSL连接的话）、协议握手、认证等，完成初始化连接，再使用这条连接执行操作，使用完后再放回连接池。连接失效的标记可以在上一次使用连接后根据对应的错误来完成，或者本次操作指令发送失败也标记为连接失效，driver会重新执行上面的步骤来进行重试，应用层不会感知。&lt;/p&gt;</description>
     </item>
