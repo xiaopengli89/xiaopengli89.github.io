@@ -6,10 +6,46 @@
     <description>Recent content in Tags on </description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-gb</language>
-    <lastBuildDate>Wed, 01 Jul 2020 00:02:35 +0800</lastBuildDate>
+    <lastBuildDate>Wed, 01 Jul 2020 16:57:56 +0800</lastBuildDate>
     
 	<atom:link href="/tags/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>alloc</title>
+      <link>/tags/alloc/</link>
+      <pubDate>Wed, 01 Jul 2020 16:57:56 +0800</pubDate>
+      
+      <guid>/tags/alloc/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>heap</title>
+      <link>/tags/heap/</link>
+      <pubDate>Wed, 01 Jul 2020 16:57:56 +0800</pubDate>
+      
+      <guid>/tags/heap/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>memory</title>
+      <link>/tags/memory/</link>
+      <pubDate>Wed, 01 Jul 2020 16:57:56 +0800</pubDate>
+      
+      <guid>/tags/memory/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>rust</title>
+      <link>/tags/rust/</link>
+      <pubDate>Wed, 01 Jul 2020 16:57:56 +0800</pubDate>
+      
+      <guid>/tags/rust/</guid>
+      <description></description>
+    </item>
     
     <item>
       <title>libc</title>
@@ -35,15 +71,6 @@
       <pubDate>Wed, 01 Jul 2020 00:02:35 +0800</pubDate>
       
       <guid>/tags/panic/</guid>
-      <description></description>
-    </item>
-    
-    <item>
-      <title>rust</title>
-      <link>/tags/rust/</link>
-      <pubDate>Wed, 01 Jul 2020 00:02:35 +0800</pubDate>
-      
-      <guid>/tags/rust/</guid>
       <description></description>
     </item>
     
@@ -179,15 +206,6 @@
       <pubDate>Sun, 17 May 2020 20:14:50 +0800</pubDate>
       
       <guid>/tags/timer/</guid>
-      <description></description>
-    </item>
-    
-    <item>
-      <title>memory</title>
-      <link>/tags/memory/</link>
-      <pubDate>Sat, 16 May 2020 18:02:00 +0800</pubDate>
-      
-      <guid>/tags/memory/</guid>
       <description></description>
     </item>
     

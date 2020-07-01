@@ -4,7 +4,7 @@
     <meta name="theme-color" content="#000" />
     <title>
         
-            关于Go Mysql Driver的unexpected EOF错误 &middot;  Laika
+            Rust动态内存分配 &middot;  Laika
         
     </title>
 
@@ -25,11 +25,11 @@
     <meta name="generator" content="">
     
     
-    <meta name="description" content="应该是大多数Golang开发者日志里的东西了。">
+    <meta name="description" content="学习Rust的内存管理及实现一个简单的Box。">
     
 
     
-    <meta name="keywords" content="golang,mysql,database,tcp">
+    <meta name="keywords" content="rust,heap,alloc,memory">
     
     <meta name="author" content="Xiaopeng Li"><link href="https://atelierbram.github.io/syntax-highlighting/prism/demo/assets/css/prism-base16-mocha.dark.css" rel="stylesheet" />
 </head>
@@ -91,118 +91,198 @@
 <div id="content" class="pure-u-1 pure-u-md-3-4 pure-u-sm-1">
     <div class="pad">
 <div class="date">
-    <time pubdate="2020-05-23">May 23, 2020</time>
+    <time pubdate="2020-07-01">July 1, 2020</time>
     <span class="author">by Xiaopeng Li</span>
 </div>
 
 <article>
-    <h1><a href="/posts/go-mysql-driver-eof/">关于Go Mysql Driver的unexpected EOF错误</a></h1>
+    <h1><a href="/posts/rust-box-heap/">Rust动态内存分配</a></h1>
     <div class="tags">
         
         
-        <a href="/tags/golang" class="pure-button">golang</a>
+        <a href="/tags/rust" class="pure-button">rust</a>
         
         
-        <a href="/tags/mysql" class="pure-button">mysql</a>
+        <a href="/tags/heap" class="pure-button">heap</a>
         
         
-        <a href="/tags/database" class="pure-button">database</a>
+        <a href="/tags/alloc" class="pure-button">alloc</a>
         
         
-        <a href="/tags/tcp" class="pure-button">tcp</a>
+        <a href="/tags/memory" class="pure-button">memory</a>
         
     </div>
-    <p>在使用 <a href="https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc">github.com/go-sql-driver/mysql</a> 作为客户端连接Mysql时，日志中偶然会出现下面的错误：</p>
-<pre><code class="language-none">[mysql] 2019/08/26 16:07:00 packets.go:36: unexpected EOF
-</code></pre>
-<p><a href="https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc">github.com/go-sql-driver/mysql</a> 为了复用TCP连接以提高性能，内部实现了连接池。当需要一次SQL操作时，会先从连接池中拿出一条可用的空闲连接去执行操作。如果没有空闲的连接，或者连接已经失效，就打开一条新的TCP连接、SSL认证（如果使用SSL连接的话）、协议握手、认证等，完成初始化连接，再使用这条连接执行操作，使用完后再放回连接池。连接失效的标记可以在上一次使用连接后根据对应的错误来完成，或者本次操作指令发送失败也标记为连接失效，driver会重新执行上面的步骤来进行重试，应用层不会感知。</p>
-<p>到这里，好像一切都没有什么问题，可是上面的错误是怎么回事？如果是连接失效的话，应该会进行重试，对应用透明。</p>
-<p>其实上面的错误来源于服务器主动关闭超时连接造成的TCP半关闭状态，错误的形成原因可以用下面的图简单解释：</p>
-<div style="padding:2em;text-align:center">
-    <img src="/img/go-mysql-driver-eof.svg">
-</div>
-<p>当需要重新打开一条Mysql连接时，先是完成基本的TCP连接握手，然后完成Mysql的协议握手、认证，之后就可以在这条连接上发送指令了。一次操作完成后，连接被放回连接池中，如果之后一段时间这条连接都没有被使用过，Mysql服务器会根据相应的配置，主动关闭这条连接。此时服务器内核会向客户端内核发送一个[FIN, ACK]的TCP段，客户端内核回应一个ACK段，此时这条TCP连接会进入半关闭状态：服务器不会再向客户端发送数据，但是客户端可以向服务器发送数据。</p>
-<p>此时一个新的SQL操作从连接池中拿出了这条连接，发送指令，但是在读取的时候，客户端内核已经知道服务器不会再返回数据，因此直接给应用程序返回了EOF错误。然后重点是，此时的连接状态并不是真正意义上的无效连接状态，由于客户端已经把指令发送了出去，尤其如果是一条UPDATE指令的话，是无法执行安全的重试操作的。服务器对这条指令的处理，客户端是完全无法知晓的。</p>
-<p>通常一种简单的解决办法是，设置客户端的空闲超时时间，并且短于服务器的空闲超时时间，然而 <a href="https://golang.org/pkg/database/sql/">database/sql</a> 并没有提供类似&quot;maximum idle duration&quot;的API，不过可以退一步使用 <a href="https://golang.org/pkg/database/sql/#DB.SetConnMaxLifetime">func (*DB) SetConnMaxLifetime</a> 这个API。然而带来的坏处就是，限制了连接的重用时间，即使连接一直处于活跃状态。</p>
-<p>另一种办法是，每次从连接池中拿出连接，在发送第一条指令前发送一个 <code>PING</code> 包来检查连接是否健康，由于 <code>PING</code> 包不会产生副作用，因此后续的操作都是安全的。这种办法的坏处也显而易见，由于从连接池中取出连接是个非常频繁的操作，而每次都会增加至少一次RTT延迟。</p>
-<p>好在 <a href="https://github.com/go-sql-driver/mysql/pull/934">PR#934</a> 通过非常巧妙的方式解决了这一问题。作者的解决思路如下：</p>
-<p>首先需要提到一个Go 1.10后 <code>sql/driver</code> 增加的一个接口：<a href="https://golang.org/pkg/database/sql/driver/#SessionResetter">driver.SessionResetter</a> ，其中 <code>ResetSession</code> 方法会在每次连接放入连接池时执行，这里作者先简单地添加了一个 <code>reset</code> 标记。</p>
-<pre><code class="language-go">type mysqlConn struct {
-    // ...
-    reset            bool // set when the Go SQL package calls ResetSession
-    // ...
-}
+    <p><a href="https://doc.rust-lang.org/std/boxed/index.html">Box</a> 是一个在Rust中经常被用到的智能指针，它的作用是实现堆内存分配，并且管理该块内存的生命周期。尤其在实现递归数据结构时，通过 <a href="https://doc.rust-lang.org/std/boxed/index.html">Box</a> 才能让一个类型大小不会无限膨胀。同时 <a href="https://doc.rust-lang.org/std/boxed/index.html">Box</a> 的内存布局同 <code>C</code> 二进制兼容，也就是说在使用 <code>FFI</code> 时，可以直接在参数或返回值中使用 <a href="https://doc.rust-lang.org/std/boxed/index.html">Box</a>。</p>
+<p>这篇文章将介绍利用Rust的动态内存分配实现一个简单的自定义 <code>Box</code> 。</p>
+<h3 id="内存分配器">内存分配器</h3>
+<p>对于每一个程序，标准库中都会带有一个全局的内存分配器，并且内存分配器需要实现 <code>GlobalAlloc</code> 这个 <code>trait</code> ，在使用 <code>alloc</code> 和 <code>dealloc</code> 时会使用该内存分配器动态分配和释放内存。默认情况下，这个内存分配器是 <code>std::alloc::System</code> ，由具体的操作系统提供，比如 <code>Unix</code> 平台的 <code>malloc</code>，<code>Windows</code> 平台的 <code>HeapAlloc</code> 。</p>
+<p>我们也可以利用 <code>#[global_allocator]</code> 这个 <code>attribute</code> 替换默认的内存分配器。</p>
+<pre><code class="language-rust">use std::alloc::{GlobalAlloc, System, Layout};
 
-// ResetSession implements driver.SessionResetter.
-// (From Go 1.10)
-func (mc *mysqlConn) ResetSession(ctx context.Context) error {
-    if mc.closed.IsSet() {
-        return driver.ErrBadConn
+struct MyAllocator;
+
+unsafe impl GlobalAlloc for MyAllocator {
+    unsafe fn alloc(&amp;self, layout: Layout) -&gt; *mut u8 {
+        System.alloc(layout)
     }
-    mc.reset = true
-    return nil
-}
-</code></pre>
-<p>之后连接被拿出来，在执行发送第一条指令前，会先根据之前添加的 <code>reset</code> 标记检查连接是否可用（liveness check），由于前面的标记是连接在放入连接池时加上的，因此可以做到只在第一次取出后检查（检查后把 <code>reset</code> 取消就行），后续在使用过程中无需再检查，除非再次被放回了连接池。</p>
-<pre><code class="language-go">// Write packet buffer 'data'
-func (mc *mysqlConn) writePacket(data []byte) error {
-    // ...
-    // Perform a stale connection check. We only perform this check for
- 	// the first query on a connection that has been checked out of the
- 	// connection pool: a fresh connection from the pool is more likely
- 	// to be stale, and it has not performed any previous writes that
- 	// could cause data corruption, so it's safe to return ErrBadConn
- 	// if the check fails.
- 	if mc.reset {
- 		mc.reset = false
- 		conn := mc.netConn
- 		if mc.rawConn != nil {
- 			conn = mc.rawConn
- 		}
- 		if err := connCheck(conn); err != nil {
- 			errLog.Print(&quot;closing bad idle connection: &quot;, err)
- 			mc.Close()
- 			return driver.ErrBadConn
- 		}
-     }
-     // ...
-}
-</code></pre>
-<p>而检查连接是否可用的方法用到了Go 1.9后 <code>net.Conn</code> 增加的 <code>syscall.Conn</code> 接口，这个接口可以获取原始连接的文件描述符。先调用 <code>syscall.Read</code> ，传入1个字节的缓冲区，由于还没有发送任何指令，并且由Go runtime创建的Socket都设置了非阻塞（O_NONBLOCK）模式，所以方法会立即返回。如果没有返回错误（或者 <code>EAGAIN</code> / <code>EWOULDBLOCK</code> 这2种错误）且读取的数据长度为0，则说明连接依然有效，反之连接已经失效。之所以不直接使用Go的原生接口 <code>net.Conn.Read</code> ，是因为Go的调度器会立即使当前Goroutine睡眠，导致多次Goroutine上下文切换，影响性能。</p>
-<pre><code class="language-go">func connCheck(c net.Conn) error {
- 	var (
- 		n    int
- 		err  error
- 		buff [1]byte
- 	)
 
-  	sconn, ok := c.(syscall.Conn)
- 	if !ok {
- 		return nil
- 	}
- 	rc, err := sconn.SyscallConn()
- 	if err != nil {
- 		return err
- 	}
- 	rerr := rc.Read(func(fd uintptr) bool {
- 		n, err = syscall.Read(int(fd), buff[:])
- 		return true
- 	})
- 	switch {
- 	case rerr != nil:
- 		return rerr
- 	case n == 0 &amp;&amp; err == nil:
- 		return io.EOF
- 	case n &gt; 0:
- 		return errUnexpectedRead
- 	case err == syscall.EAGAIN || err == syscall.EWOULDBLOCK:
- 		return nil
- 	default:
- 		return err
- 	}
+    unsafe fn dealloc(&amp;self, ptr: *mut u8, layout: Layout) {
+        System.dealloc(ptr, layout)
+    }
+}
+
+#[global_allocator]
+static GLOBAL: MyAllocator = MyAllocator;
+</code></pre>
+<h3 id="实现-mybox-智能指针">实现 <code>MyBox</code> 智能指针</h3>
+<p>由 <code>alloc</code> 分配好内存，会返回指向该块内存的指针，因此首先 <code>MyBox</code> 内需要持有一个裸指针，来代表对该块内存的所有权。</p>
+<pre><code class="language-rust">pub struct MyBox&lt;T&gt; {
+    inner: *mut T,
 }
 </code></pre>
-<p>- 完</p>
+<p>然后实现其构造方法，方法是先 <code>alloc</code> 内存，然后往内存地址内写入数据，比如仿标准库的 <code>Box</code> ：</p>
+<pre><code class="language-rust">impl&lt;T&gt; MyBox&lt;T&gt; {
+    pub fn new(t: T) -&gt; Self {
+        unsafe {
+            let layout = Layout::new::&lt;T&gt;();
+            let ptr = alloc(layout) as *mut T;
+            ptr.write(t);
+            Self { inner: ptr }
+        }
+    }
+}
+
+fn main() {
+	let _ = MyBox::new(1);
+}
+</code></pre>
+<p>这种方法首先需要在栈上创建一个变量 <code>T</code> ，然后再拷贝到堆上。也可以实现类似 <code>Java</code> 风格的构造方法，但是在构造方法内，必须初始化所有字段的值，否则后面使用时会 <code>UB</code>，因此我们将这种构造方式标记为 <code>unsafe</code> ：</p>
+<pre><code class="language-rust">impl&lt;T&gt; MyBox&lt;T&gt; {
+    pub unsafe fn init(f: impl FnOnce(&amp;mut T)) -&gt; Self {
+        let layout = Layout::new::&lt;T&gt;();
+        let ptr = alloc(layout) as *mut T;
+        f(&amp;mut *ptr);
+        Self { inner: ptr }
+    }
+}
+
+struct Foo {
+	name: String,
+}
+
+fn main() {
+	let _ = unsafe {
+		MyBox::&lt;Foo&gt;::init(|obj| {
+			obj.name = String::from(&quot;hello&quot;);
+		})
+	};
+}
+</code></pre>
+<p>内存分配了就需要释放，我们可以在析构方法内完成内存的释放，实现 <code>Drop</code>：</p>
+<pre><code class="language-rust">impl&lt;T&gt; Drop for MyBox&lt;T&gt; {
+    fn drop(&amp;mut self) {
+        let layout = Layout::new::&lt;T&gt;();
+        unsafe {
+            dealloc(self.inner as *mut u8, layout);
+        }
+    }
+}
+</code></pre>
+<p>为了方便地访问 <code>MyBox</code> 内的数据，利用Rust自动解引用的特性，我们可以实现 <code>Deref</code> 和 <code>DerefMut</code> 这2个 <code>trait</code> ：</p>
+<pre><code class="language-rust">use core::ops::{Deref, DerefMut};
+
+impl&lt;T&gt; Deref for MyBox&lt;T&gt; {
+    type Target = T;
+
+    fn deref(&amp;self) -&gt; &amp;Self::Target {
+        unsafe { &amp;*self.inner }
+    }
+}
+
+impl&lt;T&gt; DerefMut for MyBox&lt;T&gt; {
+    fn deref_mut(&amp;mut self) -&gt; &amp;mut Self::Target {
+        unsafe { &amp;mut *self.inner }
+    }
+}
+</code></pre>
+<p>然后便可以使用 <code>*</code> 解引用操作符实现对内部数据的访问：</p>
+<pre><code class="language-rust">fn main() {
+	let mut a = MyBox::new(1);
+	*a = 2;
+}
+</code></pre>
+<p>最后可以实现 <code>fmt::Debug</code> 和 <code>fmt::Display</code> 2个 <code>trait</code> 来打印内部的数据：</p>
+<pre><code class="language-rust">impl&lt;T: fmt::Debug&gt; fmt::Debug for MyBox&lt;T&gt; {
+    fn fmt(&amp;self, f: &amp;mut fmt::Formatter&lt;'_&gt;) -&gt; fmt::Result {
+        fmt::Debug::fmt(&amp;**self, f)
+    }
+}
+
+impl&lt;T: fmt::Display&gt; fmt::Display for MyBox&lt;T&gt; {
+    fn fmt(&amp;self, f: &amp;mut fmt::Formatter&lt;'_&gt;) -&gt; fmt::Result {
+        fmt::Display::fmt(&amp;**self, f)
+    }
+}
+
+fn main() {
+	let mut a = MyBox::new(1);
+	*a = 2;
+	println!(&quot;{}&quot;, a);
+}
+</code></pre>
+<h3 id="验证内存的回收">验证内存的回收</h3>
+<p>我们可以在自定义内存分配器时，通过记录已分配的内存大小来追踪内存的分配和回收情况：</p>
+<pre><code class="language-rust">use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
+
+struct MyAllocator;
+
+static ALLOCATED: AtomicUsize = AtomicUsize::new(0);
+
+unsafe impl GlobalAlloc for MyAllocator {
+    unsafe fn alloc(&amp;self, layout: Layout) -&gt; *mut u8 {
+        let ret = System.alloc(layout);
+        if !ret.is_null() {
+            ALLOCATED.fetch_add(layout.size(), SeqCst);
+        }
+        ret
+    }
+
+    unsafe fn dealloc(&amp;self, ptr: *mut u8, layout: Layout) {
+        System.dealloc(ptr, layout);
+        ALLOCATED.fetch_sub(layout.size(), SeqCst);
+    }
+}
+
+#[global_allocator]
+static GLOBAL: MyAllocator = MyAllocator;
+</code></pre>
+<p>测试下循环创建 1_000_000 个 <code>MyBox</code> 实例：</p>
+<pre><code class="language-rust">fn main() {
+	let i in 0..1_000_000 {
+		let _ = MyBox::new(i);
+	}
+	println!(&quot;allocated bytes: {}&quot;, ALLOCATED.load(SeqCst));
+}
+</code></pre>
+<p>运行程序：</p>
+<pre><code class="language-bash">$ cargo run
+</code></pre>
+<pre><code class="language-none">allocated bytes: 285
+</code></pre>
+<p>如果我们注释掉析构方法的内存释放操作：</p>
+<pre><code class="language-rust">impl&lt;T&gt; Drop for MyBox&lt;T&gt; {
+    fn drop(&amp;mut self) {
+        //let layout = Layout::new::&lt;T&gt;();
+        //unsafe {
+        //    dealloc(self.inner as *mut u8, layout);
+        //}
+    }
+}
+</code></pre>
+<p>再次运行程序的结果：</p>
+<pre><code class="language-none">allocated bytes: 4000285
+</code></pre>
+<p>说明我们的实现确实实现了内存的动态分配和回收。</p>
 </article>
 
     </div>

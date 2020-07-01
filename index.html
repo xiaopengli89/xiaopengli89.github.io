@@ -98,6 +98,44 @@
 </div>
 
 <article>
+    <h1><a href="/posts/rust-box-heap/">Rust动态内存分配</a></h1>
+    <div class="tags">
+        
+        
+        <a href="/tags/rust" class="pure-button">rust</a>
+        
+        
+        <a href="/tags/heap" class="pure-button">heap</a>
+        
+        
+        <a href="/tags/alloc" class="pure-button">alloc</a>
+        
+        
+        <a href="/tags/memory" class="pure-button">memory</a>
+        
+    </div>
+    <p><a href="https://doc.rust-lang.org/std/boxed/index.html">Box</a> 是一个在Rust中经常被用到的智能指针，它的作用是实现堆内存分配，并且管理该块内存的生命周期。尤其在实现递归数据结构时，通过 <a href="https://doc.rust-lang.org/std/boxed/index.html">Box</a> 才能让一个类型大小不会无限膨胀。同时 <a href="https://doc.rust-lang.org/std/boxed/index.html">Box</a> 的内存布局同 <code>C</code> 二进制兼容，也就是说在使用 <code>FFI</code> 时，可以直接在参数或返回值中使用 <a href="https://doc.rust-lang.org/std/boxed/index.html">Box</a>。</p>
+<p>这篇文章将介绍利用Rust的动态内存分配实现一个简单的自定义 <code>Box</code> 。</p>
+
+	
+	
+	<p>
+	  <a href="/posts/rust-box-heap/">Read More…</a>
+	</p>
+	
+</article>
+</div>
+    <div class="pad"></div>
+
+    
+
+    <div class="pad">
+<div class="date">
+    <time pubdate="2020-07-01">July 1, 2020</time>
+    <span class="author">by Xiaopeng Li</span>
+</div>
+
+<article>
     <h1><a href="/posts/rust-no-std/">不使用Rust标准库编写一个可运行的程序</a></h1>
     <div class="tags">
         
@@ -492,6 +530,12 @@ for rows.Next() {
             <ul class="pure-menu-list">
                 
                 <li class="pure-menu-item">
+                    <a href="/posts/rust-box-heap/" class="pure-menu-link">Rust动态内存分配<br>
+                        <small>学习Rust的内存管理及实现一个简单的Box。</small>
+                    </a>
+                </li>
+                
+                <li class="pure-menu-item">
                     <a href="/posts/rust-no-std/" class="pure-menu-link">不使用Rust标准库编写一个可运行的程序<br>
                         <small>Rust是一门真正的系统编程语言。</small>
                     </a>
@@ -553,7 +597,7 @@ for rows.Next() {
             
             
             <a href="/tags/rust" class="pure-button"> rust
-                <small>(5)</small></a>
+                <small>(6)</small></a>
             
             
             
@@ -577,6 +621,11 @@ for rows.Next() {
             
             
             
+            <a href="/tags/memory" class="pure-button"> memory
+                <small>(2)</small></a>
+            
+            
+            
             <a href="/tags/mysql" class="pure-button"> mysql
                 <small>(2)</small></a>
             
@@ -584,6 +633,8 @@ for rows.Next() {
             
             <a href="/tags/tcp" class="pure-button"> tcp
                 <small>(2)</small></a>
+            
+            
             
             
             

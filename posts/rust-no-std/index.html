@@ -122,7 +122,7 @@ fn main() {
 }
 </code></pre>
 <p>如果我们现在尝试运行它的话，会得到下面的错误：</p>
-<pre><code class="language-bash">cargo build
+<pre><code class="language-bash">$ cargo build
 </code></pre>
 <pre><code class="language-none">error: cannot find macro `println` in this scope
  --&gt; src/main.rs:4:5
@@ -202,7 +202,7 @@ pub extern &quot;C&quot; fn main(_argc: isize, _argv: *const *const u8) -&gt; i3
 <pre><code class="language-none">ld: dynamic main executables must link with libSystem.dylib for architecture x86_64
 </code></pre>
 <p>这是因为Mac平台不允许静态链接到二进制库，需要添加编译器参数：</p>
-<pre><code class="language-bash">cargo rustc -- -C link-arg=-lSystem
+<pre><code class="language-bash">$ cargo rustc -- -C link-arg=-lSystem
 </code></pre>
 <p>如果是在Linux上编译的话：</p>
 <pre><code class="language-none">/src/main.rs:8: multiple definition of `_start'; /usr/lib/gcc/x86_64-pc-linux-gnu/10.1.0/../../../../lib/Scrt1.o:(.text+0x0): first defined here
@@ -214,7 +214,7 @@ pub extern &quot;C&quot; fn main(_argc: isize, _argv: *const *const u8) -&gt; i3
           collect2: error: ld returned 1 exit status
 </code></pre>
 <p>因为编译器还是链接了C库的符号，并且和我们的入口函数发生了冲突，需要添加编译器参数：</p>
-<pre><code class="language-bash">cargo rustc -- -C link-args=-nostartfiles -lc
+<pre><code class="language-bash">$ cargo rustc -- -C link-args=-nostartfiles -lc
 </code></pre>
 <p>顺利编译通过！</p>
 <h3 id="hello-world-呢">Hello, World 呢？</h3>
@@ -286,6 +286,12 @@ panic at src/main.rs:12
             <ul class="pure-menu-list">
                 
                 <li class="pure-menu-item">
+                    <a href="/posts/rust-box-heap/" class="pure-menu-link">Rust动态内存分配<br>
+                        <small>学习Rust的内存管理及实现一个简单的Box。</small>
+                    </a>
+                </li>
+                
+                <li class="pure-menu-item">
                     <a href="/posts/rust-no-std/" class="pure-menu-link">不使用Rust标准库编写一个可运行的程序<br>
                         <small>Rust是一门真正的系统编程语言。</small>
                     </a>
@@ -347,7 +353,7 @@ panic at src/main.rs:12
             
             
             <a href="/tags/rust" class="pure-button"> rust
-                <small>(5)</small></a>
+                <small>(6)</small></a>
             
             
             
@@ -371,6 +377,11 @@ panic at src/main.rs:12
             
             
             
+            <a href="/tags/memory" class="pure-button"> memory
+                <small>(2)</small></a>
+            
+            
+            
             <a href="/tags/mysql" class="pure-button"> mysql
                 <small>(2)</small></a>
             
@@ -378,6 +389,8 @@ panic at src/main.rs:12
             
             <a href="/tags/tcp" class="pure-button"> tcp
                 <small>(2)</small></a>
+            
+            
             
             
             
