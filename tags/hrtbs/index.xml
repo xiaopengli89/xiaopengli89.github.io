@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>hrtbs on </title>
+    <link>/tags/hrtbs/</link>
+    <description>Recent content in hrtbs on </description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-gb</language>
+    <lastBuildDate>Fri, 03 Jul 2020 23:40:45 +0800</lastBuildDate>
+    
+	<atom:link href="/tags/hrtbs/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>Rust高阶生命周期绑定</title>
+      <link>/posts/rust-hrtbs/</link>
+      <pubDate>Fri, 03 Jul 2020 23:40:45 +0800</pubDate>
+      
+      <guid>/posts/rust-hrtbs/</guid>
+      <description>&lt;p&gt;Rust中，&lt;code&gt;lifetime&lt;/code&gt; 其实也是一种类型参数，可以看成范型的一种特殊形式。编译时需要将所有类型（包括 &lt;code&gt;lifetime&lt;/code&gt; ）确定下来，比如：&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-rust&#34;&gt;fn foo&amp;lt;&#39;a&amp;gt;(x: &amp;amp;&#39;a i32) {
+	// ...
+}
+
+&#39;a: {
+	let x = 1;
+	foo::&amp;lt;&#39;a&amp;gt;(&amp;amp;x);
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;上面的 &lt;code&gt;&#39;a&lt;/code&gt; 生命周期其实就是变量 &lt;code&gt;x&lt;/code&gt; 所在的block。&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>

@@ -4,7 +4,10 @@
     <meta name="theme-color" content="#000" />
     <title>
         
-            关于Go Mysql Driver的unexpected EOF错误 &middot;  Laika
+            
+                Laika 
+             
+            &middot; Light up the universe
         
     </title>
 
@@ -25,11 +28,9 @@
     <meta name="generator" content="">
     
     
-    <meta name="description" content="应该是大多数Golang开发者日志里的东西了。">
+    <meta name="description" content="Light up the universe">
     
 
-    
-    <meta name="keywords" content="golang,mysql,database,tcp">
     
     <meta name="author" content="Xiaopeng Li"><link href="https://atelierbram.github.io/syntax-highlighting/prism/demo/assets/css/prism-base16-mocha.dark.css" rel="stylesheet" />
 </head>
@@ -87,124 +88,57 @@
 </div>
 <div class="pure-g">
 
-
 <div id="content" class="pure-u-1 pure-u-md-3-4 pure-u-sm-1">
+    
+
     <div class="pad">
 <div class="date">
-    <time pubdate="2020-05-23">May 23, 2020</time>
+    <time pubdate="2020-05-16">May 16, 2020</time>
     <span class="author">by Xiaopeng Li</span>
 </div>
 
 <article>
-    <h1><a href="/posts/go-mysql-driver-eof/">关于Go Mysql Driver的unexpected EOF错误</a></h1>
+    <h1><a href="/posts/dma/">DMA(直接内存访问)和零拷贝</a></h1>
     <div class="tags">
         
         
-        <a href="/tags/golang" class="pure-button">golang</a>
+        <a href="/tags/linux" class="pure-button">linux</a>
         
         
-        <a href="/tags/mysql" class="pure-button">mysql</a>
+        <a href="/tags/kernel" class="pure-button">kernel</a>
         
         
-        <a href="/tags/database" class="pure-button">database</a>
+        <a href="/tags/memory" class="pure-button">memory</a>
         
         
-        <a href="/tags/tcp" class="pure-button">tcp</a>
+        <a href="/tags/zero-copy" class="pure-button">zero copy</a>
         
     </div>
-    <p>在使用 <a href="https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc">github.com/go-sql-driver/mysql</a> 作为客户端连接Mysql时，日志中偶然会出现下面的错误：</p>
-<pre><code class="language-none">[mysql] 2019/08/26 16:07:00 packets.go:36: unexpected EOF
-</code></pre>
-<p><a href="https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc">github.com/go-sql-driver/mysql</a> 为了复用TCP连接以提高性能，内部实现了连接池。当需要一次SQL操作时，会先从连接池中拿出一条可用的空闲连接去执行操作。如果没有空闲的连接，或者连接已经失效，就打开一条新的TCP连接、SSL认证（如果使用SSL连接的话）、协议握手、认证等，完成初始化连接，再使用这条连接执行操作，使用完后再放回连接池。连接失效的标记可以在上一次使用连接后根据对应的错误来完成，或者本次操作指令发送失败也标记为连接失效，driver会重新执行上面的步骤来进行重试，应用层不会感知。</p>
-<p>到这里，好像一切都没有什么问题，可是上面的错误是怎么回事？如果是连接失效的话，应该会进行重试，对应用透明。</p>
-<p>其实上面的错误来源于服务器主动关闭超时连接造成的TCP半关闭状态，错误的形成原因可以用下面的图简单解释：</p>
-<div style="padding:2em;text-align:center">
-    <img src="/img/go-mysql-driver-eof.svg">
-</div>
-<p>当需要重新打开一条Mysql连接时，先是完成基本的TCP连接握手，然后完成Mysql的协议握手、认证，之后就可以在这条连接上发送指令了。一次操作完成后，连接被放回连接池中，如果之后一段时间这条连接都没有被使用过，Mysql服务器会根据相应的配置，主动关闭这条连接。此时服务器内核会向客户端内核发送一个[FIN, ACK]的TCP段，客户端内核回应一个ACK段，此时这条TCP连接会进入半关闭状态：服务器不会再向客户端发送数据，但是客户端可以向服务器发送数据。</p>
-<p>此时一个新的SQL操作从连接池中拿出了这条连接，发送指令，但是在读取的时候，客户端内核已经知道服务器不会再返回数据，因此直接给应用程序返回了EOF错误。然后重点是，此时的连接状态并不是真正意义上的无效连接状态，由于客户端已经把指令发送了出去，尤其如果是一条UPDATE指令的话，是无法执行安全的重试操作的。服务器对这条指令的处理，客户端是完全无法知晓的。</p>
-<p>通常一种简单的解决办法是，设置客户端的空闲超时时间，并且短于服务器的空闲超时时间，然而 <a href="https://golang.org/pkg/database/sql/">database/sql</a> 并没有提供类似&quot;maximum idle duration&quot;的API，不过可以退一步使用 <a href="https://golang.org/pkg/database/sql/#DB.SetConnMaxLifetime">func (*DB) SetConnMaxLifetime</a> 这个API。然而带来的坏处就是，限制了连接的重用时间，即使连接一直处于活跃状态。</p>
-<p>另一种办法是，每次从连接池中拿出连接，在发送第一条指令前发送一个 <code>PING</code> 包来检查连接是否健康，由于 <code>PING</code> 包不会产生副作用，因此后续的操作都是安全的。这种办法的坏处也显而易见，由于从连接池中取出连接是个非常频繁的操作，而每次都会增加至少一次RTT延迟。</p>
-<p>好在 <a href="https://github.com/go-sql-driver/mysql/pull/934">PR#934</a> 通过非常巧妙的方式解决了这一问题。作者的解决思路如下：</p>
-<p>首先需要提到一个Go 1.10后 <code>sql/driver</code> 增加的一个接口：<a href="https://golang.org/pkg/database/sql/driver/#SessionResetter">driver.SessionResetter</a> ，其中 <code>ResetSession</code> 方法会在每次连接放入连接池时执行，这里作者先简单地添加了一个 <code>reset</code> 标记。</p>
-<pre><code class="language-go">type mysqlConn struct {
-    // ...
-    reset            bool // set when the Go SQL package calls ResetSession
-    // ...
-}
+    <blockquote>
+<p>许多设备都可以临时控制总线。这些设备可以执行涉及主内存和其他设备的数据传送。由于设备执行这些操作的过程中无需借助于 CPU，因此该类型的数据传送称为直接内存访问 (direct memory access, DMA)。<sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup></p>
+</blockquote>
+<p>大多数文件系统默认的IO操作都是缓存IO(Buffered I/O)，对于读(Read)操作，即IO设备先把数据发送到内核缓存区(Page Cache)，内核再将数据拷贝到应用程序地址空间的数据缓存区，而对于写(Write)操作，即反过来，从应用程序地址空间的数据缓存区拷贝到内核缓存区，内核再将数据发送到IO设备。</p>
 
-// ResetSession implements driver.SessionResetter.
-// (From Go 1.10)
-func (mc *mysqlConn) ResetSession(ctx context.Context) error {
-    if mc.closed.IsSet() {
-        return driver.ErrBadConn
-    }
-    mc.reset = true
-    return nil
-}
-</code></pre>
-<p>之后连接被拿出来，在执行发送第一条指令前，会先根据之前添加的 <code>reset</code> 标记检查连接是否可用（liveness check），由于前面的标记是连接在放入连接池时加上的，因此可以做到只在第一次取出后检查（检查后把 <code>reset</code> 取消就行），后续在使用过程中无需再检查，除非再次被放回了连接池。</p>
-<pre><code class="language-go">// Write packet buffer 'data'
-func (mc *mysqlConn) writePacket(data []byte) error {
-    // ...
-    // Perform a stale connection check. We only perform this check for
- 	// the first query on a connection that has been checked out of the
- 	// connection pool: a fresh connection from the pool is more likely
- 	// to be stale, and it has not performed any previous writes that
- 	// could cause data corruption, so it's safe to return ErrBadConn
- 	// if the check fails.
- 	if mc.reset {
- 		mc.reset = false
- 		conn := mc.netConn
- 		if mc.rawConn != nil {
- 			conn = mc.rawConn
- 		}
- 		if err := connCheck(conn); err != nil {
- 			errLog.Print(&quot;closing bad idle connection: &quot;, err)
- 			mc.Close()
- 			return driver.ErrBadConn
- 		}
-     }
-     // ...
-}
-</code></pre>
-<p>而检查连接是否可用的方法用到了Go 1.9后 <code>net.Conn</code> 增加的 <code>syscall.Conn</code> 接口，这个接口可以获取原始连接的文件描述符。先调用 <code>syscall.Read</code> ，传入1个字节的缓冲区，由于还没有发送任何指令，并且由Go runtime创建的Socket都设置了非阻塞（O_NONBLOCK）模式，所以方法会立即返回。如果没有返回错误（或者 <code>EAGAIN</code> / <code>EWOULDBLOCK</code> 这2种错误）且读取的数据长度为0，则说明连接依然有效，反之连接已经失效。之所以不直接使用Go的原生接口 <code>net.Conn.Read</code> ，是因为Go的调度器会立即使当前Goroutine睡眠，导致多次Goroutine上下文切换，影响性能。</p>
-<pre><code class="language-go">func connCheck(c net.Conn) error {
- 	var (
- 		n    int
- 		err  error
- 		buff [1]byte
- 	)
-
-  	sconn, ok := c.(syscall.Conn)
- 	if !ok {
- 		return nil
- 	}
- 	rc, err := sconn.SyscallConn()
- 	if err != nil {
- 		return err
- 	}
- 	rerr := rc.Read(func(fd uintptr) bool {
- 		n, err = syscall.Read(int(fd), buff[:])
- 		return true
- 	})
- 	switch {
- 	case rerr != nil:
- 		return rerr
- 	case n == 0 &amp;&amp; err == nil:
- 		return io.EOF
- 	case n &gt; 0:
- 		return errUnexpectedRead
- 	case err == syscall.EAGAIN || err == syscall.EWOULDBLOCK:
- 		return nil
- 	default:
- 		return err
- 	}
-}
-</code></pre>
-<p>- 完</p>
+	
+	
+	<p>
+	  <a href="/posts/dma/">Read More…</a>
+	</p>
+	
 </article>
+</div>
+    <div class="pad"></div>
 
+    
+
+    <div class="pagination">
+        
+        <span class="pagination-item older">Older</span>
+        
+
+        
+        <a class="pure-button pagination-item newer" href="/">Newer</a>
+        
     </div>
 </div>
 

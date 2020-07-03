@@ -4,7 +4,7 @@
     <meta name="theme-color" content="#000" />
     <title>
         
-            关于Go Mysql Driver的unexpected EOF错误 &middot;  Laika
+            Rust高阶生命周期绑定 &middot;  Laika
         
     </title>
 
@@ -25,11 +25,11 @@
     <meta name="generator" content="">
     
     
-    <meta name="description" content="应该是大多数Golang开发者日志里的东西了。">
+    <meta name="description" content="有时无法静态描述一个生命周期，Rust中提供了一种&#34;动态&#34;绑定生命周期的方式。">
     
 
     
-    <meta name="keywords" content="golang,mysql,database,tcp">
+    <meta name="keywords" content="rust,lifetime,hrtbs">
     
     <meta name="author" content="Xiaopeng Li"><link href="https://atelierbram.github.io/syntax-highlighting/prism/demo/assets/css/prism-base16-mocha.dark.css" rel="stylesheet" />
 </head>
@@ -91,118 +91,62 @@
 <div id="content" class="pure-u-1 pure-u-md-3-4 pure-u-sm-1">
     <div class="pad">
 <div class="date">
-    <time pubdate="2020-05-23">May 23, 2020</time>
+    <time pubdate="2020-07-03">July 3, 2020</time>
     <span class="author">by Xiaopeng Li</span>
 </div>
 
 <article>
-    <h1><a href="/posts/go-mysql-driver-eof/">关于Go Mysql Driver的unexpected EOF错误</a></h1>
+    <h1><a href="/posts/rust-hrtbs/">Rust高阶生命周期绑定</a></h1>
     <div class="tags">
         
         
-        <a href="/tags/golang" class="pure-button">golang</a>
+        <a href="/tags/rust" class="pure-button">rust</a>
         
         
-        <a href="/tags/mysql" class="pure-button">mysql</a>
+        <a href="/tags/lifetime" class="pure-button">lifetime</a>
         
         
-        <a href="/tags/database" class="pure-button">database</a>
-        
-        
-        <a href="/tags/tcp" class="pure-button">tcp</a>
+        <a href="/tags/hrtbs" class="pure-button">hrtbs</a>
         
     </div>
-    <p>在使用 <a href="https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc">github.com/go-sql-driver/mysql</a> 作为客户端连接Mysql时，日志中偶然会出现下面的错误：</p>
-<pre><code class="language-none">[mysql] 2019/08/26 16:07:00 packets.go:36: unexpected EOF
-</code></pre>
-<p><a href="https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc">github.com/go-sql-driver/mysql</a> 为了复用TCP连接以提高性能，内部实现了连接池。当需要一次SQL操作时，会先从连接池中拿出一条可用的空闲连接去执行操作。如果没有空闲的连接，或者连接已经失效，就打开一条新的TCP连接、SSL认证（如果使用SSL连接的话）、协议握手、认证等，完成初始化连接，再使用这条连接执行操作，使用完后再放回连接池。连接失效的标记可以在上一次使用连接后根据对应的错误来完成，或者本次操作指令发送失败也标记为连接失效，driver会重新执行上面的步骤来进行重试，应用层不会感知。</p>
-<p>到这里，好像一切都没有什么问题，可是上面的错误是怎么回事？如果是连接失效的话，应该会进行重试，对应用透明。</p>
-<p>其实上面的错误来源于服务器主动关闭超时连接造成的TCP半关闭状态，错误的形成原因可以用下面的图简单解释：</p>
-<div style="padding:2em;text-align:center">
-    <img src="/img/go-mysql-driver-eof.svg">
-</div>
-<p>当需要重新打开一条Mysql连接时，先是完成基本的TCP连接握手，然后完成Mysql的协议握手、认证，之后就可以在这条连接上发送指令了。一次操作完成后，连接被放回连接池中，如果之后一段时间这条连接都没有被使用过，Mysql服务器会根据相应的配置，主动关闭这条连接。此时服务器内核会向客户端内核发送一个[FIN, ACK]的TCP段，客户端内核回应一个ACK段，此时这条TCP连接会进入半关闭状态：服务器不会再向客户端发送数据，但是客户端可以向服务器发送数据。</p>
-<p>此时一个新的SQL操作从连接池中拿出了这条连接，发送指令，但是在读取的时候，客户端内核已经知道服务器不会再返回数据，因此直接给应用程序返回了EOF错误。然后重点是，此时的连接状态并不是真正意义上的无效连接状态，由于客户端已经把指令发送了出去，尤其如果是一条UPDATE指令的话，是无法执行安全的重试操作的。服务器对这条指令的处理，客户端是完全无法知晓的。</p>
-<p>通常一种简单的解决办法是，设置客户端的空闲超时时间，并且短于服务器的空闲超时时间，然而 <a href="https://golang.org/pkg/database/sql/">database/sql</a> 并没有提供类似&quot;maximum idle duration&quot;的API，不过可以退一步使用 <a href="https://golang.org/pkg/database/sql/#DB.SetConnMaxLifetime">func (*DB) SetConnMaxLifetime</a> 这个API。然而带来的坏处就是，限制了连接的重用时间，即使连接一直处于活跃状态。</p>
-<p>另一种办法是，每次从连接池中拿出连接，在发送第一条指令前发送一个 <code>PING</code> 包来检查连接是否健康，由于 <code>PING</code> 包不会产生副作用，因此后续的操作都是安全的。这种办法的坏处也显而易见，由于从连接池中取出连接是个非常频繁的操作，而每次都会增加至少一次RTT延迟。</p>
-<p>好在 <a href="https://github.com/go-sql-driver/mysql/pull/934">PR#934</a> 通过非常巧妙的方式解决了这一问题。作者的解决思路如下：</p>
-<p>首先需要提到一个Go 1.10后 <code>sql/driver</code> 增加的一个接口：<a href="https://golang.org/pkg/database/sql/driver/#SessionResetter">driver.SessionResetter</a> ，其中 <code>ResetSession</code> 方法会在每次连接放入连接池时执行，这里作者先简单地添加了一个 <code>reset</code> 标记。</p>
-<pre><code class="language-go">type mysqlConn struct {
-    // ...
-    reset            bool // set when the Go SQL package calls ResetSession
-    // ...
+    <p>Rust中，<code>lifetime</code> 其实也是一种类型参数，可以看成范型的一种特殊形式。编译时需要将所有类型（包括 <code>lifetime</code> ）确定下来，比如：</p>
+<pre><code class="language-rust">fn foo&lt;'a&gt;(x: &amp;'a i32) {
+	// ...
 }
 
-// ResetSession implements driver.SessionResetter.
-// (From Go 1.10)
-func (mc *mysqlConn) ResetSession(ctx context.Context) error {
-    if mc.closed.IsSet() {
-        return driver.ErrBadConn
-    }
-    mc.reset = true
-    return nil
+'a: {
+	let x = 1;
+	foo::&lt;'a&gt;(&amp;x);
 }
 </code></pre>
-<p>之后连接被拿出来，在执行发送第一条指令前，会先根据之前添加的 <code>reset</code> 标记检查连接是否可用（liveness check），由于前面的标记是连接在放入连接池时加上的，因此可以做到只在第一次取出后检查（检查后把 <code>reset</code> 取消就行），后续在使用过程中无需再检查，除非再次被放回了连接池。</p>
-<pre><code class="language-go">// Write packet buffer 'data'
-func (mc *mysqlConn) writePacket(data []byte) error {
-    // ...
-    // Perform a stale connection check. We only perform this check for
- 	// the first query on a connection that has been checked out of the
- 	// connection pool: a fresh connection from the pool is more likely
- 	// to be stale, and it has not performed any previous writes that
- 	// could cause data corruption, so it's safe to return ErrBadConn
- 	// if the check fails.
- 	if mc.reset {
- 		mc.reset = false
- 		conn := mc.netConn
- 		if mc.rawConn != nil {
- 			conn = mc.rawConn
- 		}
- 		if err := connCheck(conn); err != nil {
- 			errLog.Print(&quot;closing bad idle connection: &quot;, err)
- 			mc.Close()
- 			return driver.ErrBadConn
- 		}
-     }
-     // ...
+<p>上面的 <code>'a</code> 生命周期其实就是变量 <code>x</code> 所在的block。</p>
+<p>这个例子很简单，但如果我们换个闭包类型看看：</p>
+<pre><code class="language-rust">fn foo&lt;'a&gt;(f: Box&lt;dyn Fn(&amp;'a i32)&gt;) {
+    let x = 1;
+    f(&amp;x);
+	{
+		let y = 2;
+		f(&amp;y);
+	}
 }
 </code></pre>
-<p>而检查连接是否可用的方法用到了Go 1.9后 <code>net.Conn</code> 增加的 <code>syscall.Conn</code> 接口，这个接口可以获取原始连接的文件描述符。先调用 <code>syscall.Read</code> ，传入1个字节的缓冲区，由于还没有发送任何指令，并且由Go runtime创建的Socket都设置了非阻塞（O_NONBLOCK）模式，所以方法会立即返回。如果没有返回错误（或者 <code>EAGAIN</code> / <code>EWOULDBLOCK</code> 这2种错误）且读取的数据长度为0，则说明连接依然有效，反之连接已经失效。之所以不直接使用Go的原生接口 <code>net.Conn.Read</code> ，是因为Go的调度器会立即使当前Goroutine睡眠，导致多次Goroutine上下文切换，影响性能。</p>
-<pre><code class="language-go">func connCheck(c net.Conn) error {
- 	var (
- 		n    int
- 		err  error
- 		buff [1]byte
- 	)
-
-  	sconn, ok := c.(syscall.Conn)
- 	if !ok {
- 		return nil
- 	}
- 	rc, err := sconn.SyscallConn()
- 	if err != nil {
- 		return err
- 	}
- 	rerr := rc.Read(func(fd uintptr) bool {
- 		n, err = syscall.Read(int(fd), buff[:])
- 		return true
- 	})
- 	switch {
- 	case rerr != nil:
- 		return rerr
- 	case n == 0 &amp;&amp; err == nil:
- 		return io.EOF
- 	case n &gt; 0:
- 		return errUnexpectedRead
- 	case err == syscall.EAGAIN || err == syscall.EWOULDBLOCK:
- 		return nil
- 	default:
- 		return err
- 	}
+<p>第一次调用 <code>f(&amp;x)</code> 时生命周期 <code>'a</code> 等于变量 <code>x</code> 的生命周期；而在第二次调用 <code>f(&amp;y)</code> 时，生命周期 <code>'a</code> 又等于了变量 <code>y</code> 的生命周期；而变量 <code>x</code> 和变量 <code>y</code> 的生命周期显然是不同的。因此无法用一个静态的生命周期来描述 <code>'a</code> ，我们希望的是，闭包 <code>f</code> 在具体调用时绑定具体的生命周期，比如调用 <code>f(&amp;x)</code> 时绑定的是 <code>x</code> 的生命周期，而调用 <code>f(&amp;y)</code> 时绑定的是 <code>y</code> 的生命周期。</p>
+<p>Rust中可以用 <code>高阶生命周期绑定（HRTBs）</code> 来实现&quot;动态&quot;生命周期绑定，其语法如下：</p>
+<pre><code class="language-rust">for&lt;'a&gt; Trait
+</code></pre>
+<p>比如上面的例子就可以写成：</p>
+<pre><code class="language-rust">fn foo(f: Box&lt;dyn for&lt;'a&gt; Fn(&amp;'a i32)&gt;) {
+    let x = 1;
+    f(&amp;x);
+	{
+		let y = 2;
+		f(&amp;y);
+	}
 }
 </code></pre>
-<p>- 完</p>
+<p>这样生命周期 <code>'a</code> 就不再是静态的了，他会随着闭包 <code>f</code> 的调用绑定到不同的生命周期：<code>f(&amp;x)</code> 调用时绑定到 <code>x</code> 的生命周期，<code>f(&amp;y)</code> 调用时绑定到 <code>y</code> 的生命周期。</p>
+<p>不过大多数时候我们很少见到 <code>HRTBs</code> ，因为闭包的生命周期省略的话，编译器会帮我们自动生成 <code>高阶生命周期绑定</code> 。</p>
+<p>而 <code>HRTBs</code> 的全称是 <code>Higher-Rank Trait Bounds</code>，翻译成 <code>高阶特质绑定</code> 可能更为合适，并且它只能在绑定 <code>trait</code> 时声明，不过目前只支持对生命周期参数的绑定，所以我翻译它叫 <code>高阶生命周期绑定</code> 。</p>
 </article>
 
     </div>

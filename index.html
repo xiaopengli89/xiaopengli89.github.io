@@ -93,6 +93,50 @@
 
     <div class="pad">
 <div class="date">
+    <time pubdate="2020-07-03">July 3, 2020</time>
+    <span class="author">by Xiaopeng Li</span>
+</div>
+
+<article>
+    <h1><a href="/posts/rust-hrtbs/">Rust高阶生命周期绑定</a></h1>
+    <div class="tags">
+        
+        
+        <a href="/tags/rust" class="pure-button">rust</a>
+        
+        
+        <a href="/tags/lifetime" class="pure-button">lifetime</a>
+        
+        
+        <a href="/tags/hrtbs" class="pure-button">hrtbs</a>
+        
+    </div>
+    <p>Rust中，<code>lifetime</code> 其实也是一种类型参数，可以看成范型的一种特殊形式。编译时需要将所有类型（包括 <code>lifetime</code> ）确定下来，比如：</p>
+<pre><code class="language-rust">fn foo&lt;'a&gt;(x: &amp;'a i32) {
+	// ...
+}
+
+'a: {
+	let x = 1;
+	foo::&lt;'a&gt;(&amp;x);
+}
+</code></pre>
+<p>上面的 <code>'a</code> 生命周期其实就是变量 <code>x</code> 所在的block。</p>
+
+	
+	
+	<p>
+	  <a href="/posts/rust-hrtbs/">Read More…</a>
+	</p>
+	
+</article>
+</div>
+    <div class="pad"></div>
+
+    
+
+    <div class="pad">
+<div class="date">
     <time pubdate="2020-07-01">July 1, 2020</time>
     <span class="author">by Xiaopeng Li</span>
 </div>
@@ -463,49 +507,9 @@ for rows.Next() {
 
     
 
-    <div class="pad">
-<div class="date">
-    <time pubdate="2020-05-16">May 16, 2020</time>
-    <span class="author">by Xiaopeng Li</span>
-</div>
-
-<article>
-    <h1><a href="/posts/dma/">DMA(直接内存访问)和零拷贝</a></h1>
-    <div class="tags">
-        
-        
-        <a href="/tags/linux" class="pure-button">linux</a>
-        
-        
-        <a href="/tags/kernel" class="pure-button">kernel</a>
-        
-        
-        <a href="/tags/memory" class="pure-button">memory</a>
-        
-        
-        <a href="/tags/zero-copy" class="pure-button">zero copy</a>
-        
-    </div>
-    <blockquote>
-<p>许多设备都可以临时控制总线。这些设备可以执行涉及主内存和其他设备的数据传送。由于设备执行这些操作的过程中无需借助于 CPU，因此该类型的数据传送称为直接内存访问 (direct memory access, DMA)。<sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup></p>
-</blockquote>
-<p>大多数文件系统默认的IO操作都是缓存IO(Buffered I/O)，对于读(Read)操作，即IO设备先把数据发送到内核缓存区(Page Cache)，内核再将数据拷贝到应用程序地址空间的数据缓存区，而对于写(Write)操作，即反过来，从应用程序地址空间的数据缓存区拷贝到内核缓存区，内核再将数据发送到IO设备。</p>
-
-	
-	
-	<p>
-	  <a href="/posts/dma/">Read More…</a>
-	</p>
-	
-</article>
-</div>
-    <div class="pad"></div>
-
-    
-
     <div class="pagination">
         
-        <span class="pagination-item older">Older</span>
+        <a class="pure-button pagination-item older" href="/page/2/">Older</a>
         
 
         
@@ -528,6 +532,12 @@ for rows.Next() {
         <h3>Latest Articles</h3>
         <div class="pure-menu pure-menu-open">
             <ul class="pure-menu-list">
+                
+                <li class="pure-menu-item">
+                    <a href="/posts/rust-hrtbs/" class="pure-menu-link">Rust高阶生命周期绑定<br>
+                        <small>有时无法静态描述一个生命周期，Rust中提供了一种&#34;动态&#34;绑定生命周期的方式。</small>
+                    </a>
+                </li>
                 
                 <li class="pure-menu-item">
                     <a href="/posts/rust-box-heap/" class="pure-menu-link">Rust动态内存分配<br>
@@ -583,12 +593,6 @@ for rows.Next() {
                     </a>
                 </li>
                 
-                <li class="pure-menu-item">
-                    <a href="/posts/dma/" class="pure-menu-link">DMA(直接内存访问)和零拷贝<br>
-                        <small>利用Linux的多样化IO技术减少数据拷贝。</small>
-                    </a>
-                </li>
-                
             </ul>
         </div>
 
@@ -597,7 +601,7 @@ for rows.Next() {
             
             
             <a href="/tags/rust" class="pure-button"> rust
-                <small>(6)</small></a>
+                <small>(7)</small></a>
             
             
             
@@ -633,6 +637,10 @@ for rows.Next() {
             
             <a href="/tags/tcp" class="pure-button"> tcp
                 <small>(2)</small></a>
+            
+            
+            
+            
             
             
             
