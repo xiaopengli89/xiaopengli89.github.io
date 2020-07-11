@@ -4,7 +4,32 @@
   
   <url>
     <loc>/</loc>
-    <lastmod>2020-07-03T23:40:45+08:00</lastmod>
+    <lastmod>2020-07-10T19:23:16+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>/tags/async/</loc>
+    <lastmod>2020-07-10T19:23:16+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>/posts/</loc>
+    <lastmod>2020-07-10T19:23:16+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>/tags/rust/</loc>
+    <lastmod>2020-07-10T19:23:16+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>/tags/</loc>
+    <lastmod>2020-07-10T19:23:16+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>/posts/plain-rt/</loc>
+    <lastmod>2020-07-10T19:23:16+08:00</lastmod>
   </url>
   
   <url>
@@ -18,22 +43,7 @@
   </url>
   
   <url>
-    <loc>/posts/</loc>
-    <lastmod>2020-07-03T23:40:45+08:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>/tags/rust/</loc>
-    <lastmod>2020-07-03T23:40:45+08:00</lastmod>
-  </url>
-  
-  <url>
     <loc>/posts/rust-hrtbs/</loc>
-    <lastmod>2020-07-03T23:40:45+08:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>/tags/</loc>
     <lastmod>2020-07-03T23:40:45+08:00</lastmod>
   </url>
   

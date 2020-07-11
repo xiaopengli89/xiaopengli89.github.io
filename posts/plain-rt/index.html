@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+    <meta charset="utf-8">
+    <meta name="theme-color" content="#000" />
+    <title>
+        
+            实现一个无依赖的Rust异步运行时 &middot;  Laika
+        
+    </title>
+
+    
+	<link href="https://cdn.bootcdn.net/ajax/libs/pure/2.0.3/pure-min.css" rel="stylesheet" crossorigin="anonymous">
+    
+    
+	<link href="https://cdn.bootcdn.net/ajax/libs/pure/2.0.3/grids-responsive-min.css" rel="stylesheet">
+    
+    <link rel="stylesheet" href="/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Sans+Condensed:wght@300&family=Merriweather:ital,wght@0,300;0,700;1,300&display=swap" rel="stylesheet">
+    <link rel="icon" href="/img/favicon.ico" type="image/x-icon">
+
+    <link rel="alternate" type="application/atom+xml" title="Atom Feed" href="/atom.xml" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="">
+    
+    
+    <meta name="description" content="一个基本的Rust异步运行时实现，不依赖第三方crate，单文件，非常直观地解释Rust异步的基本原理。">
+    
+
+    
+    <meta name="keywords" content="rust,async">
+    
+    <meta name="author" content="Xiaopeng Li"><link href="https://atelierbram.github.io/syntax-highlighting/prism/demo/assets/css/prism-base16-mocha.dark.css" rel="stylesheet" />
+</head>
+<body>
+        <div class="container"><div id="navbar" class="pure-menu pure-menu-open pure-menu-horizontal pure-menu-scrollable">
+    <a href="/" class="pure-menu-heading">
+        
+            Laika 
+         
+    </a>
+    <ul class="pure-menu-list">
+        <li class="pure-menu-item">
+            <a href="/posts" class="pure-menu-link">
+                <i class="fa fa-archive"></i>
+                Articles
+            </a>
+        </li>
+        <li class="pure-menu-item">
+            <a href="/tags" class="pure-menu-link">
+                <i class="fas fa-comments"></i>
+                Categories
+            </a>
+        </li>
+        <li class="pure-menu-item">
+            <a href="/about" class="pure-menu-link">
+                <i class="fas fa-smile"></i>
+                About
+            </a>
+        </li>
+    </ul>
+    <ul class="pure-menu-list pull-right">
+        
+        <li class="pure-menu-item">
+            <a href="https://github.com/xiaopengli89" title="Github" class="pure-menu-link">
+                <i class="fab fa-github"></i>
+                <span class="hide">Github</span>
+            </a>
+        </li>
+        
+        
+        
+        
+        
+        <li class="pure-menu-item">
+            <a href="/posts/index.xml" title="Atom Feed" class="pure-menu-link">
+                <i class="fas fa-rss-square"></i>
+                <span class="hide">RSS Feed</span>
+            </a>
+        </li>
+    </ul>
+</div>
+<div class="pure-u-1">
+    <div class="pad">
+    </div>
+</div>
+<div class="pure-g">
+
+
+<div id="content" class="pure-u-1 pure-u-md-3-4 pure-u-sm-1">
+    <div class="pad">
+<div class="date">
+    <time pubdate="2020-07-10">July 10, 2020</time>
+    <span class="author">by Xiaopeng Li</span>
+</div>
+
+<article>
+    <h1><a href="/posts/plain-rt/">实现一个无依赖的Rust异步运行时</a></h1>
+    <div class="tags">
+        
+        
+        <a href="/tags/rust" class="pure-button">rust</a>
+        
+        
+        <a href="/tags/async" class="pure-button">async</a>
+        
+    </div>
+    <p>这篇文章将非常直观、易懂地解释Rust异步运行时的实现。代码不超过300行，只依赖标准库，支持 <code>spawn</code> 多个 <code>Task</code> 并发执行。</p>
+<p>首先，Rust标准库对异步的抽象主要集中于几个类型，分别是：</p>
+<ul>
+<li><code>Future</code> - 对于一个异步操作的抽象，代表一个未来事件，如果事件未就绪，应暂停当前 <code>Task</code>（可以去执行其他 <code>Task</code>），事件就绪后，恢复执行</li>
+<li><code>Waker</code> - 唤醒器，当事件就绪后，通知运行时重新调度和这个 <code>Waker</code> 绑定的 <code>Task</code></li>
+<li><code>Pin</code> - 固定对象，是为了解决生成器状态机的自引用问题</li>
+</ul>
+<h3 id="为什么rust的异步要这样设计">为什么Rust的异步要这样设计？</h3>
+<p>要讨论这个问题，需要先就其他生态领域内的异步模型设计做一些比较。</p>
+<p>最为人所熟知我想应该就是 <code>Javascript</code> 了，最初 <code>Javascript</code> 是被设计用于在浏览器内执行脚本代码，并且出于使用简单，采用了单线程模型（好处可以参考 <code>Redis</code>）。可是用户的代码执行流并不一定是线性的，比如点击按钮，需要基于事件作出响应。为此设计出了事件循环，而响应函数则利用回调的方式注册到事件循环上，当事件被触发时，回调函数被触发执行（需要指出的是，回调函数的执行也是在全局的单一线程中，这也导致如果在代码中有阻塞操作，回调函数的执行也会被推迟）。</p>
+<p>然后就是被 <code>Go</code> 发扬光大的轻量级线程了。异步的出现是伴随着线程的复用而出现的，像 <code>Javascript</code> 的单线程回调模型也是在复用全局的主线程。而 <code>Go</code> 则通过在用户空间实现新的线程，这些用户空间的新线程再复用底层的操作系统线程，遇到阻塞调用时，重新调度用户空间的线程，由于调度这些线程不需要核内外的切换，创建、维持、销毁的开销也远小于操作系统线程，可以大量地创建，因此常被称为轻量级线程。</p>
+<p>在讨论 <code>Rust</code> 的异步模型前，首先需要声明的是，类似的异步模型已经存在于其他生态领域，比如 <code>ES2017</code> 、<code>Python</code> 和 <code>.NET</code>，因此可以说 <code>Rust</code> 从它们身上借鉴了许多，甚至在新版本的 <a href="https://github.com/tokio-rs/tokio">tokio</a> 、 <a href="https://github.com/async-rs/async-std">async-std</a> 和 <a href="https://github.com/stjepang/smol">smol</a> 3个主流 <code>Rust</code> 异步运行时身上还能看到 <code>Go</code> 的影子。</p>
+<p><code>Rust</code> 的异步模型同时借鉴了轻量级线程和回调。</p>
+<p>从轻量级线程看，<code>Rust</code> 标准库内的 <code>Future</code> 可以变相地看成一种“线程”，我们习惯称其为 <code>Task</code> 。一个 <code>Task</code> 可以处于运行状态和暂停状态，当 <code>Task</code> 遇到阻塞调用时，需要从运行状态切换到暂停状态，而当阻塞恢复时，需要再从暂停状态切换回运行状态，而完成这种切换操作的角色，我们称之为 <code>Executor</code> 执行器。</p>
+<p>这种切换类似于线程的调度，不过区别在于 <code>Task</code> 没有自己独立的执行栈以及需要主动让出线程使用权（非抢占）。对于前者，需要编译器支持将暂停时的 <code>Task</code> 状态保存起来，便于后续的恢复执行，也就是实现状态机。而线程拥有独立的执行栈，不需要编译器的支持即可完成这种操作。对于后者，<code>Task</code> 无法被抢占，如果一个恶意 <code>Task</code> 完全不让出线程使用权，则会导致其他 <code>Task</code> 的饥饿问题。从这2个方面看，<code>Goroutine</code> 是非常接近原生线程的，但是独立的执行栈，如何分配这个栈的大小，如果溢出了，如何动态增长，而动态增长会带来额外的性能开销，这些问题都需要去解决。而 <code>Task</code> 没有独立的执行栈，不需要解决这些问题，同时不会有内存的浪费（栈的大小分配不可能完全和需求一致）；抢占虽然对于解决负载均衡有帮助，但同时也会多出一些额外的切换次数开销，因此总体的吞吐反而小于非抢占式。</p>
+<p>从回调看的话，<code>Task</code> 阻塞恢复时，需要一种机制来通知对应的 <code>Task</code> 可以被重新调度，完成这种功能的角色就是 <code>Waker</code> 唤醒器，而 <code>Waker</code> 也是通过注册回调来实现的。</p>
+<p>对于 <code>Pin</code> 类型，则是在状态机的实现过程中，会存在自引用问题：当 <code>Task</code> 恢复执行后，可能会引用上一阶段产生的变量，而这些变量都是保存在自动生成的匿名结构中，这样就出现了一个 <code>Field</code> 可能去引用自身结构的另一个 <code>Field</code>。而这样的对象是无法安全地移动的，而目前的实现就是让它不再移动，也就是无法安全的获取其可变借用，<code>Pin</code> 类型便是对这种类型的封装。</p>
+<p>综上，<code>Rust</code> 的异步模型可以说是在目前各生态领域里的一种选择，它不是完美的，却也足够优秀。当然目前也不存在完美的异步模型，对于一些闭源实现，看不到代码，不做判断。</p>
+<h3 id="实现-waker">实现 <code>Waker</code></h3>
+<pre><code class="language-rust">pub struct Waker {
+    waker: RawWaker,
+}
+
+pub struct RawWaker {
+    /// A data pointer, which can be used to store arbitrary data as required
+    /// by the executor. This could be e.g. a type-erased pointer to an `Arc`
+    /// that is associated with the task.
+    /// The value of this field gets passed to all functions that are part of
+    /// the vtable as the first parameter.
+    data: *const (),
+    /// Virtual function pointer table that customizes the behavior of this waker.
+    vtable: &amp;'static RawWakerVTable,
+}
+
+pub struct RawWakerVTable {
+    /// This function will be called when the [`RawWaker`] gets cloned, e.g. when
+    /// the [`Waker`] in which the [`RawWaker`] is stored gets cloned.
+    ///
+    /// The implementation of this function must retain all resources that are
+    /// required for this additional instance of a [`RawWaker`] and associated
+    /// task. Calling `wake` on the resulting [`RawWaker`] should result in a wakeup
+    /// of the same task that would have been awoken by the original [`RawWaker`].
+    ///
+    /// [`Waker`]: struct.Waker.html
+    /// [`RawWaker`]: struct.RawWaker.html
+    clone: unsafe fn(*const ()) -&gt; RawWaker,
+
+    /// This function will be called when `wake` is called on the [`Waker`].
+    /// It must wake up the task associated with this [`RawWaker`].
+    ///
+    /// The implementation of this function must make sure to release any
+    /// resources that are associated with this instance of a [`RawWaker`] and
+    /// associated task.
+    ///
+    /// [`Waker`]: struct.Waker.html
+    /// [`RawWaker`]: struct.RawWaker.html
+    wake: unsafe fn(*const ()),
+
+    /// This function will be called when `wake_by_ref` is called on the [`Waker`].
+    /// It must wake up the task associated with this [`RawWaker`].
+    ///
+    /// This function is similar to `wake`, but must not consume the provided data
+    /// pointer.
+    ///
+    /// [`Waker`]: struct.Waker.html
+    /// [`RawWaker`]: struct.RawWaker.html
+    wake_by_ref: unsafe fn(*const ()),
+
+    /// This function gets called when a [`RawWaker`] gets dropped.
+    ///
+    /// The implementation of this function must make sure to release any
+    /// resources that are associated with this instance of a [`RawWaker`] and
+    /// associated task.
+    ///
+    /// [`RawWaker`]: struct.RawWaker.html
+    drop: unsafe fn(*const ()),
+}
+</code></pre>
+<p>标准库中对 <code>Waker</code> 的定义中只有一个 <code>RawWaker</code>，并且 <code>RawWaker</code> 结构内有 <code>data</code> 和 <code>vtable</code> 2个 <code>Field</code>。看到这里已经发现了 <code>RawWaker</code> 其实就是个由数据和虚表组成的胖指针，和 <code>Trait Object</code> 如出一辙，之所以不直接将 <code>Waker</code> 定义成 <code>Trait Object</code> 的原因，是为了 <code>Rust</code> 的异步模型可以灵活地适应于各类系统，包括没有内存分配器的嵌入式系统上。</p>
+<p>既然 <code>Waker</code> 的作用是当事件就绪时通知 <code>Executor</code> 可以重新调度某个任务，不妨可以将 <code>Waker</code> 构造方法设计成接受一个闭包，而虚表的各类方法先取出闭包，然后执行闭包就行了：</p>
+<pre><code class="language-rust">struct WakerFn&lt;F&gt;(F);
+
+impl&lt;F: Fn() + 'static + Send&gt; WakerFn&lt;F&gt; {
+    const VTABLE: RawWakerVTable =
+        RawWakerVTable::new(Self::clone, Self::wake, Self::wake_by_ref, Self::drop);
+
+    unsafe fn clone(data: *const ()) -&gt; RawWaker {
+        let arc = std::mem::ManuallyDrop::new(Arc::from_raw(data as *const F));
+        // 增加引用计数，但是不执行析构方法，因为下面需要转换成裸指针，防止悬垂指针
+        let _ = arc.clone();
+        RawWaker::new(data, &amp;Self::VTABLE)
+    }
+
+    unsafe fn wake(data: *const ()) {
+        let arc = Arc::from_raw(data as *const F);
+        arc();
+    }
+
+    unsafe fn wake_by_ref(data: *const ()) {
+        let f = &amp;*(data as *const F);
+        f();
+    }
+
+    unsafe fn drop(data: *const ()) {
+        drop(Arc::from_raw(data as *const F))
+    }
+
+    fn get_waker(f: F) -&gt; Waker {
+        let data = Arc::into_raw(Arc::new(f)) as *const ();
+        let vtable = &amp;Self::VTABLE;
+        unsafe { Waker::from_raw(RawWaker::new(data, vtable)) }
+    }
+}
+</code></pre>
+<h3 id="实现-executor">实现 <code>Executor</code></h3>
+<p><code>Executor</code> 的作用就是执行 <code>Task</code>，可以实现一个简单的任务队列，不停地从队列中取出任务，然后执行：</p>
+<pre><code class="language-rust">struct RawTask {
+    future: Mutex&lt;Pin&lt;Box&lt;dyn Future&lt;Output = ()&gt; + Send&gt;&gt;&gt;,
+}
+
+type Task = Arc&lt;RawTask&gt;;
+
+struct Executor {
+    rx_futures: Receiver&lt;Task&gt;,
+    tx_futures: Sender&lt;Task&gt;,
+}
+
+impl Executor {
+    fn new(rx_futures: Receiver&lt;Task&gt;, tx_futures: Sender&lt;Task&gt;) -&gt; Self {
+        Self {
+            rx_futures,
+            tx_futures,
+        }
+    }
+
+    fn run(&amp;self) {
+        while let Ok(task) = self.rx_futures.recv() {
+            let tx_futures_w = self.tx_futures.clone();
+            let task_w = task.clone();
+            let waker = WakerFn::get_waker(move || {
+                // 重新调度任务
+                tx_futures_w.send(task_w.clone()).unwrap();
+            });
+            let mut cx = Context::from_waker(&amp;waker);
+            let _ = task.future.lock().unwrap().as_mut().poll(&amp;mut cx);
+        }
+    }
+}
+</code></pre>
+<p>这里可以看到 <code>Task</code> 内的 <code>Future</code> 的 <code>Output</code> 关联类型被定义成了 <code>()</code> ，这是因为 <code>Executor</code> 只会接收顶级的 <code>Future</code> ，非顶级的 <code>Future</code> 组合子会由编译器生成的生成器自动处理，至于如何接收顶级 <code>Future</code> 的结果可以由下面的 <code>Runtime</code> 实现。</p>
+<h3 id="实现-runtime">实现 <code>Runtime</code></h3>
+<pre><code class="language-rust">struct Runtime {
+    tx_futures: Option&lt;Sender&lt;Task&gt;&gt;,
+    // 由于 Sender 没有实现 Sync，所以实现一个简单的 Spin
+    lock: AtomicBool,
+}
+
+unsafe impl Sync for Runtime {}
+
+impl Runtime {
+    const fn uninit() -&gt; Self {
+        Self {
+            tx_futures: None,
+            lock: AtomicBool::new(false),
+        }
+    }
+
+    fn init(&amp;mut self, tx_futures: Sender&lt;Task&gt;) {
+        self.tx_futures = Some(tx_futures);
+    }
+
+    fn spawn&lt;F, R&gt;(&amp;self, f: F) -&gt; impl Future&lt;Output = R&gt;
+    where
+        F: Future&lt;Output = R&gt; + Send + 'static,
+        R: Send + 'static,
+    {
+        let waiter = Arc::new(Waiter::&lt;R&gt;::new());
+        let waiter_f = WaiterFuture::new(waiter.clone());
+        // 包装task
+        let f2 = async move {
+            let r = f.await;
+            waiter.complete(r);
+        };
+        let raw_task = RawTask {
+            future: Mutex::new(Box::pin(f2)),
+        };
+        let task: Task = Arc::new(raw_task);
+
+        // 获取锁
+        while self.lock.compare_and_swap(false, true, Ordering::SeqCst) {}
+        // 调度任务
+        self.tx_futures
+            .as_ref()
+            .expect(&quot;Runtime未初始化&quot;)
+            .send(task)
+            .unwrap();
+        // 释放锁
+        self.lock.store(false, Ordering::SeqCst);
+        waiter_f
+    }
+
+    fn block_on&lt;F, R&gt;(&amp;self, f: F) -&gt; F::Output
+    where
+        F: Future&lt;Output = R&gt; + Send + 'static,
+        R: Send + 'static,
+    {
+        let (tx, rx) = mpsc::channel();
+        // 包装task
+        let f2 = async move {
+            let r = f.await;
+            tx.send(r).unwrap();
+        };
+        let raw_task = RawTask {
+            future: Mutex::new(Box::pin(f2)),
+        };
+        let task: Task = Arc::new(raw_task);
+        // 获取锁
+        while self.lock.compare_and_swap(false, true, Ordering::SeqCst) {}
+        // 调度任务
+        self.tx_futures
+            .as_ref()
+            .expect(&quot;Runtime未初始化&quot;)
+            .send(task)
+            .unwrap();
+        // 释放锁
+        self.lock.store(false, Ordering::SeqCst);
+        rx.recv().unwrap()
+    }
+}
+</code></pre>
+<p><code>block_on</code> 方法接收一个 <code>Future</code>，我们需要将其包装成一个 <code>Task</code>，然后发送到 <code>Executor</code>，而它的结果可以用一个 <code>channel</code> 来接收。而 <code>spawn</code> 方法则需要返回一个新的 <code>Future</code> ，并且 <code>spawn</code> 会派生一个顶级 <code>Future</code> ，也就是会并发执行，而 <code>channel</code> 的 <code>recv</code> 方法会阻塞线程，为此设计了 <code>WaiterFuture</code> 用于异步接收结果（当然也可以不去接收）：</p>
+<pre><code class="language-rust">struct Waiter&lt;T&gt; {
+    val: Mutex&lt;Option&lt;T&gt;&gt;,
+    waker: Mutex&lt;Option&lt;Waker&gt;&gt;,
+}
+
+impl&lt;T&gt; Waiter&lt;T&gt; {
+    fn new() -&gt; Self {
+        Self {
+            val: Mutex::new(None),
+            waker: Mutex::new(None),
+        }
+    }
+
+    fn complete(&amp;self, val: T) {
+        *self.val.lock().unwrap() = Some(val);
+        if let Some(waker) = self.waker.lock().unwrap().take() {
+            waker.wake();
+        } else {
+            // TODO:
+        }
+    }
+}
+
+struct WaiterFuture&lt;T&gt; {
+    waiter: Arc&lt;Waiter&lt;T&gt;&gt;,
+}
+
+impl&lt;T&gt; WaiterFuture&lt;T&gt; {
+    fn new(waiter: Arc&lt;Waiter&lt;T&gt;&gt;) -&gt; Self {
+        Self { waiter }
+    }
+}
+
+impl&lt;T&gt; Future for WaiterFuture&lt;T&gt; {
+    type Output = T;
+
+    fn poll(self: Pin&lt;&amp;mut Self&gt;, cx: &amp;mut Context&lt;'_&gt;) -&gt; Poll&lt;Self::Output&gt; {
+        unsafe {
+            let w = self.get_unchecked_mut();
+            let mut val = w.waiter.val.lock().unwrap();
+            if val.is_some() {
+                Poll::Ready(val.take().unwrap())
+            } else {
+                // 注册waker
+                let mut w_waker = w.waiter.waker.lock().unwrap();
+                if w_waker.is_none() {
+                    let waker = cx.waker().clone();
+                    *w_waker = Some(waker);
+                }
+                Poll::Pending
+            }
+        }
+    }
+}
+</code></pre>
+<p>当 <code>Waiter</code> 内的数据没有就绪时，注册当前 <code>Task</code> 的 <code>Waker</code>；当派生的顶级 <code>Future</code> 完成时，调用 <code>complete</code> 方法，写入数据，执行唤醒器（重新调度当前的 <code>Task</code>）。</p>
+<h3 id="运行时的初始化">运行时的初始化</h3>
+<p>由于新任务的派生可能在多个线程中，为此可以简单地初始化一个全局运行时，并将运行时标记为 <code>Sync</code>（因为我们对 <code>Sender</code> 已经做了自旋锁保护）：</p>
+<pre><code class="language-rust">fn main() {
+    let (tx_futures, rx_futures) = mpsc::channel();
+    // 初始化Executor
+    let executor = Executor::new(rx_futures, tx_futures.clone());
+    thread::spawn(move || {
+        executor.run();
+    });
+    // 初始化Runtime
+    unsafe {
+        let rt_ptr: *mut Runtime = &amp;RT as *const _ as *mut _;
+        (*rt_ptr).init(tx_futures);
+    }
+    let r = RT.block_on(async { 2 });
+    dbg!(r);
+}
+
+static RT: Runtime = Runtime::uninit();
+</code></pre>
+<p>运行代码：</p>
+<pre><code class="language-bash">$ cargo run
+</code></pre>
+<pre><code class="language-none">[src/main.rs:28] r = 2
+</code></pre>
+<p>为了验证 <code>Waker</code> 是否工作正常，可以实现一个虚假的IO操作：</p>
+<pre><code class="language-rust">struct FakeIo {
+    val: Arc&lt;Mutex&lt;Option&lt;i32&gt;&gt;&gt;,
+    start: bool,
+    dur: Duration,
+}
+
+impl FakeIo {
+    fn new(dur: Duration) -&gt; Self {
+        Self {
+            val: Arc::new(Mutex::new(None)),
+            start: false,
+            dur,
+        }
+    }
+}
+
+impl Future for FakeIo {
+    type Output = i32;
+
+    fn poll(self: Pin&lt;&amp;mut Self&gt;, cx: &amp;mut Context&lt;'_&gt;) -&gt; Poll&lt;Self::Output&gt; {
+        let v = self.val.lock().unwrap();
+        if v.is_some() {
+            return Poll::Ready(v.unwrap());
+        }
+        drop(v);
+        if !self.start {
+            let w = cx.waker().clone();
+            let v = self.val.clone();
+            let dur = self.dur;
+            unsafe {
+                self.get_unchecked_mut().start = true;
+            }
+            thread::spawn(move || {
+                thread::sleep(dur);
+                *v.lock().unwrap() = Some(100);
+                w.wake();
+            });
+        }
+        Poll::Pending
+    }
+}
+</code></pre>
+<p><code>FakeIo</code> 会创建一个子线程，一定时间后执行 <code>Waker</code>，可以用来模拟IO操作。</p>
+<p>执行一个 <code>FakeIo</code>：</p>
+<pre><code class="language-rust">let r = RT.block_on(FakeIo::new(Duration::from_secs(2)));
+dbg!(r);
+</code></pre>
+<p>2秒后结果：</p>
+<pre><code class="language-none">[src/main.rs:28] r = 100
+</code></pre>
+<p>我们也可以在一个任务中派生一个新任务并异步接收它的结果（也可以不接收，但它仍然会并发执行）：</p>
+<pre><code class="language-rust">let r = RT.block_on(async {
+    let a = RT.spawn(FakeIo::new(Duration::from_secs(2))).await;
+    a + 1
+});
+dbg!(r);
+</code></pre>
+<pre><code class="language-none">[src/main.rs:28] r = 101
+</code></pre>
+<h3 id="结尾">结尾</h3>
+<p>好了，一个非常精简、无依赖的异步运行时就已经实现，虽然没有线程池、真异步IO，可能存在重复唤醒等问题，但是却非常清晰地阐述了 <code>Rust</code> 的异步实现原理：<code>Runtime</code> 向 <code>Executor</code> 发送任务，<code>Executor</code> 执行任务，<code>Waker</code> 唤醒暂停的任务，如此往复，以及 <code>Pin</code> 类型防止存在自引用的结构安全地获取到可变借用。</p>
+<p>完整的代码见：<a href="https://github.com/xiaopengli89/plain-rt">plain-rt</a></p>
+</article>
+
+    </div>
+</div>
+
+
+                
+<div id="sidebar" class="pure-u-1 pure-u-md-1-4 pure-u-sm-1">
+    <div class="pad">
+        <a name="about"></a>
+        <h3>About Me</h3>
+        <div style="text-align: center;">
+            <img src="/img/DvZdstGUUAANxzC.jpg" alt="Xiaopeng Li" class="pure-img" />
+            <p><em>Sorcerer in C.E.</em></p>
+        </div>
+
+        <h3>Latest Articles</h3>
+        <div class="pure-menu pure-menu-open">
+            <ul class="pure-menu-list">
+                
+                <li class="pure-menu-item">
+                    <a href="/posts/plain-rt/" class="pure-menu-link">实现一个无依赖的Rust异步运行时<br>
+                        <small>一个基本的Rust异步运行时实现，不依赖第三方crate，单文件，非常直观地解释Rust异步的基本原理。</small>
+                    </a>
+                </li>
+                
+                <li class="pure-menu-item">
+                    <a href="/posts/rust-hrtbs/" class="pure-menu-link">Rust高阶生命周期绑定<br>
+                        <small>有时无法静态描述一个生命周期，Rust中提供了一种&#34;动态&#34;绑定生命周期的方式。</small>
+                    </a>
+                </li>
+                
+                <li class="pure-menu-item">
+                    <a href="/posts/rust-box-heap/" class="pure-menu-link">Rust动态内存分配<br>
+                        <small>学习Rust的内存管理及实现一个简单的Box。</small>
+                    </a>
+                </li>
+                
+                <li class="pure-menu-item">
+                    <a href="/posts/rust-no-std/" class="pure-menu-link">不使用Rust标准库编写一个可运行的程序<br>
+                        <small>Rust是一门真正的系统编程语言。</small>
+                    </a>
+                </li>
+                
+                <li class="pure-menu-item">
+                    <a href="/posts/rust-procedural-macro-1/" class="pure-menu-link">Rust过程宏（一）<br>
+                        <small>开始Rust元编程，利用Rust的derive派生宏，消除重复的样板代码。</small>
+                    </a>
+                </li>
+                
+                <li class="pure-menu-item">
+                    <a href="/posts/rust-closure/" class="pure-menu-link">Rust闭包<br>
+                        <small>Rust也可以函数式，像动态创建&#34;函数&#34;一样使用闭包。</small>
+                    </a>
+                </li>
+                
+                <li class="pure-menu-item">
+                    <a href="/posts/go-mysql-driver-race/" class="pure-menu-link">关于Go Mysql Driver引入QueryContext带来的数据竞争<br>
+                        <small>并发编程里的常见问题--数据竞争。</small>
+                    </a>
+                </li>
+                
+                <li class="pure-menu-item">
+                    <a href="/posts/go-mysql-driver-eof/" class="pure-menu-link">关于Go Mysql Driver的unexpected EOF错误<br>
+                        <small>应该是大多数Golang开发者日志里的东西了。</small>
+                    </a>
+                </li>
+                
+                <li class="pure-menu-item">
+                    <a href="/posts/socket-optimize/" class="pure-menu-link">关于Socket应用的性能优化<br>
+                        <small>一点网络优化的小技巧。</small>
+                    </a>
+                </li>
+                
+                <li class="pure-menu-item">
+                    <a href="/posts/two-queue/" class="pure-menu-link">2Q(双链)缓存淘汰策略<br>
+                        <small>经典LRU算法的实用变体。</small>
+                    </a>
+                </li>
+                
+            </ul>
+        </div>
+
+        <h3>Categories</h3>
+        <div style="text-align:center" class="tags">
+            
+            
+            <a href="/tags/rust" class="pure-button"> rust
+                <small>(8)</small></a>
+            
+            
+            
+            <a href="/tags/database" class="pure-button"> database
+                <small>(2)</small></a>
+            
+            
+            
+            <a href="/tags/golang" class="pure-button"> golang
+                <small>(2)</small></a>
+            
+            
+            
+            <a href="/tags/kernel" class="pure-button"> kernel
+                <small>(2)</small></a>
+            
+            
+            
+            <a href="/tags/linux" class="pure-button"> linux
+                <small>(2)</small></a>
+            
+            
+            
+            <a href="/tags/memory" class="pure-button"> memory
+                <small>(2)</small></a>
+            
+            
+            
+            <a href="/tags/mysql" class="pure-button"> mysql
+                <small>(2)</small></a>
+            
+            
+            
+            <a href="/tags/tcp" class="pure-button"> tcp
+                <small>(2)</small></a>
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+        </div>
+    </div> 
+</div> 
+
+                
+            </div><div class="pure-g">
+	<footer class="pure-u-1 pure-u-md-1 pure-u-sm-1">
+		<p>This page and its contents are copyright &copy; 2020,
+			<a href="">Xiaopeng Li</a>.</p>
+		<p><a href="https://github.com/pravin/hugo-theme-prav">Theme Prav</a> by <a href="https://cto.me.uk">Pravin
+				Paratey</a></p>
+	</footer>
+
+	<script defer src="https://cdn.bootcdn.net/ajax/libs/font-awesome/5.13.1/js/all.min.js" crossorigin="anonymous"></script>
+</div>
+</div><script src="https://cdn.bootcdn.net/ajax/libs/prism/1.20.0/prism.min.js"></script>
+<script src="https://cdn.bootcdn.net/ajax/libs/prism/1.20.0/plugins/autoloader/prism-autoloader.min.js"></script>
+<script>Prism.plugins.autoloader.languages_path = 'https://cdn.bootcdn.net/ajax/libs/prism/1.20.0/components/'</script>
+</body>
+</html>

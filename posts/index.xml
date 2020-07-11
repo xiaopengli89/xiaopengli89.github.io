@@ -6,10 +6,25 @@
     <description>Recent content in Posts on </description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-gb</language>
-    <lastBuildDate>Fri, 03 Jul 2020 23:40:45 +0800</lastBuildDate>
+    <lastBuildDate>Fri, 10 Jul 2020 19:23:16 +0800</lastBuildDate>
     
 	<atom:link href="/posts/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>实现一个无依赖的Rust异步运行时</title>
+      <link>/posts/plain-rt/</link>
+      <pubDate>Fri, 10 Jul 2020 19:23:16 +0800</pubDate>
+      
+      <guid>/posts/plain-rt/</guid>
+      <description>&lt;p&gt;这篇文章将非常直观、易懂地解释Rust异步运行时的实现。代码不超过300行，只依赖标准库，支持 &lt;code&gt;spawn&lt;/code&gt; 多个 &lt;code&gt;Task&lt;/code&gt; 并发执行。&lt;/p&gt;
+&lt;p&gt;首先，Rust标准库对异步的抽象主要集中于几个类型，分别是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;Future&lt;/code&gt; - 对于一个异步操作的抽象，代表一个未来事件，如果事件未就绪，应暂停当前 &lt;code&gt;Task&lt;/code&gt;（可以去执行其他 &lt;code&gt;Task&lt;/code&gt;），事件就绪后，恢复执行&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;Waker&lt;/code&gt; - 唤醒器，当事件就绪后，通知运行时重新调度和这个 &lt;code&gt;Waker&lt;/code&gt; 绑定的 &lt;code&gt;Task&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;Pin&lt;/code&gt; - 固定对象，是为了解决生成器状态机的自引用问题&lt;/li&gt;
+&lt;/ul&gt;</description>
+    </item>
     
     <item>
       <title>Rust高阶生命周期绑定</title>
