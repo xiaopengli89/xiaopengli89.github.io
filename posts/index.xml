@@ -1,38 +1,411 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-  <channel>
-    <title>Posts on </title>
-    <link>/posts/</link>
-    <description>Recent content in Posts on </description>
-    <generator>Hugo -- gohugo.io</generator>
-    <language>en-gb</language>
-    <lastBuildDate>Fri, 10 Jul 2020 19:23:16 +0800</lastBuildDate>
-    
-	<atom:link href="/posts/index.xml" rel="self" type="application/rss+xml" />
-    
-    
-    <item>
-      <title>实现一个无依赖的Rust异步运行时</title>
-      <link>/posts/plain-rt/</link>
-      <pubDate>Fri, 10 Jul 2020 19:23:16 +0800</pubDate>
-      
-      <guid>/posts/plain-rt/</guid>
-      <description>&lt;p&gt;这篇文章将非常直观、易懂地解释Rust异步运行时的实现。代码不超过300行，只依赖标准库，支持 &lt;code&gt;spawn&lt;/code&gt; 多个 &lt;code&gt;Task&lt;/code&gt; 并发执行。&lt;/p&gt;
+	<channel>
+		<title>Posts on Torigoth</title>
+		<link>/posts/</link>
+		<description>Recent content in Posts on Torigoth</description>
+		<generator>Hugo -- gohugo.io</generator>
+		<language>en-us</language>
+		<copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright>
+		<lastBuildDate>Fri, 10 Jul 2020 19:23:16 +0800</lastBuildDate>
+		<atom:link href="/posts/index.xml" rel="self" type="application/rss+xml" />
+		
+		<item>
+			<title>实现一个无依赖的Rust异步运行时</title>
+			<link>/posts/plain-rt/</link>
+			<pubDate>Fri, 10 Jul 2020 19:23:16 +0800</pubDate>
+			
+			<guid>/posts/plain-rt/</guid>
+			<description>&lt;p&gt;这篇文章将非常直观、易懂地解释Rust异步运行时的实现。代码不超过300行，只依赖标准库，支持 &lt;code&gt;spawn&lt;/code&gt; 多个 &lt;code&gt;Task&lt;/code&gt; 并发执行。&lt;/p&gt;
 &lt;p&gt;首先，Rust标准库对异步的抽象主要集中于几个类型，分别是：&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;code&gt;Future&lt;/code&gt; - 对于一个异步操作的抽象，代表一个未来事件，如果事件未就绪，应暂停当前 &lt;code&gt;Task&lt;/code&gt;（可以去执行其他 &lt;code&gt;Task&lt;/code&gt;），事件就绪后，恢复执行&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;Waker&lt;/code&gt; - 唤醒器，当事件就绪后，通知运行时重新调度和这个 &lt;code&gt;Waker&lt;/code&gt; 绑定的 &lt;code&gt;Task&lt;/code&gt;&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;Pin&lt;/code&gt; - 固定对象，是为了解决生成器状态机的自引用问题&lt;/li&gt;
 &lt;/ul&gt;</description>
-    </item>
-    
-    <item>
-      <title>Rust高阶生命周期绑定</title>
-      <link>/posts/rust-hrtbs/</link>
-      <pubDate>Fri, 03 Jul 2020 23:40:45 +0800</pubDate>
-      
-      <guid>/posts/rust-hrtbs/</guid>
-      <description>&lt;p&gt;Rust中，&lt;code&gt;lifetime&lt;/code&gt; 其实也是一种类型参数，可以看成范型的一种特殊形式。编译时需要将所有类型（包括 &lt;code&gt;lifetime&lt;/code&gt; ）确定下来，比如：&lt;/p&gt;
+			<content type="html"><![CDATA[<p>这篇文章将非常直观、易懂地解释Rust异步运行时的实现。代码不超过300行，只依赖标准库，支持 <code>spawn</code> 多个 <code>Task</code> 并发执行。</p>
+<p>首先，Rust标准库对异步的抽象主要集中于几个类型，分别是：</p>
+<ul>
+<li><code>Future</code> - 对于一个异步操作的抽象，代表一个未来事件，如果事件未就绪，应暂停当前 <code>Task</code>（可以去执行其他 <code>Task</code>），事件就绪后，恢复执行</li>
+<li><code>Waker</code> - 唤醒器，当事件就绪后，通知运行时重新调度和这个 <code>Waker</code> 绑定的 <code>Task</code></li>
+<li><code>Pin</code> - 固定对象，是为了解决生成器状态机的自引用问题</li>
+</ul>
+<h3 id="为什么rust的异步要这样设计">为什么Rust的异步要这样设计？</h3>
+<p>要讨论这个问题，需要先就其他生态领域内的异步模型设计做一些比较。</p>
+<p>最为人所熟知我想应该就是 <code>Javascript</code> 了，最初 <code>Javascript</code> 是被设计用于在浏览器内执行脚本代码，并且出于使用简单，采用了单线程模型（好处可以参考 <code>Redis</code>）。可是用户的代码执行流并不一定是线性的，比如点击按钮，需要基于事件作出响应。为此设计出了事件循环，而响应函数则利用回调的方式注册到事件循环上，当事件被触发时，回调函数被触发执行（需要指出的是，回调函数的执行也是在全局的单一线程中，这也导致如果在代码中有阻塞操作，回调函数的执行也会被推迟）。</p>
+<p>然后就是被 <code>Go</code> 发扬光大的轻量级线程了。异步的出现是伴随着线程的复用而出现的，像 <code>Javascript</code> 的单线程回调模型也是在复用全局的主线程。而 <code>Go</code> 则通过在用户空间实现新的线程，这些用户空间的新线程再复用底层的操作系统线程，遇到阻塞调用时，重新调度用户空间的线程，由于调度这些线程不需要核内外的切换，创建、维持、销毁的开销也远小于操作系统线程，可以大量地创建，因此常被称为轻量级线程。</p>
+<p>在讨论 <code>Rust</code> 的异步模型前，首先需要声明的是，类似的异步模型已经存在于其他生态领域，比如 <code>ES2017</code> 、<code>Python</code> 和 <code>.NET</code>，因此可以说 <code>Rust</code> 从它们身上借鉴了许多，甚至在新版本的 <a href="https://github.com/tokio-rs/tokio">tokio</a> 、 <a href="https://github.com/async-rs/async-std">async-std</a> 和 <a href="https://github.com/stjepang/smol">smol</a> 3个主流 <code>Rust</code> 异步运行时身上还能看到 <code>Go</code> 的影子。</p>
+<p><code>Rust</code> 的异步模型同时借鉴了轻量级线程和回调。</p>
+<p>从轻量级线程看，<code>Rust</code> 标准库内的 <code>Future</code> 可以变相地看成一种“线程”，我们习惯称其为 <code>Task</code> 。一个 <code>Task</code> 可以处于运行状态和暂停状态，当 <code>Task</code> 遇到阻塞调用时，需要从运行状态切换到暂停状态，而当阻塞恢复时，需要再从暂停状态切换回运行状态，而完成这种切换操作的角色，我们称之为 <code>Executor</code> 执行器。</p>
+<p>这种切换类似于线程的调度，不过区别在于 <code>Task</code> 没有自己独立的执行栈以及需要主动让出线程使用权（非抢占）。对于前者，需要编译器支持将暂停时的 <code>Task</code> 状态保存起来，便于后续的恢复执行，也就是实现状态机。而线程拥有独立的执行栈，不需要编译器的支持即可完成这种操作。对于后者，<code>Task</code> 无法被抢占，如果一个恶意 <code>Task</code> 完全不让出线程使用权，则会导致其他 <code>Task</code> 的饥饿问题。从这2个方面看，<code>Goroutine</code> 是非常接近原生线程的，但是独立的执行栈，如何分配这个栈的大小，如果溢出了，如何动态增长，而动态增长会带来额外的性能开销，这些问题都需要去解决。而 <code>Task</code> 没有独立的执行栈，不需要解决这些问题，同时不会有内存的浪费（栈的大小分配不可能完全和需求一致）；抢占虽然对于解决负载均衡有帮助，但同时也会多出一些额外的切换次数开销，因此总体的吞吐反而小于非抢占式。</p>
+<p>从回调看的话，<code>Task</code> 阻塞恢复时，需要一种机制来通知对应的 <code>Task</code> 可以被重新调度，完成这种功能的角色就是 <code>Waker</code> 唤醒器，而 <code>Waker</code> 也是通过注册回调来实现的。</p>
+<p>对于 <code>Pin</code> 类型，则是在状态机的实现过程中，会存在自引用问题：当 <code>Task</code> 恢复执行后，可能会引用上一阶段产生的变量，而这些变量都是保存在自动生成的匿名结构中，这样就出现了一个 <code>Field</code> 可能去引用自身结构的另一个 <code>Field</code>。而这样的对象是无法安全地移动的，而目前的实现就是让它不再移动，也就是无法安全的获取其可变借用，<code>Pin</code> 类型便是对这种类型的封装。</p>
+<p>综上，<code>Rust</code> 的异步模型可以说是在目前各生态领域里的一种选择，它不是完美的，却也足够优秀。当然目前也不存在完美的异步模型，对于一些闭源实现，看不到代码，不做判断。</p>
+<h3 id="实现-waker">实现 <code>Waker</code></h3>
+<pre><code class="language-rust">pub struct Waker {
+    waker: RawWaker,
+}
+
+pub struct RawWaker {
+    /// A data pointer, which can be used to store arbitrary data as required
+    /// by the executor. This could be e.g. a type-erased pointer to an `Arc`
+    /// that is associated with the task.
+    /// The value of this field gets passed to all functions that are part of
+    /// the vtable as the first parameter.
+    data: *const (),
+    /// Virtual function pointer table that customizes the behavior of this waker.
+    vtable: &amp;'static RawWakerVTable,
+}
+
+pub struct RawWakerVTable {
+    /// This function will be called when the [`RawWaker`] gets cloned, e.g. when
+    /// the [`Waker`] in which the [`RawWaker`] is stored gets cloned.
+    ///
+    /// The implementation of this function must retain all resources that are
+    /// required for this additional instance of a [`RawWaker`] and associated
+    /// task. Calling `wake` on the resulting [`RawWaker`] should result in a wakeup
+    /// of the same task that would have been awoken by the original [`RawWaker`].
+    ///
+    /// [`Waker`]: struct.Waker.html
+    /// [`RawWaker`]: struct.RawWaker.html
+    clone: unsafe fn(*const ()) -&gt; RawWaker,
+
+    /// This function will be called when `wake` is called on the [`Waker`].
+    /// It must wake up the task associated with this [`RawWaker`].
+    ///
+    /// The implementation of this function must make sure to release any
+    /// resources that are associated with this instance of a [`RawWaker`] and
+    /// associated task.
+    ///
+    /// [`Waker`]: struct.Waker.html
+    /// [`RawWaker`]: struct.RawWaker.html
+    wake: unsafe fn(*const ()),
+
+    /// This function will be called when `wake_by_ref` is called on the [`Waker`].
+    /// It must wake up the task associated with this [`RawWaker`].
+    ///
+    /// This function is similar to `wake`, but must not consume the provided data
+    /// pointer.
+    ///
+    /// [`Waker`]: struct.Waker.html
+    /// [`RawWaker`]: struct.RawWaker.html
+    wake_by_ref: unsafe fn(*const ()),
+
+    /// This function gets called when a [`RawWaker`] gets dropped.
+    ///
+    /// The implementation of this function must make sure to release any
+    /// resources that are associated with this instance of a [`RawWaker`] and
+    /// associated task.
+    ///
+    /// [`RawWaker`]: struct.RawWaker.html
+    drop: unsafe fn(*const ()),
+}
+</code></pre>
+<p>标准库中对 <code>Waker</code> 的定义中只有一个 <code>RawWaker</code>，并且 <code>RawWaker</code> 结构内有 <code>data</code> 和 <code>vtable</code> 2个 <code>Field</code>。看到这里已经发现了 <code>RawWaker</code> 其实就是个由数据和虚表组成的胖指针，和 <code>Trait Object</code> 如出一辙，之所以不直接将 <code>Waker</code> 定义成 <code>Trait Object</code> 的原因，是为了 <code>Rust</code> 的异步模型可以灵活地适应于各类系统，包括没有内存分配器的嵌入式系统上。</p>
+<p>既然 <code>Waker</code> 的作用是当事件就绪时通知 <code>Executor</code> 可以重新调度某个任务，不妨可以将 <code>Waker</code> 构造方法设计成接受一个闭包，而虚表的各类方法先取出闭包，然后执行闭包就行了：</p>
+<pre><code class="language-rust">struct WakerFn&lt;F&gt;(F);
+
+impl&lt;F: Fn() + 'static + Send&gt; WakerFn&lt;F&gt; {
+    const VTABLE: RawWakerVTable =
+        RawWakerVTable::new(Self::clone, Self::wake, Self::wake_by_ref, Self::drop);
+
+    unsafe fn clone(data: *const ()) -&gt; RawWaker {
+        let arc = std::mem::ManuallyDrop::new(Arc::from_raw(data as *const F));
+        // 增加引用计数，但是不执行析构方法，因为下面需要转换成裸指针，防止悬垂指针
+        let _ = arc.clone();
+        RawWaker::new(data, &amp;Self::VTABLE)
+    }
+
+    unsafe fn wake(data: *const ()) {
+        let arc = Arc::from_raw(data as *const F);
+        arc();
+    }
+
+    unsafe fn wake_by_ref(data: *const ()) {
+        let f = &amp;*(data as *const F);
+        f();
+    }
+
+    unsafe fn drop(data: *const ()) {
+        drop(Arc::from_raw(data as *const F))
+    }
+
+    fn get_waker(f: F) -&gt; Waker {
+        let data = Arc::into_raw(Arc::new(f)) as *const ();
+        let vtable = &amp;Self::VTABLE;
+        unsafe { Waker::from_raw(RawWaker::new(data, vtable)) }
+    }
+}
+</code></pre>
+<h3 id="实现-executor">实现 <code>Executor</code></h3>
+<p><code>Executor</code> 的作用就是执行 <code>Task</code>，可以实现一个简单的任务队列，不停地从队列中取出任务，然后执行：</p>
+<pre><code class="language-rust">struct RawTask {
+    future: Mutex&lt;Pin&lt;Box&lt;dyn Future&lt;Output = ()&gt; + Send&gt;&gt;&gt;,
+}
+
+type Task = Arc&lt;RawTask&gt;;
+
+struct Executor {
+    rx_futures: Receiver&lt;Task&gt;,
+    tx_futures: Sender&lt;Task&gt;,
+}
+
+impl Executor {
+    fn new(rx_futures: Receiver&lt;Task&gt;, tx_futures: Sender&lt;Task&gt;) -&gt; Self {
+        Self {
+            rx_futures,
+            tx_futures,
+        }
+    }
+
+    fn run(&amp;self) {
+        while let Ok(task) = self.rx_futures.recv() {
+            let tx_futures_w = self.tx_futures.clone();
+            let task_w = task.clone();
+            let waker = WakerFn::get_waker(move || {
+                // 重新调度任务
+                tx_futures_w.send(task_w.clone()).unwrap();
+            });
+            let mut cx = Context::from_waker(&amp;waker);
+            let _ = task.future.lock().unwrap().as_mut().poll(&amp;mut cx);
+        }
+    }
+}
+</code></pre>
+<p>这里可以看到 <code>Task</code> 内的 <code>Future</code> 的 <code>Output</code> 关联类型被定义成了 <code>()</code> ，这是因为 <code>Executor</code> 只会接收顶级的 <code>Future</code> ，非顶级的 <code>Future</code> 组合子会由编译器生成的生成器自动处理，至于如何接收顶级 <code>Future</code> 的结果可以由下面的 <code>Runtime</code> 实现。</p>
+<h3 id="实现-runtime">实现 <code>Runtime</code></h3>
+<pre><code class="language-rust">struct Runtime {
+    tx_futures: Option&lt;Sender&lt;Task&gt;&gt;,
+    // 由于 Sender 没有实现 Sync，所以实现一个简单的 Spin
+    lock: AtomicBool,
+}
+
+unsafe impl Sync for Runtime {}
+
+impl Runtime {
+    const fn uninit() -&gt; Self {
+        Self {
+            tx_futures: None,
+            lock: AtomicBool::new(false),
+        }
+    }
+
+    fn init(&amp;mut self, tx_futures: Sender&lt;Task&gt;) {
+        self.tx_futures = Some(tx_futures);
+    }
+
+    fn spawn&lt;F, R&gt;(&amp;self, f: F) -&gt; impl Future&lt;Output = R&gt;
+    where
+        F: Future&lt;Output = R&gt; + Send + 'static,
+        R: Send + 'static,
+    {
+        let waiter = Arc::new(Waiter::&lt;R&gt;::new());
+        let waiter_f = WaiterFuture::new(waiter.clone());
+        // 包装task
+        let f2 = async move {
+            let r = f.await;
+            waiter.complete(r);
+        };
+        let raw_task = RawTask {
+            future: Mutex::new(Box::pin(f2)),
+        };
+        let task: Task = Arc::new(raw_task);
+
+        // 获取锁
+        while self.lock.compare_and_swap(false, true, Ordering::SeqCst) {}
+        // 调度任务
+        self.tx_futures
+            .as_ref()
+            .expect(&quot;Runtime未初始化&quot;)
+            .send(task)
+            .unwrap();
+        // 释放锁
+        self.lock.store(false, Ordering::SeqCst);
+        waiter_f
+    }
+
+    fn block_on&lt;F, R&gt;(&amp;self, f: F) -&gt; F::Output
+    where
+        F: Future&lt;Output = R&gt; + Send + 'static,
+        R: Send + 'static,
+    {
+        let (tx, rx) = mpsc::channel();
+        // 包装task
+        let f2 = async move {
+            let r = f.await;
+            tx.send(r).unwrap();
+        };
+        let raw_task = RawTask {
+            future: Mutex::new(Box::pin(f2)),
+        };
+        let task: Task = Arc::new(raw_task);
+        // 获取锁
+        while self.lock.compare_and_swap(false, true, Ordering::SeqCst) {}
+        // 调度任务
+        self.tx_futures
+            .as_ref()
+            .expect(&quot;Runtime未初始化&quot;)
+            .send(task)
+            .unwrap();
+        // 释放锁
+        self.lock.store(false, Ordering::SeqCst);
+        rx.recv().unwrap()
+    }
+}
+</code></pre>
+<p><code>block_on</code> 方法接收一个 <code>Future</code>，我们需要将其包装成一个 <code>Task</code>，然后发送到 <code>Executor</code>，而它的结果可以用一个 <code>channel</code> 来接收。而 <code>spawn</code> 方法则需要返回一个新的 <code>Future</code> ，并且 <code>spawn</code> 会派生一个顶级 <code>Future</code> ，也就是会并发执行，而 <code>channel</code> 的 <code>recv</code> 方法会阻塞线程，为此设计了 <code>WaiterFuture</code> 用于异步接收结果（当然也可以不去接收）：</p>
+<pre><code class="language-rust">struct Waiter&lt;T&gt; {
+    val: Mutex&lt;Option&lt;T&gt;&gt;,
+    waker: Mutex&lt;Option&lt;Waker&gt;&gt;,
+}
+
+impl&lt;T&gt; Waiter&lt;T&gt; {
+    fn new() -&gt; Self {
+        Self {
+            val: Mutex::new(None),
+            waker: Mutex::new(None),
+        }
+    }
+
+    fn complete(&amp;self, val: T) {
+        *self.val.lock().unwrap() = Some(val);
+        if let Some(waker) = self.waker.lock().unwrap().take() {
+            waker.wake();
+        } else {
+            // TODO:
+        }
+    }
+}
+
+struct WaiterFuture&lt;T&gt; {
+    waiter: Arc&lt;Waiter&lt;T&gt;&gt;,
+}
+
+impl&lt;T&gt; WaiterFuture&lt;T&gt; {
+    fn new(waiter: Arc&lt;Waiter&lt;T&gt;&gt;) -&gt; Self {
+        Self { waiter }
+    }
+}
+
+impl&lt;T&gt; Future for WaiterFuture&lt;T&gt; {
+    type Output = T;
+
+    fn poll(self: Pin&lt;&amp;mut Self&gt;, cx: &amp;mut Context&lt;'_&gt;) -&gt; Poll&lt;Self::Output&gt; {
+        unsafe {
+            let w = self.get_unchecked_mut();
+            let mut val = w.waiter.val.lock().unwrap();
+            if val.is_some() {
+                Poll::Ready(val.take().unwrap())
+            } else {
+                // 注册waker
+                let mut w_waker = w.waiter.waker.lock().unwrap();
+                if w_waker.is_none() {
+                    let waker = cx.waker().clone();
+                    *w_waker = Some(waker);
+                }
+                Poll::Pending
+            }
+        }
+    }
+}
+</code></pre>
+<p>当 <code>Waiter</code> 内的数据没有就绪时，注册当前 <code>Task</code> 的 <code>Waker</code>；当派生的顶级 <code>Future</code> 完成时，调用 <code>complete</code> 方法，写入数据，执行唤醒器（重新调度当前的 <code>Task</code>）。</p>
+<h3 id="运行时的初始化">运行时的初始化</h3>
+<p>由于新任务的派生可能在多个线程中，为此可以简单地初始化一个全局运行时，并将运行时标记为 <code>Sync</code>（因为我们对 <code>Sender</code> 已经做了自旋锁保护）：</p>
+<pre><code class="language-rust">fn main() {
+    let (tx_futures, rx_futures) = mpsc::channel();
+    // 初始化Executor
+    let executor = Executor::new(rx_futures, tx_futures.clone());
+    thread::spawn(move || {
+        executor.run();
+    });
+    // 初始化Runtime
+    unsafe {
+        let rt_ptr: *mut Runtime = &amp;RT as *const _ as *mut _;
+        (*rt_ptr).init(tx_futures);
+    }
+    let r = RT.block_on(async { 2 });
+    dbg!(r);
+}
+
+static RT: Runtime = Runtime::uninit();
+</code></pre>
+<p>运行代码：</p>
+<pre><code class="language-bash">$ cargo run
+</code></pre>
+<pre><code class="language-none">[src/main.rs:28] r = 2
+</code></pre>
+<p>为了验证 <code>Waker</code> 是否工作正常，可以实现一个虚假的IO操作：</p>
+<pre><code class="language-rust">struct FakeIo {
+    val: Arc&lt;Mutex&lt;Option&lt;i32&gt;&gt;&gt;,
+    start: bool,
+    dur: Duration,
+}
+
+impl FakeIo {
+    fn new(dur: Duration) -&gt; Self {
+        Self {
+            val: Arc::new(Mutex::new(None)),
+            start: false,
+            dur,
+        }
+    }
+}
+
+impl Future for FakeIo {
+    type Output = i32;
+
+    fn poll(self: Pin&lt;&amp;mut Self&gt;, cx: &amp;mut Context&lt;'_&gt;) -&gt; Poll&lt;Self::Output&gt; {
+        let v = self.val.lock().unwrap();
+        if v.is_some() {
+            return Poll::Ready(v.unwrap());
+        }
+        drop(v);
+        if !self.start {
+            let w = cx.waker().clone();
+            let v = self.val.clone();
+            let dur = self.dur;
+            unsafe {
+                self.get_unchecked_mut().start = true;
+            }
+            thread::spawn(move || {
+                thread::sleep(dur);
+                *v.lock().unwrap() = Some(100);
+                w.wake();
+            });
+        }
+        Poll::Pending
+    }
+}
+</code></pre>
+<p><code>FakeIo</code> 会创建一个子线程，一定时间后执行 <code>Waker</code>，可以用来模拟IO操作。</p>
+<p>执行一个 <code>FakeIo</code>：</p>
+<pre><code class="language-rust">let r = RT.block_on(FakeIo::new(Duration::from_secs(2)));
+dbg!(r);
+</code></pre>
+<p>2秒后结果：</p>
+<pre><code class="language-none">[src/main.rs:28] r = 100
+</code></pre>
+<p>我们也可以在一个任务中派生一个新任务并异步接收它的结果（也可以不接收，但它仍然会并发执行）：</p>
+<pre><code class="language-rust">let r = RT.block_on(async {
+    let a = RT.spawn(FakeIo::new(Duration::from_secs(2))).await;
+    a + 1
+});
+dbg!(r);
+</code></pre>
+<pre><code class="language-none">[src/main.rs:28] r = 101
+</code></pre>
+<h3 id="结尾">结尾</h3>
+<p>好了，一个非常精简、无依赖的异步运行时就已经实现，虽然没有线程池、真异步IO，可能存在重复唤醒等问题，但是却非常清晰地阐述了 <code>Rust</code> 的异步实现原理：<code>Runtime</code> 向 <code>Executor</code> 发送任务，<code>Executor</code> 执行任务，<code>Waker</code> 唤醒暂停的任务，如此往复，以及 <code>Pin</code> 类型防止存在自引用的结构安全地获取到可变借用。</p>
+<p>完整的代码见：<a href="https://github.com/xiaopengli89/plain-rt">plain-rt</a></p>]]></content>
+		</item>
+		
+		<item>
+			<title>Rust高阶生命周期绑定</title>
+			<link>/posts/rust-hrtbs/</link>
+			<pubDate>Fri, 03 Jul 2020 23:40:45 +0800</pubDate>
+			
+			<guid>/posts/rust-hrtbs/</guid>
+			<description>&lt;p&gt;Rust中，&lt;code&gt;lifetime&lt;/code&gt; 其实也是一种类型参数，可以看成范型的一种特殊形式。编译时需要将所有类型（包括 &lt;code&gt;lifetime&lt;/code&gt; ）确定下来，比如：&lt;/p&gt;
 &lt;pre&gt;&lt;code class=&#34;language-rust&#34;&gt;fn foo&amp;lt;&#39;a&amp;gt;(x: &amp;amp;&#39;a i32) {
 	// ...
 }
@@ -43,34 +416,396 @@
 }
 &lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;上面的 &lt;code&gt;&#39;a&lt;/code&gt; 生命周期其实就是变量 &lt;code&gt;x&lt;/code&gt; 所在的block。&lt;/p&gt;</description>
-    </item>
-    
-    <item>
-      <title>Rust动态内存分配</title>
-      <link>/posts/rust-box-heap/</link>
-      <pubDate>Wed, 01 Jul 2020 16:57:56 +0800</pubDate>
-      
-      <guid>/posts/rust-box-heap/</guid>
-      <description>&lt;p&gt;&lt;a href=&#34;https://doc.rust-lang.org/std/boxed/index.html&#34;&gt;Box&lt;/a&gt; 是一个在Rust中经常被用到的智能指针，它的作用是实现堆内存分配，并且管理该块内存的生命周期。尤其在实现递归数据结构时，通过 &lt;a href=&#34;https://doc.rust-lang.org/std/boxed/index.html&#34;&gt;Box&lt;/a&gt; 才能让一个类型大小不会无限膨胀。同时 &lt;a href=&#34;https://doc.rust-lang.org/std/boxed/index.html&#34;&gt;Box&lt;/a&gt; 的内存布局同 &lt;code&gt;C&lt;/code&gt; 二进制兼容，也就是说在使用 &lt;code&gt;FFI&lt;/code&gt; 时，可以直接在参数或返回值中使用 &lt;a href=&#34;https://doc.rust-lang.org/std/boxed/index.html&#34;&gt;Box&lt;/a&gt;。&lt;/p&gt;
+			<content type="html"><![CDATA[<p>Rust中，<code>lifetime</code> 其实也是一种类型参数，可以看成范型的一种特殊形式。编译时需要将所有类型（包括 <code>lifetime</code> ）确定下来，比如：</p>
+<pre><code class="language-rust">fn foo&lt;'a&gt;(x: &amp;'a i32) {
+	// ...
+}
+
+'a: {
+	let x = 1;
+	foo::&lt;'a&gt;(&amp;x);
+}
+</code></pre>
+<p>上面的 <code>'a</code> 生命周期其实就是变量 <code>x</code> 所在的block。</p>
+<p>这个例子很简单，但如果我们换个闭包类型看看：</p>
+<pre><code class="language-rust">fn foo&lt;'a&gt;(f: Box&lt;dyn Fn(&amp;'a i32)&gt;) {
+    let x = 1;
+    f(&amp;x);
+	{
+		let y = 2;
+		f(&amp;y);
+	}
+}
+</code></pre>
+<p>第一次调用 <code>f(&amp;x)</code> 时生命周期 <code>'a</code> 等于变量 <code>x</code> 的生命周期；而在第二次调用 <code>f(&amp;y)</code> 时，生命周期 <code>'a</code> 又等于了变量 <code>y</code> 的生命周期；而变量 <code>x</code> 和变量 <code>y</code> 的生命周期显然是不同的。因此无法用一个静态的生命周期来描述 <code>'a</code> ，我们希望的是，闭包 <code>f</code> 在具体调用时绑定具体的生命周期，比如调用 <code>f(&amp;x)</code> 时绑定的是 <code>x</code> 的生命周期，而调用 <code>f(&amp;y)</code> 时绑定的是 <code>y</code> 的生命周期。</p>
+<p>Rust中可以用 <code>高阶生命周期绑定（HRTBs）</code> 来实现&quot;动态&quot;生命周期绑定，其语法如下：</p>
+<pre><code class="language-rust">for&lt;'a&gt; Trait
+</code></pre>
+<p>比如上面的例子就可以写成：</p>
+<pre><code class="language-rust">fn foo(f: Box&lt;dyn for&lt;'a&gt; Fn(&amp;'a i32)&gt;) {
+    let x = 1;
+    f(&amp;x);
+	{
+		let y = 2;
+		f(&amp;y);
+	}
+}
+</code></pre>
+<p>这样生命周期 <code>'a</code> 就不再是静态的了，他会随着闭包 <code>f</code> 的调用绑定到不同的生命周期：<code>f(&amp;x)</code> 调用时绑定到 <code>x</code> 的生命周期，<code>f(&amp;y)</code> 调用时绑定到 <code>y</code> 的生命周期。</p>
+<p>不过大多数时候我们很少见到 <code>HRTBs</code> ，因为闭包的生命周期省略的话，编译器会帮我们自动生成 <code>高阶生命周期绑定</code> 。</p>
+<p>而 <code>HRTBs</code> 的全称是 <code>Higher-Rank Trait Bounds</code>，翻译成 <code>高阶特质绑定</code> 可能更为合适，并且它只能在绑定 <code>trait</code> 时声明，不过目前只支持对生命周期参数的绑定，所以我翻译它叫 <code>高阶生命周期绑定</code> 。</p>]]></content>
+		</item>
+		
+		<item>
+			<title>Rust动态内存分配</title>
+			<link>/posts/rust-box-heap/</link>
+			<pubDate>Wed, 01 Jul 2020 16:57:56 +0800</pubDate>
+			
+			<guid>/posts/rust-box-heap/</guid>
+			<description>&lt;p&gt;&lt;a href=&#34;https://doc.rust-lang.org/std/boxed/index.html&#34;&gt;Box&lt;/a&gt; 是一个在Rust中经常被用到的智能指针，它的作用是实现堆内存分配，并且管理该块内存的生命周期。尤其在实现递归数据结构时，通过 &lt;a href=&#34;https://doc.rust-lang.org/std/boxed/index.html&#34;&gt;Box&lt;/a&gt; 才能让一个类型大小不会无限膨胀。同时 &lt;a href=&#34;https://doc.rust-lang.org/std/boxed/index.html&#34;&gt;Box&lt;/a&gt; 的内存布局同 &lt;code&gt;C&lt;/code&gt; 二进制兼容，也就是说在使用 &lt;code&gt;FFI&lt;/code&gt; 时，可以直接在参数或返回值中使用 &lt;a href=&#34;https://doc.rust-lang.org/std/boxed/index.html&#34;&gt;Box&lt;/a&gt;。&lt;/p&gt;
 &lt;p&gt;这篇文章将介绍利用Rust的动态内存分配实现一个简单的自定义 &lt;code&gt;Box&lt;/code&gt; 。&lt;/p&gt;</description>
-    </item>
-    
-    <item>
-      <title>不使用Rust标准库编写一个可运行的程序</title>
-      <link>/posts/rust-no-std/</link>
-      <pubDate>Wed, 01 Jul 2020 00:02:35 +0800</pubDate>
-      
-      <guid>/posts/rust-no-std/</guid>
-      <description>&lt;p&gt;Rust是一门系统编程语言，比如使得编写操作系统内核变得可能。而在编写内核时，是不能有任何和操作系统相关的依赖的，因为操作系统内核是运行于裸机之上的，这就像鸡和鸡蛋的关系。而标准库的实现是基于操作系统的，诸如线程、文件、网络等等。因此在编写内核代码时不能使用标准库。这篇文章将介绍如何不使用Rust标准库编写一个可运行的程序。&lt;/p&gt;</description>
-    </item>
-    
-    <item>
-      <title>Rust过程宏（一）</title>
-      <link>/posts/rust-procedural-macro-1/</link>
-      <pubDate>Sat, 27 Jun 2020 17:22:04 +0800</pubDate>
-      
-      <guid>/posts/rust-procedural-macro-1/</guid>
-      <description>&lt;h3 id=&#34;rust宏&#34;&gt;Rust宏&lt;/h3&gt;
+			<content type="html"><![CDATA[<p><a href="https://doc.rust-lang.org/std/boxed/index.html">Box</a> 是一个在Rust中经常被用到的智能指针，它的作用是实现堆内存分配，并且管理该块内存的生命周期。尤其在实现递归数据结构时，通过 <a href="https://doc.rust-lang.org/std/boxed/index.html">Box</a> 才能让一个类型大小不会无限膨胀。同时 <a href="https://doc.rust-lang.org/std/boxed/index.html">Box</a> 的内存布局同 <code>C</code> 二进制兼容，也就是说在使用 <code>FFI</code> 时，可以直接在参数或返回值中使用 <a href="https://doc.rust-lang.org/std/boxed/index.html">Box</a>。</p>
+<p>这篇文章将介绍利用Rust的动态内存分配实现一个简单的自定义 <code>Box</code> 。</p>
+<h3 id="内存分配器">内存分配器</h3>
+<p>对于每一个程序，标准库中都会带有一个全局的内存分配器，并且内存分配器需要实现 <code>GlobalAlloc</code> 这个 <code>trait</code> ，在使用 <code>alloc</code> 和 <code>dealloc</code> 时会使用该内存分配器动态分配和释放内存。默认情况下，这个内存分配器是 <code>std::alloc::System</code> ，由具体的操作系统提供，比如 <code>Unix</code> 平台的 <code>malloc</code>，<code>Windows</code> 平台的 <code>HeapAlloc</code> 。</p>
+<p>我们也可以利用 <code>#[global_allocator]</code> 这个 <code>attribute</code> 替换默认的内存分配器。</p>
+<pre><code class="language-rust">use std::alloc::{GlobalAlloc, System, Layout};
+
+struct MyAllocator;
+
+unsafe impl GlobalAlloc for MyAllocator {
+    unsafe fn alloc(&amp;self, layout: Layout) -&gt; *mut u8 {
+        System.alloc(layout)
+    }
+
+    unsafe fn dealloc(&amp;self, ptr: *mut u8, layout: Layout) {
+        System.dealloc(ptr, layout)
+    }
+}
+
+#[global_allocator]
+static GLOBAL: MyAllocator = MyAllocator;
+</code></pre>
+<h3 id="实现-mybox-智能指针">实现 <code>MyBox</code> 智能指针</h3>
+<p>由 <code>alloc</code> 分配好内存，会返回指向该块内存的指针，因此首先 <code>MyBox</code> 内需要持有一个裸指针，来代表对该块内存的所有权。</p>
+<pre><code class="language-rust">pub struct MyBox&lt;T&gt; {
+    inner: *mut T,
+}
+</code></pre>
+<p>然后实现其构造方法，方法是先 <code>alloc</code> 内存，然后往内存地址内写入数据，比如仿标准库的 <code>Box</code> ：</p>
+<pre><code class="language-rust">impl&lt;T&gt; MyBox&lt;T&gt; {
+    pub fn new(t: T) -&gt; Self {
+        unsafe {
+            let layout = Layout:🆕:&lt;T&gt;();
+            let ptr = alloc(layout) as *mut T;
+            ptr.write(t);
+            Self { inner: ptr }
+        }
+    }
+}
+
+fn main() {
+	let _ = MyBox::new(1);
+}
+</code></pre>
+<p>这种方法首先需要在栈上创建一个变量 <code>T</code> ，然后再拷贝到堆上。也可以实现类似 <code>Java</code> 风格的构造方法，但是在构造方法内，必须初始化所有字段的值，否则后面使用时会 <code>UB</code>，因此我们将这种构造方式标记为 <code>unsafe</code> ：</p>
+<pre><code class="language-rust">impl&lt;T&gt; MyBox&lt;T&gt; {
+    pub unsafe fn init(f: impl FnOnce(&amp;mut T)) -&gt; Self {
+        let layout = Layout:🆕:&lt;T&gt;();
+        let ptr = alloc(layout) as *mut T;
+        f(&amp;mut *ptr);
+        Self { inner: ptr }
+    }
+}
+
+struct Foo {
+	name: String,
+}
+
+fn main() {
+	let _ = unsafe {
+		MyBox::&lt;Foo&gt;::init(|obj| {
+			obj.name = String::from(&quot;hello&quot;);
+		})
+	};
+}
+</code></pre>
+<p>内存分配了就需要释放，我们可以在析构方法内完成内存的释放，实现 <code>Drop</code>：</p>
+<pre><code class="language-rust">impl&lt;T&gt; Drop for MyBox&lt;T&gt; {
+    fn drop(&amp;mut self) {
+        let layout = Layout:🆕:&lt;T&gt;();
+        unsafe {
+            dealloc(self.inner as *mut u8, layout);
+        }
+    }
+}
+</code></pre>
+<p>为了方便地访问 <code>MyBox</code> 内的数据，利用Rust自动解引用的特性，我们可以实现 <code>Deref</code> 和 <code>DerefMut</code> 这2个 <code>trait</code> ：</p>
+<pre><code class="language-rust">use core::ops::{Deref, DerefMut};
+
+impl&lt;T&gt; Deref for MyBox&lt;T&gt; {
+    type Target = T;
+
+    fn deref(&amp;self) -&gt; &amp;Self::Target {
+        unsafe { &amp;*self.inner }
+    }
+}
+
+impl&lt;T&gt; DerefMut for MyBox&lt;T&gt; {
+    fn deref_mut(&amp;mut self) -&gt; &amp;mut Self::Target {
+        unsafe { &amp;mut *self.inner }
+    }
+}
+</code></pre>
+<p>然后便可以使用 <code>*</code> 解引用操作符实现对内部数据的访问：</p>
+<pre><code class="language-rust">fn main() {
+	let mut a = MyBox::new(1);
+	*a = 2;
+}
+</code></pre>
+<p>最后可以实现 <code>fmt::Debug</code> 和 <code>fmt::Display</code> 2个 <code>trait</code> 来打印内部的数据：</p>
+<pre><code class="language-rust">impl&lt;T: fmt::Debug&gt; fmt::Debug for MyBox&lt;T&gt; {
+    fn fmt(&amp;self, f: &amp;mut fmt::Formatter&lt;'_&gt;) -&gt; fmt::Result {
+        fmt::Debug::fmt(&amp;**self, f)
+    }
+}
+
+impl&lt;T: fmt::Display&gt; fmt::Display for MyBox&lt;T&gt; {
+    fn fmt(&amp;self, f: &amp;mut fmt::Formatter&lt;'_&gt;) -&gt; fmt::Result {
+        fmt::Display::fmt(&amp;**self, f)
+    }
+}
+
+fn main() {
+	let mut a = MyBox::new(1);
+	*a = 2;
+	println!(&quot;{}&quot;, a);
+}
+</code></pre>
+<h3 id="验证内存的回收">验证内存的回收</h3>
+<p>我们可以在自定义内存分配器时，通过记录已分配的内存大小来追踪内存的分配和回收情况：</p>
+<pre><code class="language-rust">use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
+
+struct MyAllocator;
+
+static ALLOCATED: AtomicUsize = AtomicUsize::new(0);
+
+unsafe impl GlobalAlloc for MyAllocator {
+    unsafe fn alloc(&amp;self, layout: Layout) -&gt; *mut u8 {
+        let ret = System.alloc(layout);
+        if !ret.is_null() {
+            ALLOCATED.fetch_add(layout.size(), SeqCst);
+        }
+        ret
+    }
+
+    unsafe fn dealloc(&amp;self, ptr: *mut u8, layout: Layout) {
+        System.dealloc(ptr, layout);
+        ALLOCATED.fetch_sub(layout.size(), SeqCst);
+    }
+}
+
+#[global_allocator]
+static GLOBAL: MyAllocator = MyAllocator;
+</code></pre>
+<p>测试下循环创建 1_000_000 个 <code>MyBox</code> 实例：</p>
+<pre><code class="language-rust">fn main() {
+	let i in 0..1_000_000 {
+		let _ = MyBox::new(i);
+	}
+	println!(&quot;allocated bytes: {}&quot;, ALLOCATED.load(SeqCst));
+}
+</code></pre>
+<p>运行程序：</p>
+<pre><code class="language-bash">$ cargo run
+</code></pre>
+<pre><code class="language-none">allocated bytes: 285
+</code></pre>
+<p>如果我们注释掉析构方法的内存释放操作：</p>
+<pre><code class="language-rust">impl&lt;T&gt; Drop for MyBox&lt;T&gt; {
+    fn drop(&amp;mut self) {
+        //let layout = Layout:🆕:&lt;T&gt;();
+        //unsafe {
+        //    dealloc(self.inner as *mut u8, layout);
+        //}
+    }
+}
+</code></pre>
+<p>再次运行程序的结果：</p>
+<pre><code class="language-none">allocated bytes: 4000285
+</code></pre>
+<p>说明我们的实现确实实现了内存的动态分配和回收。</p>]]></content>
+		</item>
+		
+		<item>
+			<title>不使用Rust标准库编写一个可运行的程序</title>
+			<link>/posts/rust-no-std/</link>
+			<pubDate>Wed, 01 Jul 2020 00:02:35 +0800</pubDate>
+			
+			<guid>/posts/rust-no-std/</guid>
+			<description>&lt;p&gt;Rust是一门系统编程语言，比如使得编写操作系统内核变得可能。而在编写内核时，是不能有任何和操作系统相关的依赖的，因为操作系统内核是运行于裸机之上的，这就像鸡和鸡蛋的关系。而标准库的实现是基于操作系统的，诸如线程、文件、网络等等。因此在编写内核代码时不能使用标准库。这篇文章将介绍如何不使用Rust标准库编写一个可运行的程序。&lt;/p&gt;</description>
+			<content type="html"><![CDATA[<p>Rust是一门系统编程语言，比如使得编写操作系统内核变得可能。而在编写内核时，是不能有任何和操作系统相关的依赖的，因为操作系统内核是运行于裸机之上的，这就像鸡和鸡蛋的关系。而标准库的实现是基于操作系统的，诸如线程、文件、网络等等。因此在编写内核代码时不能使用标准库。这篇文章将介绍如何不使用Rust标准库编写一个可运行的程序。</p>
+<h3 id="禁用标准库">禁用标准库</h3>
+<p>默认情况下，编译器会自动为我们的项目引用标准库，因此首先第一步是要禁用标准库，可以使用 <code>#![no_std]</code> 这个 <code>crate-level attribute</code> 来禁用标准库：</p>
+<pre><code class="language-rust">#![no_std]
+
+fn main() {
+    println!(&quot;Hello, World!&quot;);
+}
+</code></pre>
+<p>如果我们现在尝试运行它的话，会得到下面的错误：</p>
+<pre><code class="language-bash">$ cargo build
+</code></pre>
+<pre><code class="language-none">error: cannot find macro `println` in this scope
+ --&gt; src/main.rs:4:5
+  |
+4 |     println!(&quot;Hello world!&quot;);
+  |     ^^^^^^^
+
+error: `#[panic_handler]` function required, but not found
+
+error: language item required, but not found: `eh_personality`
+
+error: aborting due to 3 previous errors
+
+error: could not compile `panic-hander`.
+
+To learn more, run the command again with --verbose.
+</code></pre>
+<p>这里一共有3个错误，第1个：</p>
+<pre><code class="language-none">error: cannot find macro `println` in this scope
+</code></pre>
+<p>这个错误是因为 <code>println!</code> 这个宏是定义在标准库 <code>std::println</code> 里的，而我们禁用了标准库，自然无法再使用它。</p>
+<p>第2个：</p>
+<pre><code class="language-none">error: `#[panic_handler]` function required, but not found
+</code></pre>
+<p>默认情况下的Rust程序是带有一个非常小的Runtime的，其中包括设置了panic异常处理：打印导致异常的backtrace。如果不使用标准库的话，就需要我们自己设置一个panic异常处理函数：</p>
+<pre><code class="language-rust">#![no_std]
+
+use core::panic::PanicInfo;
+
+fn main() {}
+
+#[panic_handler]
+fn panic_handler(info: &amp;PanicInfo) -&gt; ! {
+    loop {}
+}
+</code></pre>
+<p>这个异常处理函数的返回值是个 <a href="https://doc.rust-lang.org/std/primitive.never.html">never</a> 类型，这个函数不能被其他函数调用。可以先写个 <code>loop {}</code> 作为函数实现，参数 <code>PanicInfo</code> 则包含了发生异常的上下文信息。</p>
+<p>第3个：</p>
+<pre><code class="language-none">error: language item required, but not found: `eh_personality`
+</code></pre>
+<p>提示缺少一个 <code>eh_personality</code> 的语言项。默认情况下当函数发生panic时，线程会停止，Rust展开线程栈，并析构栈上的变量。这是因为Rust支持捕获异常，而为了防止当函数异常退出时，没有析构栈上变量而导致内存或其他系统资源的泄漏。同样的，在不使用标准库时，需要我们自己实现一个 <code>eh_personality</code> 。</p>
+<pre><code class="language-rust">#![no_std]
+#![feature(lang_items)]
+
+use core::panic::PanicInfo;
+
+fn main() {}
+
+#[panic_handler]
+fn panic_handler(info: &amp;PanicInfo) -&gt; ! {
+    loop {}
+}
+
+#[lang = &quot;eh_personality&quot;]
+pub extern &quot;C&quot; fn rust_eh_personality() {}
+</code></pre>
+<p>再次编译时：</p>
+<pre><code class="language-none">error: requires `start` lang_item
+</code></pre>
+<p>提示缺少一个 <code>start</code> 语言项。在正常情况下 <code>main</code> 函数是作为Rust程序的入口，其实不然，在 <code>main</code> 函数执行前，需要先完成执行环境的初始化，如栈的创建，参数保存到对应的寄存器中，这些操作是在C库的入口函数中完成的，然后C库再调用Rust的Runtime入口函数，该函数被 <code>start</code> 语言项标记，Runtime在完成一些初始化配置后，再调用用户定义的 <code>main</code> 函数。因此我们需要重新实现最开始的入口函数，这个函数依赖于具体的操作系统。当然，在这个之前先需要禁用默认的 <code>main</code> 函数：</p>
+<pre><code class="language-rust">#![no_main]
+</code></pre>
+<p>在Linux上入口函数是 <code>_start</code>：</p>
+<pre><code class="language-rust">#[no_mangle]
+pub extern &quot;C&quot; fn _start(_argc: isize, _argv: *const *const u8) -&gt; i32 {
+	0
+}
+</code></pre>
+<p>在Mac上是 <code>main</code>：</p>
+<pre><code class="language-rust">#[no_mangle]
+pub extern &quot;C&quot; fn main(_argc: isize, _argv: *const *const u8) -&gt; i32 {
+	0
+}
+</code></pre>
+<p><code>no_mangle</code> 是为了防止编译器修改符号。</p>
+<p>我在Mac上编译时：</p>
+<pre><code class="language-none">ld: dynamic main executables must link with libSystem.dylib for architecture x86_64
+</code></pre>
+<p>这是因为Mac平台不允许静态链接到二进制库，需要添加编译器参数：</p>
+<pre><code class="language-bash">$ cargo rustc -- -C link-arg=-lSystem
+</code></pre>
+<p>如果是在Linux上编译的话：</p>
+<pre><code class="language-none">/src/main.rs:8: multiple definition of `_start'; /usr/lib/gcc/x86_64-pc-linux-gnu/10.1.0/../../../../lib/Scrt1.o:(.text+0x0): first defined here
+          /usr/bin/ld: /usr/lib/gcc/x86_64-pc-linux-gnu/10.1.0/../../../../lib/Scrt1.o: in function `_start':
+          (.text+0x16): undefined reference to `__libc_csu_fini'
+          /usr/bin/ld: (.text+0x1d): undefined reference to `__libc_csu_init'
+          /usr/bin/ld: (.text+0x24): undefined reference to `main'
+          /usr/bin/ld: (.text+0x2a): undefined reference to `__libc_start_main'
+          collect2: error: ld returned 1 exit status
+</code></pre>
+<p>因为编译器还是链接了C库的符号，并且和我们的入口函数发生了冲突，需要添加编译器参数：</p>
+<pre><code class="language-bash">$ cargo rustc -- -C link-args=-nostartfiles -lc
+</code></pre>
+<p>顺利编译通过！</p>
+<h3 id="hello-world-呢">Hello, World 呢？</h3>
+<p>由于我们的程序什么都没有做，因此运行不会产生任何效果（当然也不会报错）。</p>
+<p>如果我们想打印 <code>Hello, World</code> 的话，可以借用 <code>libc</code> 这个库：</p>
+<pre><code class="language-toml">libc = &quot;0.2.71&quot;
+</code></pre>
+<pre><code class="language-rust">#[no_mangle]
+pub extern &quot;C&quot; fn main(_argc: isize, _argv: *const *const u8) -&gt; i32 {
+    unsafe {
+        libc::printf(b&quot;Hello, World!\n&quot; as *const _ as *const libc::c_char);
+    }
+    0
+}
+</code></pre>
+<p>编译后运行：</p>
+<pre><code class="language-none">Hello, World!
+</code></pre>
+<p>我们来处理下panic，然后尝试触发下panic：</p>
+<pre><code class="language-rust">#[no_mangle]
+pub extern &quot;C&quot; fn main(_nargs: i32, _args: *const *const u8) -&gt; i32 {
+    unsafe {
+        libc::printf(b&quot;Hello, World!\n&quot; as *const _ as *const libc::c_char);
+    }
+    panic!(&quot;panic&quot;);
+    0
+}
+
+#[panic_handler]
+fn panic_handler(info: &amp;PanicInfo) -&gt; ! {
+    if let Some(l) = info.location() {
+        unsafe {
+            libc::printf(
+                b&quot;\npanic at %s:%d\n&quot; as *const _ as *const libc::c_char,
+                l.file().as_bytes() as *const _ as *const libc::c_char,
+                l.line() as libc::uint32_t,
+            );
+        }
+    }
+    unsafe { libc::exit(0) }
+}
+</code></pre>
+<p>运行的结果：</p>
+<pre><code class="language-rust">Hello, World!
+panicsrc/main.rs
+panic at src/main.rs:12
+</code></pre>
+<p>第3行是我们打印的异常处理。第2行是编译器为我们加的。</p>
+<h3 id="结尾">结尾</h3>
+<p>好了，到这里就已经实现了一个不带标准库的Rust程序。虽然比平时写的Rust程序多了些东西，但其实是标准库为我们做了很多，现在只是我们自己去完成这些罢了。Rust是名副其实的系统级编程语言，虽然学习曲线有些陡峭，但是随着深入理解，这些都是Rust的目标所在，Rust是近几十年里出现的真正为解决系统编程问题而设计的出色语言。</p>]]></content>
+		</item>
+		
+		<item>
+			<title>Rust过程宏（一）</title>
+			<link>/posts/rust-procedural-macro-1/</link>
+			<pubDate>Sat, 27 Jun 2020 17:22:04 +0800</pubDate>
+			
+			<guid>/posts/rust-procedural-macro-1/</guid>
+			<description>&lt;h3 id=&#34;rust宏&#34;&gt;Rust宏&lt;/h3&gt;
 &lt;p&gt;宏属于元编程，用于生成代码，减少重复代码的编写，同时不同于运行时反射，宏会在编译时被展开，没有运行时开销。在Rust中，宏大体分为2类：声明宏和过程宏。&lt;/p&gt;
 &lt;p&gt;声明宏较为简单，类似模式匹配，利用递归和替换把重复的代码片段隐藏起来，典型的实现是标准库中 &lt;code&gt;vec!&lt;/code&gt;，&lt;code&gt;println!&lt;/code&gt;。&lt;/p&gt;
 &lt;p&gt;过程宏则稍微复杂，但是功能强大的多，可以精确地控制语法树的生成。同时过程宏使用Rust代码编写，灵活性和表达能力丰富。过程宏经常被用于3种情景下：&lt;/p&gt;
@@ -79,15 +814,247 @@
 &lt;li&gt;装饰 &lt;code&gt;field&lt;/code&gt; 或 函数，使用 &lt;code&gt;attribute&lt;/code&gt; 属性宏&lt;/li&gt;
 &lt;li&gt;实现 &lt;code&gt;DSL&lt;/code&gt;，使用 &lt;code&gt;function&lt;/code&gt; 函数宏&lt;/li&gt;
 &lt;/ol&gt;</description>
-    </item>
-    
-    <item>
-      <title>Rust闭包</title>
-      <link>/posts/rust-closure/</link>
-      <pubDate>Tue, 23 Jun 2020 22:59:21 +0800</pubDate>
-      
-      <guid>/posts/rust-closure/</guid>
-      <description>&lt;h3 id=&#34;闭包closure的实现原理&#34;&gt;闭包(Closure)的实现原理&lt;/h3&gt;
+			<content type="html"><![CDATA[<h3 id="rust宏">Rust宏</h3>
+<p>宏属于元编程，用于生成代码，减少重复代码的编写，同时不同于运行时反射，宏会在编译时被展开，没有运行时开销。在Rust中，宏大体分为2类：声明宏和过程宏。</p>
+<p>声明宏较为简单，类似模式匹配，利用递归和替换把重复的代码片段隐藏起来，典型的实现是标准库中 <code>vec!</code>，<code>println!</code>。</p>
+<p>过程宏则稍微复杂，但是功能强大的多，可以精确地控制语法树的生成。同时过程宏使用Rust代码编写，灵活性和表达能力丰富。过程宏经常被用于3种情景下：</p>
+<ol>
+<li>自动实现 <code>trait</code>，使用 <code>derive</code> 派生宏</li>
+<li>装饰 <code>field</code> 或 函数，使用 <code>attribute</code> 属性宏</li>
+<li>实现 <code>DSL</code>，使用 <code>function</code> 函数宏</li>
+</ol>
+<h3 id="过程宏的编写">过程宏的编写</h3>
+<p>过程宏的构建有特殊的规则，过程宏的定义必须置于独立的 <code>crate</code> 中，并且需要指明 <code>lib</code> 开启 <code>proc-macro</code> 。</p>
+<p>首先创建一个 <code>mymacro</code> 的 <code>lib</code> 项目：</p>
+<pre><code class="language-bash">$ cargo new mymacro --lib
+</code></pre>
+<p>然后再在 <code>mymacro</code> 内创建个 <code>mymacro_derive</code> 的 <code>lib</code> 项目：</p>
+<pre><code class="language-bash">$ cd mymacro
+$ cargo new mymacro_derive --lib
+</code></pre>
+<p>在 <code>mymacro/Cargo.toml</code> 内添加 <code>mymacro_derive</code> 的依赖：</p>
+<pre><code class="language-toml">[dependencies]
+mymacro_derive = { path = &quot;mymacro_derive&quot; }
+</code></pre>
+<p>在 <code>mymacro/mymacro_derive/Cargo.toml</code> 内开启 <code>proc-macro</code>：</p>
+<pre><code class="language-toml">[lib]
+proc-macro = true
+</code></pre>
+<p>在 <code>mymacro/mymacro_derive/src/lib.rs</code> 中需要引入 <code>proc_macro</code> ：</p>
+<pre><code class="language-rust">extern crate proc_macro;
+</code></pre>
+<p>接下来就可以实现我们的过程宏了。先从 <code>derive</code> 派生宏 开始吧。</p>
+<h3 id="derive-派生宏"><code>derive</code> 派生宏</h3>
+<p><code>derive</code> 派生宏可以自动实现我们的自定义 <code>trait</code>，为此我们先在 <code>mymacro/src/lib.rs</code> 定义我们的 <code>trait</code>：</p>
+<pre><code class="language-rust">pub trait MyMacro {
+    fn show_fields();
+}
+</code></pre>
+<p>然后在 <code>mymacro/mymacro_derive/src/lib.rs</code> 下面实现我们的代码：</p>
+<pre><code class="language-rust">extern crate proc_macro;
+
+use proc_macro::TokenStream;
+
+#[proc_macro_derive(MyMacro)]
+pub fn mymacro_derive(input: TokenStream) -&gt; TokenStream {
+    todo!()
+}
+</code></pre>
+<p><code>#[proc_macro_derive(MyMacro)]</code> 指示我们为 <code>MyMacro</code> 实现 <code>derive</code> 派生宏；函数 <code>mymacro_derive</code> 的参数和返回值都是 <code>proc_macro::TokenStream</code> 标记流。</p>
+<p>不过直接操作 <code>proc_macro::TokenStream</code> 十分不便，为此有2个 <code>crate</code> 可以帮助我们：<code>syn</code> 和 <code>quote</code>。<code>syn</code> 可以帮我们把标记流转换成语法树，<code>quote</code> 可以再把 <code>syn</code> 的数据结构转换回标记流。我们添加下 <code>syn</code> 和 <code>quote</code> 的依赖：</p>
+<pre><code class="language-toml">[dependencies]
+syn = { version = &quot;1.0&quot;, features = [ &quot;extra-traits&quot; ] }
+quote = &quot;1.0&quot;
+</code></pre>
+<p>把标记流转换为语法树：</p>
+<pre><code class="language-rust">use syn::DeriveInput;
+
+#[proc_macro_derive(MyMacro)]
+pub fn mymacro_derive(input: TokenStream) -&gt; TokenStream {
+    let ast: DeriveInput = syn::parse(input).unwrap();
+    dbg!(ast);
+    todo!()
+}
+</code></pre>
+<p>这里我们把转换后的语法树打印了出来（需要在 <code>sync</code> 依赖中启用 <code>extra-traits</code> 这个 <code>feature</code>）。</p>
+<p>在 <code>mymacro/src/lib.rs</code> 中写个测试：</p>
+<pre><code class="language-rust">pub use mymacro_derive::*;
+
+// --snip--
+
+#[derive(MyMacro)]
+struct Dog {
+	name: String,
+	age: u8,
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+	fn dog_show() {
+        Dog::show_fields();
+	}
+}
+</code></pre>
+<p>执行测试：</p>
+<pre><code class="language-bash">$ cargo test dog_show
+</code></pre>
+<p>会得到下面的输出：</p>
+<pre><code class="language-none">[mymacro_derive/src/lib.rs:9] ast = DeriveInput {
+    attrs: [],
+    vis: Inherited,
+    ident: Ident {
+        ident: &quot;Dog&quot;,
+        span: #0 bytes(131..134),
+    },
+    generics: Generics {
+        lt_token: None,
+        params: [],
+        gt_token: None,
+        where_clause: None,
+    },
+    data: Struct(
+...
+error: proc-macro derive panicked
+ --&gt; src/lib.rs:9:14
+  |
+9 |     #[derive(MyMacro)]
+  |              ^^^^^^^
+  |
+  = help: message: not yet implemented
+...
+</code></pre>
+<p>因为我们还没有具体实现，所以编译器提示编译失败。不过我们可以在其中看到 <code>ast</code> 中的很多有用的内容。</p>
+<p>我们利用 <code>ast</code> 中的信息实现 <code>MyMacro</code> 中的 <code>show_fields</code> 关联方法：</p>
+<pre><code class="language-rust">extern crate proc_macro;
+
+use proc_macro::TokenStream;
+use quote::quote;
+use syn::{Data, DeriveInput, Type};
+
+#[proc_macro_derive(MyMacro)]
+pub fn mymacro_derive(input: TokenStream) -&gt; TokenStream {
+    let ast: DeriveInput = syn::parse(input).unwrap();
+
+    // 提取结构名称
+    let name = ast.ident;
+
+    // 只支持为结构类型派生
+    let fields = if let Data::Struct(s) = ast.data {
+        s.fields
+    } else {
+        panic!(&quot;derive MyMacro must on struct&quot;);
+    };
+
+    // 提取所有属性名称及其类型
+    let fields: Vec&lt;String&gt; = fields
+        .into_iter()
+        .map(|f| {
+            let f_name = f.ident.unwrap();
+            let f_type = f.ty;
+
+            let p = if let Type::Path(p) = f_type {
+                p
+            } else {
+                panic!(&quot;field type must be Path&quot;);
+            };
+
+            let f_type: Vec&lt;String&gt; = p
+                .path
+                .segments
+                .into_iter()
+                .map(|s| s.ident.to_string())
+                .collect();
+            let f_type = f_type.join(&quot;::&quot;);
+
+            format!(&quot;{}: {}&quot;, f_name, f_type)
+        })
+        .collect();
+
+    // 格式化成文本
+    let fields_txt = format!(
+        r#&quot;{{
+    {}
+}}&quot;#,
+        fields.join(&quot;\n    &quot;)
+    );
+
+    // 为输入的结构实现 MyMacro
+    let gen = quote! {
+        impl MyMacro for #name {
+            fn show_fields() {
+                println!(&quot;{}&quot;, #fields_txt);
+            }
+        }
+    };
+
+    // 输出 TokenStream
+    TokenStream::from(gen)
+}
+</code></pre>
+<p><code>quote!</code> 这个宏帮助我们以Rust的语法方式生成需要输出的结构，并且提供了 <code>#</code> 模板语法，将名字替换成对应的值，最后将生成的结构输出成标记流。</p>
+<p>再运行下测试：</p>
+<pre><code class="language-bash">$ cargo test dog_show -- --nocapture
+</code></pre>
+<p>输出如下：</p>
+<pre><code class="language-none">...
+running 1 test
+{
+    name: String
+    age: u8
+}
+test test::dog_show ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+</code></pre>
+<p>成功输出了 <code>Dog</code> 结构的所有属性名称及类型。我们可以运行以下命令打印出展开后的代码：</p>
+<pre><code class="language-bash">$ cargo rustc -- -Z unstable-options --pretty=expanded
+</code></pre>
+<pre><code class="language-rust">#![feature(prelude_import)]
+#[prelude_import]
+use std::prelude::v1::*;
+#[macro_use]
+extern crate std;
+pub use mymacro_derive::*;
+
+pub trait MyMacro {
+    fn show_fields();
+}
+
+struct Dog {
+    name: String,
+    age: u8,
+}
+impl MyMacro for Dog {
+    fn show_fields() {
+
+
+        {
+            ::std::io::_print(::core::fmt::Arguments::new_v1(&amp;[&quot;&quot;, &quot;\n&quot;],
+                                                             &amp;match (&amp;&quot;{\n    name: String\n    age: u8\n}&quot;,)
+                                                                  {
+                                                                  (arg0,) =&gt;
+                                                                  [::core::fmt::ArgumentV1::new(arg0,
+                                                                                                ::core::fmt::Display::fmt)],
+                                                              }));
+        };
+    }
+}
+</code></pre>
+<p>可以看到展开后的代码，编译器已经为我们实现了 <code>MyMacro</code>，<code>show_fields</code> 方法打印出了 <code>Dog</code> 结构的所有属性。</p>
+<p>利用 <code>derive</code> 派生宏可以方便地为我们自动实现 <code>trait</code> ，访问结构的元信息，并且不会有任何运行时开销！</p>
+<p>待续 &hellip;</p>]]></content>
+		</item>
+		
+		<item>
+			<title>Rust闭包</title>
+			<link>/posts/rust-closure/</link>
+			<pubDate>Tue, 23 Jun 2020 22:59:21 +0800</pubDate>
+			
+			<guid>/posts/rust-closure/</guid>
+			<description>&lt;h3 id=&#34;闭包closure的实现原理&#34;&gt;闭包(Closure)的实现原理&lt;/h3&gt;
 &lt;p&gt;闭包在调用形式上和函数非常相似：&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;传递参数&lt;/li&gt;
@@ -105,15 +1072,197 @@ assert_eq!(result1, 3);
 let result2 = fn1(3);
 assert_eq!(result2, 4);
 &lt;/code&gt;&lt;/pre&gt;</description>
-    </item>
-    
-    <item>
-      <title>关于Go Mysql Driver引入QueryContext带来的数据竞争</title>
-      <link>/posts/go-mysql-driver-race/</link>
-      <pubDate>Sun, 24 May 2020 14:50:06 +0800</pubDate>
-      
-      <guid>/posts/go-mysql-driver-race/</guid>
-      <description>&lt;p&gt;在&lt;a href=&#34;/posts/go-mysql-driver-eof/&#34;&gt;关于Go Mysql Driver的unexpected EOF错误&lt;/a&gt;里提到了连接池，当连接&lt;strong&gt;使用完毕&lt;/strong&gt;后会放回连接池以便其他的操作可以复用这条连接。这里的&lt;strong&gt;使用完毕&lt;/strong&gt;有非常明确的定义：发送缓冲区中不再有未发送的指令，接收缓冲区不再有未接收的数据，下次能读取的数据必须是下一次发送的指令的响应。&lt;/p&gt;
+			<content type="html"><![CDATA[<h3 id="闭包closure的实现原理">闭包(Closure)的实现原理</h3>
+<p>闭包在调用形式上和函数非常相似：</p>
+<ol>
+<li>传递参数</li>
+<li>执行一段代码</li>
+<li>返回结果</li>
+</ol>
+<p>但是闭包可以捕获当前上下文环境中的变量，而函数不可以（访问全局静态变量除外，但是这和闭包的实现完全不一样）。</p>
+<p>闭包的创建和调用：</p>
+<pre><code class="language-rust">let env_var = 1;
+let fn1 = |x| x + env_var;
+
+let result1 = fn1(2);
+assert_eq!(result1, 3);
+
+let result2 = fn1(3);
+assert_eq!(result2, 4);
+</code></pre>
+<p>编译器在编译过程中会创建对应的匿名结构，并根据需要实现三个 <code>trait</code>：<a href="https://doc.rust-lang.org/std/ops/trait.FnOnce.html">FnOnce</a>、<a href="https://doc.rust-lang.org/std/ops/trait.FnMut.html">FnMut</a>、<a href="https://doc.rust-lang.org/std/ops/trait.Fn.html">Fn</a> ，而闭包的创建就是该匿名结构的实例化，闭包调用则是3个 <code>trait</code> 的方法调用。</p>
+<p>以下是3个 <code>trait</code> 的定义：</p>
+<pre><code class="language-rust">pub trait FnOnce&lt;Args&gt; {
+    /// The returned type after the call operator is used.
+    #[stable(feature = &quot;fn_once_output&quot;, since = &quot;1.12.0&quot;)]
+    type Output;
+
+    /// Performs the call operation.
+    #[unstable(feature = &quot;fn_traits&quot;, issue = &quot;29625&quot;)]
+    extern &quot;rust-call&quot; fn call_once(self, args: Args) -&gt; Self::Output;
+}
+
+pub trait FnMut&lt;Args&gt;: FnOnce&lt;Args&gt; {
+    /// Performs the call operation.
+    #[unstable(feature = &quot;fn_traits&quot;, issue = &quot;29625&quot;)]
+    extern &quot;rust-call&quot; fn call_mut(&amp;mut self, args: Args) -&gt; Self::Output;
+}
+
+pub trait Fn&lt;Args&gt;: FnMut&lt;Args&gt; {
+    /// Performs the call operation.
+    #[unstable(feature = &quot;fn_traits&quot;, issue = &quot;29625&quot;)]
+    extern &quot;rust-call&quot; fn call(&amp;self, args: Args) -&gt; Self::Output;
+}
+</code></pre>
+<p>其中 <code>Args</code> 为闭包参数类型，使用元组 ( <code>Tuple</code>) 来表示参数列表，<code>Output</code> 是返回值类型。</p>
+<p>并且可以发现 <code>FnMut</code> 派生自 <code>FnOnce</code>，而 <code>Fn</code> 又派生自 <code>FnMut</code>，这里需要这样理解：</p>
+<p><em><strong>如果一个函数接收一个 <code>FnOnce</code> 参数，总可以传递一个 <code>FnMut</code></strong></em><br>
+<em><strong>如果一个函数接收一个 <code>FnMut</code>，总可以传递一个 <code>Fn</code></strong></em></p>
+<p>我们可以手动构造一个 <code>FnOnce</code> 闭包结构实现：</p>
+<pre><code class="language-rust">#![feature(unboxed_closures)]
+#![feature(fn_traits)]
+
+use std::ops::{Fn, FnMut, FnOnce};
+
+struct MyFn {
+    env_var: String,
+}
+
+impl FnOnce&lt;(i32, i32)&gt; for MyFn {
+    type Output = String;
+	
+    extern &quot;rust-call&quot; fn call_once(self, args: (i32, i32)) -&gt; Self::Output {
+        println!(&quot;{}&quot;, args.0 + args.1);
+        self.env_var
+    }
+}
+
+fn main() {
+    let env_var = String::from(&quot;env_var&quot;);
+    let my_fn = MyFn { env_var, };
+	
+    let o1: String = my_fn(1, 1); // 这里调用 call_once 方法, my_fn 变量 move 进方法
+	assert_eq!(o1, String::from(&quot;env_var&quot;));
+	
+	let o2: String = my_fn(2, 2); // 编译不过，因为 my_fn 变量已经被 move 掉了
+}
+</code></pre>
+<p>接着为 <code>MyFn</code> 实现 <code>FnMut</code>：</p>
+<pre><code class="language-rust">// ...
+struct MyFn&lt;'a&gt; {
+    env_var: &amp;'a str,
+}
+
+impl&lt;'a&gt; FnOnce&lt;(i32, i32)&gt; for MyFn&lt;'a&gt; {
+    type Output = String;
+    extern &quot;rust-call&quot; fn call_once(mut self, args: (i32, i32)) -&gt; Self::Output {
+        self.call_mut(args)
+    }
+}
+
+impl&lt;'a&gt; FnMut&lt;(i32, i32)&gt; for MyFn&lt;'a&gt; {
+    extern &quot;rust-call&quot; fn call_mut(&amp;mut self, args: (i32, i32)) -&gt; Self::Output {
+        println!(&quot;{}&quot;, args.0 + args.1);
+        self.env_var.to_owned()
+    }
+}
+
+fn main() {
+    let env_var = String::from(&quot;env_var&quot;);
+    let mut my_fn = MyFn { env_var: &amp;env_var };
+	
+    let o1: String = my_fn(1, 1); // 这里调用 call_mut 方法, my_fn 变量 mut borrow 进方法
+	assert_eq!(o1, String::from(&quot;env_var&quot;));
+	
+	let o2: String = my_fn(2, 2); // 还是调用 call_mut 方法，my_fn 变量依然有效
+	assert_eq!(o2, String::from(&quot;env_var&quot;));
+}
+</code></pre>
+<p>这里可以看到，如果某个参数如果需要调用 <code>call_once</code> 方法的话，<code>call_once</code> 内部只要再次调用 <code>call_mut</code> 即可，因为一个 <code>Ownership</code> 总可以转成一个 <code>Mut Borrow</code>，同理 <code>Mut Borrow</code> 总可以转成 <code>Borrow</code> 。</p>
+<p>测试一个函数接受 <code>FnOnce</code>，传递一个 <code>FnMut</code>：</p>
+<pre><code class="language-rust">// ...
+fn expect_fn_once&lt;F&gt;(f: F)
+where
+    F: FnOnce&lt;(i32, i32), Output = String&gt;,
+{
+    let _: String = f(1, 2); // 这里调用的是 call_once
+}
+
+fn main() {
+    let env_var = String::from(&quot;env_var&quot;);
+    let my_fn = MyFn { env_var: &amp;env_var };
+	
+	expect_fn_once(my_fn); // 因为 my_fn 实现了 FnOnce，所以可以作为参数传递
+}
+</code></pre>
+<p>另外，<code>FnOnce</code> 、<code>FnMut</code> 、<code>Fn</code> 有3个语法糖表示：</p>
+<p><code>FnOnce(T1, T2) -&gt; T3</code> 可以用来表示 <code>FnOnce&lt;(T1, T2), Output = T3&gt;</code></p>
+<p>因此上面的 <code>expect_fn_once</code> 方法可以简写为：</p>
+<pre><code class="language-rust">fn expect_fn_once(f: impl FnOnce(i32, i32) -&gt; String)
+{
+    let _: String = f(1, 2);
+}
+</code></pre>
+<p><code>FnMut</code> 、<code>Fn</code> 同理。</p>
+<h3 id="编译器闭包的生成规则">编译器闭包的生成规则</h3>
+<ol>
+<li>如果闭包只需要上下文环境的 <code>Borrow</code> ，优先生成 <code>Fn</code> ，方法默认调用 <code>call</code> ，因为上下文环境可以被同时 <code>Borrow</code> 多次，例如：</li>
+</ol>
+<pre><code class="language-rust">let a = 1;
+
+let fn1 = || {
+	let _ = &amp;a;
+};
+
+let fn2 = || {
+	let _ = &amp;a;
+};
+
+println!(&quot;{}&quot;, a);
+</code></pre>
+<ol start="2">
+<li>如果闭包需要上下文环境的 <code>Mut Borrow</code>，则生成 <code>FnMut</code>，方法默认调用 <code>call_mut</code>，因为不会丢失 <code>Ownership</code>，闭包可以被多次调用，上下文环境 <code>Mut Borrow</code> 进闭包结构，当闭包被 <code>drop</code> 掉后，外部才能再次使用被捕获的变量，例如：</li>
+</ol>
+<pre><code class="language-rust">let mut a = 1;
+
+let fn1 = || {
+	let _ = &amp;mut a;
+};
+
+let fn2 = || {
+	let _ = &amp;a; // 这里无法编译通过，因为 f1 已经 mut borrow 了 a
+};
+
+fn1();
+
+println!(&quot;{}&quot;, a);
+</code></pre>
+<ol start="3">
+<li>如果闭包需要上下文的 <code>Ownership</code>，则生成 <code>FnOcne</code>，方法调用 <code>call_once</code>，因为调用闭包会导致失去 <code>Ownership</code> ，所以闭包只能调用一次，上下文环境被 <code>move</code> 进闭包，外部不再能使用被捕获的变量，例如：</li>
+</ol>
+<pre><code class="language-rust">let a = String::from(&quot;a&quot;);
+
+let fn1 = || {
+	let b: String = a;
+	b
+};
+
+let fn2 = || {
+	let b: String = a; // 这里无法编译通过，因为 a 变量已经被 move 进了 fn1
+};
+
+println!(&quot;{}&quot;, a); // 这里也无法编译通过
+</code></pre>
+<p>有时我们需要强制捕获变量的 <code>Ownership</code> ，可以在闭包上修饰 <code>move</code> 关键字，这在多线程/异步环境下很常见。</p>]]></content>
+		</item>
+		
+		<item>
+			<title>关于Go Mysql Driver引入QueryContext带来的数据竞争</title>
+			<link>/posts/go-mysql-driver-race/</link>
+			<pubDate>Sun, 24 May 2020 14:50:06 +0800</pubDate>
+			
+			<guid>/posts/go-mysql-driver-race/</guid>
+			<description>&lt;p&gt;在&lt;a href=&#34;/posts/go-mysql-driver-eof/&#34;&gt;关于Go Mysql Driver的unexpected EOF错误&lt;/a&gt;里提到了连接池，当连接&lt;strong&gt;使用完毕&lt;/strong&gt;后会放回连接池以便其他的操作可以复用这条连接。这里的&lt;strong&gt;使用完毕&lt;/strong&gt;有非常明确的定义：发送缓冲区中不再有未发送的指令，接收缓冲区不再有未接收的数据，下次能读取的数据必须是下一次发送的指令的响应。&lt;/p&gt;
 &lt;p&gt;通常情况下的SQL操作如下：&lt;/p&gt;
 &lt;pre&gt;&lt;code class=&#34;language-go&#34;&gt;rows, err := db.Query(&amp;quot;SELECT a, b FROM some_table&amp;quot;)
 if err != nil {
@@ -129,36 +1278,400 @@ for rows.Next() {
     // ...
 }
 &lt;/code&gt;&lt;/pre&gt;</description>
-    </item>
-    
-    <item>
-      <title>关于Go Mysql Driver的unexpected EOF错误</title>
-      <link>/posts/go-mysql-driver-eof/</link>
-      <pubDate>Sat, 23 May 2020 11:55:30 +0800</pubDate>
-      
-      <guid>/posts/go-mysql-driver-eof/</guid>
-      <description>&lt;p&gt;在使用 &lt;a href=&#34;https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc&#34;&gt;github.com/go-sql-driver/mysql&lt;/a&gt; 作为客户端连接Mysql时，日志中偶然会出现下面的错误：&lt;/p&gt;
+			<content type="html"><![CDATA[<p>在<a href="/posts/go-mysql-driver-eof/">关于Go Mysql Driver的unexpected EOF错误</a>里提到了连接池，当连接<strong>使用完毕</strong>后会放回连接池以便其他的操作可以复用这条连接。这里的<strong>使用完毕</strong>有非常明确的定义：发送缓冲区中不再有未发送的指令，接收缓冲区不再有未接收的数据，下次能读取的数据必须是下一次发送的指令的响应。</p>
+<p>通常情况下的SQL操作如下：</p>
+<pre><code class="language-go">rows, err := db.Query(&quot;SELECT a, b FROM some_table&quot;)
+if err != nil {
+    return err
+}
+defer rows.Close()
+
+for rows.Next() {
+    var a, b string
+    if err := rows.Scan(&amp;a, &amp;b); err != nil {
+        return err
+    }
+    // ...
+}
+</code></pre>
+<ol>
+<li><code>db.Query</code> 返回一个 <code>Rows</code> 游标对象</li>
+<li>注册一个 <code>rows.Close</code> 延迟函数用于关闭 <code>Rows</code> 对象</li>
+<li>通过 <code>rows.Next</code> 迭代器读取每一行数据</li>
+<li>通过 <code>rows.Scan</code> 将当前行的数据存入声明的变量中</li>
+</ol>
+<p>整个代码片段会有2种结果</p>
+<ol>
+<li>读取了所有数据</li>
+<li>未读取或读取了部分数据，然后发生错误</li>
+</ol>
+<p>第一种情况由于读取了所有数据，满足<strong>使用完毕</strong>的条件，可以放回连接池；第二种情况，由于发生了错误，连接失效，后续会重新打开新连接，新连接自然是满足<strong>使用完毕</strong>条件的。</p>
+<p>如果在 <code>rows.Next</code> 迭代器中，中途退出（未发生错误的情况下），那接收缓冲区中还有未读取的数据，因此对应的SQL驱动需要在 <code>rows.Close</code> 方法中冲刷掉还未读取的数据，直至缓冲区中读取至EOF为止。如果 <code>rows.Close</code> 不被调用，不但接收缓冲区中有残留的数据，同时连接也不会被放回连接池，切记不可遗忘 <code>rows.Close</code> 调用。</p>
+<p>在 <a href="https://golang.org/pkg/database/sql/">database/sql</a> 引入 <code>QueryContext</code> 后，执行SQL操作时，会单独创建一个新的Goroutine用于超时取消：</p>
+<pre><code class="language-go">func (rs *Rows) initContextClose(ctx, txctx context.Context) {
+	if ctx.Done() == nil &amp;&amp; (txctx == nil || txctx.Done() == nil) {
+		return
+	}
+	if bypassRowsAwaitDone {
+		return
+	}
+	ctx, rs.cancel = context.WithCancel(ctx)
+	go rs.awaitDone(ctx, txctx)
+}
+
+// awaitDone blocks until either ctx or txctx is canceled. The ctx is provided
+// from the query context and is canceled when the query Rows is closed.
+// If the query was issued in a transaction, the transaction's context
+// is also provided in txctx to ensure Rows is closed if the Tx is closed.
+func (rs *Rows) awaitDone(ctx, txctx context.Context) {
+	var txctxDone &lt;-chan struct{}
+	if txctx != nil {
+		txctxDone = txctx.Done()
+	}
+	select {
+	case &lt;-ctx.Done():
+	case &lt;-txctxDone:
+	}
+	rs.close(ctx.Err())
+}
+</code></pre>
+<p>这样在 <code>Context</code> 超时取消后，这个单独的Goroutine会马上执行 <code>rows.Close</code> ，冲刷缓冲区后把连接放回连接池，防止因业务Goroutine长期阻塞导致连接无法放回连接池。</p>
+<pre><code class="language-go">func (rs *Rows) close(err error) error {
+	rs.closemu.Lock()
+	defer rs.closemu.Unlock()
+
+	if rs.closed {
+		return nil
+	}
+	rs.closed = true
+
+	if rs.lasterr == nil {
+		rs.lasterr = err
+	}
+
+	withLock(rs.dc, func() {
+		err = rs.rowsi.Close()
+	})
+	if fn := rowsCloseHook(); fn != nil {
+		fn(rs, &amp;err)
+	}
+	if rs.cancel != nil {
+		rs.cancel()
+	}
+
+	if rs.closeStmt != nil {
+		rs.closeStmt.Close()
+	}
+	rs.releaseConn(err)
+	return err
+}
+</code></pre>
+<p>但是当这个Goroutine正在冲刷缓冲区的同时，业务Goroutine正在执行 <code>rows.Scan</code> 方法，这个方法会读取缓冲区中的数据，这里就发生了2个Goroutine的数据竞争。但是和 <code>rows.Next</code> 方法却不会导致数据竞争，是因为 <code>rows.Next</code> 和 <code>rows.Close</code> 使用了互斥锁保护临界区。<code>rows.Scan</code> 并没有保护 <code>convertAssignRows</code> 方法，同时 <a href="https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc">github.com/go-sql-driver/mysql</a> 为了性能，共享了缓冲区和 <code>lastcols</code> 的内存。</p>
+<pre><code class="language-go">func (rs *Rows) close(err error) error {
+	rs.closemu.Lock()
+	defer rs.closemu.Unlock()
+
+	if rs.closed {
+		return nil
+	}
+	rs.closed = true
+
+	if rs.lasterr == nil {
+		rs.lasterr = err
+	}
+
+	withLock(rs.dc, func() {
+		err = rs.rowsi.Close()
+	})
+	if fn := rowsCloseHook(); fn != nil {
+		fn(rs, &amp;err)
+	}
+	if rs.cancel != nil {
+		rs.cancel()
+	}
+
+	if rs.closeStmt != nil {
+		rs.closeStmt.Close()
+	}
+	rs.releaseConn(err)
+	return err
+}
+
+func (rs *Rows) Next() bool {
+	var doClose, ok bool
+	withLock(rs.closemu.RLocker(), func() {
+		doClose, ok = rs.nextLocked()
+	})
+	if doClose {
+		rs.Close()
+	}
+	return ok
+}
+
+func (rs *Rows) Scan(dest ...interface{}) error {
+	rs.closemu.RLock()
+
+	if rs.lasterr != nil &amp;&amp; rs.lasterr != io.EOF {
+		rs.closemu.RUnlock()
+		return rs.lasterr
+	}
+	if rs.closed {
+		err := rs.lasterrOrErrLocked(errRowsClosed)
+		rs.closemu.RUnlock()
+		return err
+	}
+	rs.closemu.RUnlock()
+
+	if rs.lastcols == nil {
+		return errors.New(&quot;sql: Scan called without calling Next&quot;)
+	}
+	if len(dest) != len(rs.lastcols) {
+		return fmt.Errorf(&quot;sql: expected %d destination arguments in Scan, not %d&quot;, len(rs.lastcols), len(dest))
+	}
+	for i, sv := range rs.lastcols {
+		err := convertAssignRows(dest[i], sv, rs)
+		if err != nil {
+			return fmt.Errorf(`sql: Scan error on column index %d, name %q: %v`, i, rs.rowsi.Columns()[i], err)
+		}
+	}
+	return nil
+}
+</code></pre>
+<p>为此在 <a href="https://golang.org/doc/go1.10#database/sql/driver">Go 1.10 Release Notes</a> 中专门提到，驱动勿在 <code>rows.Close</code> 方法中修改缓冲区：</p>
+<blockquote>
+<p>Drivers that currently hold on to the destination buffer provided by driver.Rows.Next should ensure they no longer write to a buffer assigned to the destination array outside of that call. Drivers must be careful that underlying buffers are not modified when closing driver.Rows.</p>
+</blockquote>
+<p>为了避免在这种情况下发生数据竞争，<a href="https://github.com/go-sql-driver/mysql/pull/943">PR#943</a> 使用了双缓冲来冲刷缓冲区。</p>
+<pre><code class="language-go">// A buffer which is used for both reading and writing.
+// This is possible since communication on each connection is synchronous.
+// In other words, we can't write and read simultaneously on the same connection.
+// The buffer is similar to bufio.Reader / Writer but zero-copy-ish
+// Also highly optimized for this particular use case.
+// This buffer is backed by two byte slices in a double-buffering scheme
+type buffer struct {
+	buf     []byte // buf is a byte buffer who's length and capacity are equal.
+	nc      net.Conn
+	idx     int
+	length  int
+	timeout time.Duration
+	dbuf    [2][]byte // dbuf is an array with the two byte slices that back this buffer
+	flipcnt uint      // flipccnt is the current buffer counter for double-buffering
+}
+
+// flip replaces the active buffer with the background buffer
+// this is a delayed flip that simply increases the buffer counter;
+// the actual flip will be performed the next time we call `buffer.fill`
+func (b *buffer) flip() {
+	b.flipcnt += 1
+}
+
+// fill reads into the buffer until at least _need_ bytes are in it
+func (b *buffer) fill(need int) error {
+    // ...
+    // fill data into its double-buffering target: if we've called
+	// flip on this buffer, we'll be copying to the background buffer,
+	// and then filling it with network data; otherwise we'll just move
+	// the contents of the current buffer to the front before filling it
+	dest := b.dbuf[b.flipcnt&amp;1]
+
+	// grow buffer if necessary to fit the whole packet.
+	if need &gt; len(dest) {
+		// Round up to the next multiple of the default size
+		dest = make([]byte, ((need/defaultBufSize)+1)*defaultBufSize)
+
+		// if the allocated buffer is not too large, move it to backing storage
+		// to prevent extra allocations on applications that perform large reads
+		if len(dest) &lt;= maxCachedBufSize {
+			b.dbuf[b.flipcnt&amp;1] = dest
+		}
+	}
+
+	// if we're filling the fg buffer, move the existing data to the start of it.
+	// if we're filling the bg buffer, copy over the data
+	if n &gt; 0 {
+		copy(dest[:n], b.buf[b.idx:])
+	}
+
+	b.buf = dest
+    b.idx = 0
+    // ...
+}
+
+func (rows *mysqlRows) Close() (err error) {
+    // ...
+    // flip the buffer for this connection if we need to drain it.
+	// note that for a successful query (i.e. one where rows.next()
+	// has been called until it returns false), `rows.mc` will be nil
+	// by the time the user calls `(*Rows).Close`, so we won't reach this
+	// see: https://github.com/golang/go/commit/651ddbdb5056ded455f47f9c494c67b389622a47
+    mc.buf.flip()
+    // ...
+}
+</code></pre>
+<p>当调用 <code>rows.Close</code> 时，交换 <code>fg buffer</code> 和 <code>bg buffer</code> 2个缓冲区，这样在冲刷缓冲区时用到的就是 <code>bg buffer</code> ，而 <code>rows.Scan</code> 读取的是旧的 <code>fg buffer</code>，从而避免了数据竞争。</p>]]></content>
+		</item>
+		
+		<item>
+			<title>关于Go Mysql Driver的unexpected EOF错误</title>
+			<link>/posts/go-mysql-driver-eof/</link>
+			<pubDate>Sat, 23 May 2020 11:55:30 +0800</pubDate>
+			
+			<guid>/posts/go-mysql-driver-eof/</guid>
+			<description>&lt;p&gt;在使用 &lt;a href=&#34;https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc&#34;&gt;github.com/go-sql-driver/mysql&lt;/a&gt; 作为客户端连接Mysql时，日志中偶然会出现下面的错误：&lt;/p&gt;
 &lt;pre&gt;&lt;code class=&#34;language-none&#34;&gt;[mysql] 2019/08/26 16:07:00 packets.go:36: unexpected EOF
 &lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;&lt;a href=&#34;https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc&#34;&gt;github.com/go-sql-driver/mysql&lt;/a&gt; 为了复用TCP连接以提高性能，内部实现了连接池。当需要一次SQL操作时，会先从连接池中拿出一条可用的空闲连接去执行操作。如果没有空闲的连接，或者连接已经失效，就打开一条新的TCP连接、SSL认证（如果使用SSL连接的话）、协议握手、认证等，完成初始化连接，再使用这条连接执行操作，使用完后再放回连接池。连接失效的标记可以在上一次使用连接后根据对应的错误来完成，或者本次操作指令发送失败也标记为连接失效，driver会重新执行上面的步骤来进行重试，应用层不会感知。&lt;/p&gt;</description>
-    </item>
-    
-    <item>
-      <title>关于Socket应用的性能优化</title>
-      <link>/posts/socket-optimize/</link>
-      <pubDate>Thu, 21 May 2020 21:58:01 +0800</pubDate>
-      
-      <guid>/posts/socket-optimize/</guid>
-      <description>&lt;p&gt;TCP/IP协议栈是计算机网络的基础通信架构，其中IP协议完成了跨链路的路由、寻址，TCP协议完成了面向连接的可靠字节流抽象，提供数据的分段、重传、重组，流量控制和拥塞控制，使得建立在TCP/IP协议之上的应用协议不用再关心各种硬件、网络环境，TCP/IP协议是今天的互联网的基石。&lt;/p&gt;</description>
-    </item>
-    
-    <item>
-      <title>2Q(双链)缓存淘汰策略</title>
-      <link>/posts/two-queue/</link>
-      <pubDate>Tue, 19 May 2020 00:00:00 +0000</pubDate>
-      
-      <guid>/posts/two-queue/</guid>
-      <description>&lt;p&gt;LRU(最近使用)算法经常用于缓存应用中，最简单的实现是通过一个链表实现：&lt;/p&gt;
+			<content type="html"><![CDATA[<p>在使用 <a href="https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc">github.com/go-sql-driver/mysql</a> 作为客户端连接Mysql时，日志中偶然会出现下面的错误：</p>
+<pre><code class="language-none">[mysql] 2019/08/26 16:07:00 packets.go:36: unexpected EOF
+</code></pre>
+<p><a href="https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc">github.com/go-sql-driver/mysql</a> 为了复用TCP连接以提高性能，内部实现了连接池。当需要一次SQL操作时，会先从连接池中拿出一条可用的空闲连接去执行操作。如果没有空闲的连接，或者连接已经失效，就打开一条新的TCP连接、SSL认证（如果使用SSL连接的话）、协议握手、认证等，完成初始化连接，再使用这条连接执行操作，使用完后再放回连接池。连接失效的标记可以在上一次使用连接后根据对应的错误来完成，或者本次操作指令发送失败也标记为连接失效，driver会重新执行上面的步骤来进行重试，应用层不会感知。</p>
+<p>到这里，好像一切都没有什么问题，可是上面的错误是怎么回事？如果是连接失效的话，应该会进行重试，对应用透明。</p>
+<p>其实上面的错误来源于服务器主动关闭超时连接造成的TCP半关闭状态，错误的形成原因可以用下面的图简单解释：</p>
+<!-- raw HTML omitted -->
+<p>当需要重新打开一条Mysql连接时，先是完成基本的TCP连接握手，然后完成Mysql的协议握手、认证，之后就可以在这条连接上发送指令了。一次操作完成后，连接被放回连接池中，如果之后一段时间这条连接都没有被使用过，Mysql服务器会根据相应的配置，主动关闭这条连接。此时服务器内核会向客户端内核发送一个[FIN, ACK]的TCP段，客户端内核回应一个ACK段，此时这条TCP连接会进入半关闭状态：服务器不会再向客户端发送数据，但是客户端可以向服务器发送数据。</p>
+<p>此时一个新的SQL操作从连接池中拿出了这条连接，发送指令，但是在读取的时候，客户端内核已经知道服务器不会再返回数据，因此直接给应用程序返回了EOF错误。然后重点是，此时的连接状态并不是真正意义上的无效连接状态，由于客户端已经把指令发送了出去，尤其如果是一条UPDATE指令的话，是无法执行安全的重试操作的。服务器对这条指令的处理，客户端是完全无法知晓的。</p>
+<p>通常一种简单的解决办法是，设置客户端的空闲超时时间，并且短于服务器的空闲超时时间，然而 <a href="https://golang.org/pkg/database/sql/">database/sql</a> 并没有提供类似&quot;maximum idle duration&quot;的API，不过可以退一步使用 <a href="https://golang.org/pkg/database/sql/#DB.SetConnMaxLifetime">func (*DB) SetConnMaxLifetime</a> 这个API。然而带来的坏处就是，限制了连接的重用时间，即使连接一直处于活跃状态。</p>
+<p>另一种办法是，每次从连接池中拿出连接，在发送第一条指令前发送一个 <code>PING</code> 包来检查连接是否健康，由于 <code>PING</code> 包不会产生副作用，因此后续的操作都是安全的。这种办法的坏处也显而易见，由于从连接池中取出连接是个非常频繁的操作，而每次都会增加至少一次RTT延迟。</p>
+<p>好在 <a href="https://github.com/go-sql-driver/mysql/pull/934">PR#934</a> 通过非常巧妙的方式解决了这一问题。作者的解决思路如下：</p>
+<p>首先需要提到一个Go 1.10后 <code>sql/driver</code> 增加的一个接口：<a href="https://golang.org/pkg/database/sql/driver/#SessionResetter">driver.SessionResetter</a> ，其中 <code>ResetSession</code> 方法会在每次连接放入连接池时执行，这里作者先简单地添加了一个 <code>reset</code> 标记。</p>
+<pre><code class="language-go">type mysqlConn struct {
+    // ...
+    reset            bool // set when the Go SQL package calls ResetSession
+    // ...
+}
+
+// ResetSession implements driver.SessionResetter.
+// (From Go 1.10)
+func (mc *mysqlConn) ResetSession(ctx context.Context) error {
+    if mc.closed.IsSet() {
+        return driver.ErrBadConn
+    }
+    mc.reset = true
+    return nil
+}
+</code></pre>
+<p>之后连接被拿出来，在执行发送第一条指令前，会先根据之前添加的 <code>reset</code> 标记检查连接是否可用（liveness check），由于前面的标记是连接在放入连接池时加上的，因此可以做到只在第一次取出后检查（检查后把 <code>reset</code> 取消就行），后续在使用过程中无需再检查，除非再次被放回了连接池。</p>
+<pre><code class="language-go">// Write packet buffer 'data'
+func (mc *mysqlConn) writePacket(data []byte) error {
+    // ...
+    // Perform a stale connection check. We only perform this check for
+ 	// the first query on a connection that has been checked out of the
+ 	// connection pool: a fresh connection from the pool is more likely
+ 	// to be stale, and it has not performed any previous writes that
+ 	// could cause data corruption, so it's safe to return ErrBadConn
+ 	// if the check fails.
+ 	if mc.reset {
+ 		mc.reset = false
+ 		conn := mc.netConn
+ 		if mc.rawConn != nil {
+ 			conn = mc.rawConn
+ 		}
+ 		if err := connCheck(conn); err != nil {
+ 			errLog.Print(&quot;closing bad idle connection: &quot;, err)
+ 			mc.Close()
+ 			return driver.ErrBadConn
+ 		}
+     }
+     // ...
+}
+</code></pre>
+<p>而检查连接是否可用的方法用到了Go 1.9后 <code>net.Conn</code> 增加的 <code>syscall.Conn</code> 接口，这个接口可以获取原始连接的文件描述符。先调用 <code>syscall.Read</code> ，传入1个字节的缓冲区，由于还没有发送任何指令，并且由Go runtime创建的Socket都设置了非阻塞（O_NONBLOCK）模式，所以方法会立即返回。如果没有返回错误（或者 <code>EAGAIN</code> / <code>EWOULDBLOCK</code> 这2种错误）且读取的数据长度为0，则说明连接依然有效，反之连接已经失效。之所以不直接使用Go的原生接口 <code>net.Conn.Read</code> ，是因为Go的调度器会立即使当前Goroutine睡眠，导致多次Goroutine上下文切换，影响性能。</p>
+<pre><code class="language-go">func connCheck(c net.Conn) error {
+ 	var (
+ 		n    int
+ 		err  error
+ 		buff [1]byte
+ 	)
+
+  	sconn, ok := c.(syscall.Conn)
+ 	if !ok {
+ 		return nil
+ 	}
+ 	rc, err := sconn.SyscallConn()
+ 	if err != nil {
+ 		return err
+ 	}
+ 	rerr := rc.Read(func(fd uintptr) bool {
+ 		n, err = syscall.Read(int(fd), buff[:])
+ 		return true
+ 	})
+ 	switch {
+ 	case rerr != nil:
+ 		return rerr
+ 	case n == 0 &amp;&amp; err == nil:
+ 		return io.EOF
+ 	case n &gt; 0:
+ 		return errUnexpectedRead
+ 	case err == syscall.EAGAIN || err == syscall.EWOULDBLOCK:
+ 		return nil
+ 	default:
+ 		return err
+ 	}
+}
+</code></pre>
+<p>- 完</p>]]></content>
+		</item>
+		
+		<item>
+			<title>关于Socket应用的性能优化</title>
+			<link>/posts/socket-optimize/</link>
+			<pubDate>Thu, 21 May 2020 21:58:01 +0800</pubDate>
+			
+			<guid>/posts/socket-optimize/</guid>
+			<description>&lt;p&gt;TCP/IP协议栈是计算机网络的基础通信架构，其中IP协议完成了跨链路的路由、寻址，TCP协议完成了面向连接的可靠字节流抽象，提供数据的分段、重传、重组，流量控制和拥塞控制，使得建立在TCP/IP协议之上的应用协议不用再关心各种硬件、网络环境，TCP/IP协议是今天的互联网的基石。&lt;/p&gt;</description>
+			<content type="html"><![CDATA[<p>TCP/IP协议栈是计算机网络的基础通信架构，其中IP协议完成了跨链路的路由、寻址，TCP协议完成了面向连接的可靠字节流抽象，提供数据的分段、重传、重组，流量控制和拥塞控制，使得建立在TCP/IP协议之上的应用协议不用再关心各种硬件、网络环境，TCP/IP协议是今天的互联网的基石。</p>
+<h1 id="网络套接字socket">网络套接字Socket</h1>
+<p>Socket是操作系统用于网络编程的应用程序接口（API），可支持多种协议，现代常见的Socket套接字接口（Unix Socket、Windows Socket等）都源自Berkeley套接字<sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup>。接口实现用于TCP/IP协议，因此它是维持Internet的基本技术之一。同时也被用于Unix域套接字（Unix domain sockets），可实现在单机上为进程间通讯（IPC）的接口。</p>
+<p>不同的Socket应用程序除了满足最基本的通信需求外，也会有一些根据业务相关的特殊需求，本篇记录关于几个Linux下网络Socket应用的优化技巧：</p>
+<h2 id="低延迟需求">低延迟需求</h2>
+<p>由于TCP协议是面向字节流的协议，但是用于承载TCP的底层协议无法直接支持字节流，以太网协议需要一帧一帧地发送，一次发送的最大字节数受限于MTU；IP协议虽然支持数据的分包发送，但是大多数情况下我们需要避免IP协议分包，因为这会影响中间跳点的处理性能，所以TCP协议引入了分段（Segment）机制，在TCP层对数据进行拆分，保证IP数据包都是完整的。而通常情况下，我们希望每次发送的数据尽可能的多，也就是正好填满IP数据包，以此减少网络传输的次数（包括发送与接收方确认的次数），同时减少了总的包头数据量，以此提高整体的网络吞吐量。</p>
+<p>Nagle算法实现了对数据的合并，该算法会把多个小的数据合并成一个完整的报文段，以此最大化报文段，减少在线路上传输报文的次数，但是同时也会带来延迟，因为写入缓冲区的数据并不会马上发送出去。在低延迟需求的应用中，可以禁用Nagle算法：</p>
+<pre><code class="language-rust">use std::net::SocketAddr;
+use socket2::{Socket, Domain, Type};
+use anyhow::Result;
+
+fn no_delay() -&gt; Result&lt;()&gt; {
+  // create a TCP listener bound to two addresses
+  let socket = Socket::new(Domain::ipv4(), Type::stream(), None)?;
+
+  socket.bind(&amp;&quot;127.0.0.1:12345&quot;.parse::&lt;SocketAddr&gt;()?.into())?;
+  // sets the value of the TCP_NODELAY option on this socket
+  socket.set_nodelay(true)?;
+  socket.listen(128)?;
+
+  let listener = socket.into_tcp_listener();
+  // ...
+  Ok(())
+}
+</code></pre>
+<h2 id="减少系统调用">减少系统调用</h2>
+<p>由于网络接口的调用属于系统调用，会跨越应用程序空间和内核空间的边界，导致应用程序空间和内核空间的上下文切换，因此在希望减少内核调用负载的场景中，可以在应用程序中尽可能使用能支持的最大缓冲区，这样可以最大化一次系统调用能发送或读取的数据量。</p>
+<h2 id="增加内核缓冲区上限">增加内核缓冲区上限</h2>
+<p>在<a href="/posts/dma/">DMA(直接内存访问)和零拷贝</a>中记录过大多数文件系统默认的IO操作都是缓存IO(Buffered I/O)，Socket接口同样如此，如果网络环境足够好，发送、接收双方的处理能力足够好的话，缓冲区的大小会成为网络通信的瓶颈（因为发送、接收窗口的上限就是内核Socket缓冲区大小）。现代的操作系统都可以动态地调整Socket缓冲区大小（如果你在接口调用里强制指定了缓冲区大小，那么内核就不会动态调整了，因此建议不要在接口调用的时候指定，因为网络环境会随时变化），但是会受一些内核参数的约束。在Linux中，发送、接收缓冲区的上限受以下内核参数的影响：</p>
+<pre><code class="language-none">net.core.wmem_max
+net.core.rmem_max
+</code></pre>
+<p>一般这个上限的理想值是带宽时延积（Bandwidth Delay Product），取决于链路带宽和往返时延（RTT）。如果网络环境较好，你不想浪费你机器的内存，同时你的应用程序效率足够高的话，不妨增加内核缓冲区上限吧！</p>
+<h2 id="利用以太网巨帧">利用以太网巨帧</h2>
+<p>在之前提到，以太网协议需要一帧一帧的发送报文，原因在于信号在链路上传输过程中无法避免信号的丢失或错误，一旦有一个bit信号发生错误，那之后的信号就没有任何意义了。采用以太网帧的方式，可以将这种影响降低，一个以太网帧的错误，不影响其他以太网帧，如果要重传也只需要重传出错的以太网帧。越小的以太网帧，出错的几率越小，但是网络的吞吐量也越小；越大的以太网帧反过来，出错的几率越大，但是网络的吞吐量越大（包含了出错的无效帧）。因此链路上的每一个节点都有一个最大传输单元（MTU），用于限制传输的以太网帧大小，通常该值为1500。</p>
+<p>但是MTU的大小多少最合适，要看所处的网络环境，带宽大小、网络拥堵情况、物理网络硬件性能等。如果是本地内部网络，拥有较好的网络环境，也就是链路信号出错的概率非常低，可以将MTU的值适当地调大，甚至是非常大（即以太网巨帧），可以有效地增加网络吞吐量。</p>
+<section class="footnotes" role="doc-endnotes">
+<hr>
+<ol>
+<li id="fn:1" role="doc-endnote">
+<p>Berkeley套接字 - <a href="https://zh.wikipedia.org/wiki/Berkeley%E5%A5%97%E6%8E%A5%E5%AD%97">维基百科词条</a> <a href="#fnref:1" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+</ol>
+</section>]]></content>
+		</item>
+		
+		<item>
+			<title>2Q(双链)缓存淘汰策略</title>
+			<link>/posts/two-queue/</link>
+			<pubDate>Tue, 19 May 2020 00:00:00 +0000</pubDate>
+			
+			<guid>/posts/two-queue/</guid>
+			<description>&lt;p&gt;LRU(最近使用)算法经常用于缓存应用中，最简单的实现是通过一个链表实现：&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;插入数据时向头节点插入&lt;/li&gt;
 &lt;li&gt;更新数据时，移动节点到头节点&lt;/li&gt;
@@ -166,31 +1679,310 @@ for rows.Next() {
 &lt;/ol&gt;
 &lt;p&gt;但是这个简单的实现并不能很好地应付很多场景，缓存的理想情况是预测未来数据的使用情况，尽可能的从缓存中读取数据，减少实际IO操作。&lt;/p&gt;
 &lt;p&gt;今天的记录是关于1个LRU的变种算法：2Q(双链)，该算法在Linux页高速缓存回收中被应用。&lt;/p&gt;</description>
-    </item>
-    
-    <item>
-      <title>Linux进程调度与定时器</title>
-      <link>/posts/sched-and-timer/</link>
-      <pubDate>Sun, 17 May 2020 20:14:50 +0800</pubDate>
-      
-      <guid>/posts/sched-and-timer/</guid>
-      <description>&lt;p&gt;由于Linux是属于抢占式(preemptoin)多任务(multitasking)分时操作系统，因此进程的调度同定时器必然存在联系，本篇日志是记录Linux进程调度与定时器的关系。&lt;/p&gt;
+			<content type="html"><![CDATA[<p>LRU(最近使用)算法经常用于缓存应用中，最简单的实现是通过一个链表实现：</p>
+<ol>
+<li>插入数据时向头节点插入</li>
+<li>更新数据时，移动节点到头节点</li>
+<li>淘汰数据时删除尾节点</li>
+</ol>
+<p>但是这个简单的实现并不能很好地应付很多场景，缓存的理想情况是预测未来数据的使用情况，尽可能的从缓存中读取数据，减少实际IO操作。</p>
+<p>今天的记录是关于1个LRU的变种算法：2Q(双链)，该算法在Linux页高速缓存回收中被应用。</p>
+<h1 id="2q双链">2Q(双链)</h1>
+<p>原始LRU算法描述的是数据使用的最近时间点，越靠近头节点的数据使用的时间点越近，但是没有描述数据使用的频率，像对于数据库的遍历操作，新数据会立即将缓存中的所有数据淘汰，但是遍历完后，缓存中的数据在之后使用的概率非常低，即缓存污染。</p>
+<p>2Q淘汰算法是便是对以上情况的一种优化，淘汰策略是使用2个队列实现，1个FIFO队列记录只访问了一次的数据，1个普通LRU队列记录访问了2次以上的数据。</p>
+<ol>
+<li>当第1次访问时，将数据添加到FIFO队列，如果FIFO队列超过限制，淘汰FIFO里最旧的数据</li>
+<li>当第2次访问时，将数据从FIFO队列移动到LRU队列的头节点，如果LRU队列超过限制，将LRU里最旧的数据移动到FIFO队列的头节点</li>
+<li>当第3次以上访问时，按照LRU规则更新LRU队列</li>
+</ol>
+<pre><code class="language-rust">use std::ptr::NonNull;
+use std::fmt::Debug;
+
+pub struct Node&lt;T: Debug&gt; {
+	pub val: T,
+	pub prev: Option&lt;NonNull&lt;Node&lt;T&gt;&gt;&gt;,
+	pub next: Option&lt;NonNull&lt;Node&lt;T&gt;&gt;&gt;,
+}
+
+pub struct List&lt;T: Debug&gt; {
+	pub head: Option&lt;NonNull&lt;Node&lt;T&gt;&gt;&gt;,
+	pub tail: Option&lt;NonNull&lt;Node&lt;T&gt;&gt;&gt;,
+	pub len: usize,
+}
+
+impl &lt;T: Debug&gt; List&lt;T&gt; {
+	pub fn new() -&gt; Self {
+		Self {
+			head: None,
+			tail: None,
+			len: 0,
+		}
+	}
+
+	pub fn push_front(&amp;mut self, val: T) {
+		let node = Box::new(Node {
+			val,
+			prev: None,
+			next: self.head,
+		});
+		let node = NonNull::new(Box::into_raw(node));
+		
+		if let Some(mut old_head) = self.head {
+			unsafe {
+				old_head.as_mut().prev = node;
+			}
+		} else {
+			self.tail = node;
+		}
+		self.head = node;
+		self.len +=  1;
+	}
+
+	pub fn push_front_node(&amp;mut self, node: NonNull&lt;Node&lt;T&gt;&gt;) {
+		let node = Some(node);
+		if let Some(mut old_head) = self.head {
+			unsafe {
+				old_head.as_mut().prev = node;
+			}
+		} else {
+			self.tail = node;
+		}
+		self.head = node;
+		self.len +=  1;
+	}
+
+	pub fn pop_back(&amp;mut self) -&gt; Option&lt;NonNull&lt;Node&lt;T&gt;&gt;&gt; {
+		if let Some(mut old_tail) = self.tail {
+			unsafe {
+				let tail = old_tail.as_mut().prev;
+				if let Some(mut tail) = tail {
+					tail.as_mut().next = None;	
+				} else {
+					self.head = None;
+				}
+				self.tail = tail;
+				self.len -= 1;
+				return Some(old_tail);
+			}
+		}
+		None
+	}
+
+	pub fn print(&amp;self) {
+		let mut cur = self.head.as_ref();
+		unsafe {
+			while let Some(c) = cur {
+				let r = c.as_ref();
+				println!(&quot;{:?}&quot;, r.val);
+				cur = r.next.as_ref();
+			}
+		}
+	}
+}
+
+struct TwoQueue {
+	fifo: List&lt;(String, i32)&gt;,
+	fifo_limit: usize,
+	lru: List&lt;(String, i32)&gt;,
+	lru_limit: usize,
+}
+
+impl TwoQueue {
+	fn new(fifo_limit: usize, lru_limit: usize) -&gt; Self {
+		Self {
+			fifo: List::new(),
+			fifo_limit,
+			lru: List::new(),
+			lru_limit,
+		}
+	}
+	
+	fn get(&amp;mut self, key: &amp;str) -&gt; Option&lt;i32&gt; {
+		let r = self.find_in_lru(key);
+		if r.is_some() {
+			return r;
+		}
+		self.find_in_fifo(key)
+	}
+
+	fn find_in_fifo(&amp;mut self, key: &amp;str) -&gt; Option&lt;i32&gt; {
+		let mut cur = self.fifo.head;
+		while let Some(c0) = cur {
+			unsafe {
+				let c = &amp;mut *c0.as_ptr();			
+				if c.val.0 == key {
+					// 取下
+					if let Some(mut p) = c.prev {
+						p.as_mut().next = c.next;
+					} else {
+						self.fifo.head = c.next;
+					}
+					if let Some(mut n) = c.next {
+						n.as_mut().prev = c.prev;
+					} else {
+						self.fifo.tail = c.prev;
+					}
+					self.fifo.len -= 1;
+					// 移动到lru队列
+					self.lru.push_front_node(c0);
+					// 检查lru是否满
+					if self.lru.len &gt; self.lru_limit {
+						if let Some(node_from_lru) = self.lru.pop_back() {
+							self.fifo.push_front_node(node_from_lru);
+						}
+					}
+					// 返回
+					return Some(c.val.1);
+				}
+				cur = c.next;
+			}
+		}
+		None
+	}
+
+	fn find_in_lru(&amp;mut self, key: &amp;str) -&gt; Option&lt;i32&gt; {
+		let mut cur = self.lru.head;
+		while let Some(c0) = cur {
+			unsafe {
+				let c = &amp;mut *c0.as_ptr();
+				if c.val.0 == key {
+					// 取下
+					if let Some(mut p) = c.prev {
+						p.as_mut().next = c.next;
+					} else {
+						self.lru.head = c.next;
+					}
+					if let Some(mut n) = c.next {
+						n.as_mut().prev = c.prev;
+					} else {
+						self.lru.tail = c.prev;
+					}
+					// 移动至头节点
+					c.prev = None;
+					c.next = self.lru.head;
+					if let Some(mut h) = self.lru.head {
+						h.as_mut().prev = Some(c0);
+					} else {
+						self.lru.tail = Some(c0);
+					}
+					self.lru.head = Some(c0);
+					// 返回
+					return Some(c.val.1);
+				}
+				cur = c.next;
+			}
+		}
+		None
+	}
+
+	fn put(&amp;mut self, key: String, val: i32) {
+		self.fifo.push_front((key, val));
+		if self.fifo.len &gt; self.fifo_limit {
+			let _ = self.fifo.pop_back();
+		}
+	}
+}
+
+#[test]
+fn two_queue() {
+	let mut tq = TwoQueue::new(3, 3);
+	tq.put(&quot;a&quot;.into(), 1);
+	tq.put(&quot;b&quot;.into(), 2);
+	tq.put(&quot;c&quot;.into(), 3);
+	tq.put(&quot;d&quot;.into(), 4);
+	tq.get(&quot;b&quot;);
+	println!(&quot;fifo&quot;);
+	tq.fifo.print();
+	println!(&quot;lru&quot;);
+	tq.lru.print();
+}
+</code></pre>
+<p>- 完</p>]]></content>
+		</item>
+		
+		<item>
+			<title>Linux进程调度与定时器</title>
+			<link>/posts/sched-and-timer/</link>
+			<pubDate>Sun, 17 May 2020 20:14:50 +0800</pubDate>
+			
+			<guid>/posts/sched-and-timer/</guid>
+			<description>&lt;p&gt;由于Linux是属于抢占式(preemptoin)多任务(multitasking)分时操作系统，因此进程的调度同定时器必然存在联系，本篇日志是记录Linux进程调度与定时器的关系。&lt;/p&gt;
 &lt;blockquote&gt;
 &lt;p&gt;Linux与Microsoft Windows等操作系统不同，并没有单独的线程机制，一组线程仅仅是共享了虚拟内存地址空间、打开的文件等资源的进程。&lt;/p&gt;
 &lt;/blockquote&gt;</description>
-    </item>
-    
-    <item>
-      <title>DMA(直接内存访问)和零拷贝</title>
-      <link>/posts/dma/</link>
-      <pubDate>Sat, 16 May 2020 18:02:00 +0800</pubDate>
-      
-      <guid>/posts/dma/</guid>
-      <description>&lt;blockquote&gt;
+			<content type="html"><![CDATA[<p>由于Linux是属于抢占式(preemptoin)多任务(multitasking)分时操作系统，因此进程的调度同定时器必然存在联系，本篇日志是记录Linux进程调度与定时器的关系。</p>
+<blockquote>
+<p>Linux与Microsoft Windows等操作系统不同，并没有单独的线程机制，一组线程仅仅是共享了虚拟内存地址空间、打开的文件等资源的进程。</p>
+</blockquote>
+<h1 id="linux进程调度">Linux进程调度</h1>
+<p>操作系统的一个重要职责是将有限的资源通过特定的机制分配给多个用户使用，这里的资源包括CPU、内存、IO等，用户既可以指操作计算机的人，而人是给计算机下达任务的，因此更宽泛地指任务，也就是进程。</p>
+<p>由于实际场景中，进程的数量是大于CPU处理器数量，多任务就是指同时并发地让进程交替使用CPU资源，让进程产生自己独占CPU的错觉，虚拟内存也是同理。</p>
+<p>抢占(preemptoin)就是指不需要经过进程主动出让，内核调度器可以强制让进程让出CPU资源，然后去执行其他进程。</p>
+<blockquote>
+<p>与抢占式多任务相对应的，叫做协作式(cooperative)多任务，Go的goroutine便是一个应用范例。</p>
+</blockquote>
+<p>由于本篇日志的主题是进程调度与定时器的关系，所以抢占(preemptoin)便是这里的切入点。</p>
+<p>由于进程正在执行代码，内核如果要去执行抢占操作，比如执行 schedule()，那必然需要去执行内核代码，而这里触发执行内核代码的其中之一，便是定时器中断。</p>
+<p>不论是最早的Unix调度算法，2.5内核版本的O(1)调度算法，以及2.6之后出现的CFS完全公平调度算法，其中计算进程已经消耗的时间片(timeslice)都依赖于计算机的时间概念，而计算机的时间概念也是通过定时器实现的。</p>
+<h1 id="定时器">定时器</h1>
+<p>系统定时器是一种可编程硬件芯片，它能以固定的频率产生中断，这就是定时器中断。如果该中断信号没有被屏蔽，CPU便会去执行对应的中断处理程序，就可以去执行一些需要定时执行的代码，包括：</p>
+<ol>
+<li>更新系统运行的时间</li>
+<li>更新实际时间</li>
+<li>在SMP(对称多处理器)系统上，均衡各个处理器上的运行队列</li>
+<li>检查当前进程是否用尽了时间片，如果用尽了则重新调度</li>
+<li>运行已经超时的动态定时器</li>
+<li>更新资源消耗、处理器时间的统计信息</li>
+</ol>
+<p>系统在启动时，便会根据系统定时器的节拍率设置硬件。在x86体系结构中，系统定时器的默认节拍率是100HZ，也就是说每秒会触发100次定时器中断。该值可以自定义，越高产生中断的频率就越高，时钟中断的解析度也越高，像poll()和select()等系统调用的精度也越高，同理进程消耗的时间片计算和调度时机也更精确。</p>
+<p>但是高节拍率也会带来副作用，意味着执行定时器中断处理程序的次数更多，这不但减少了执行其他任务的时间，同时还会打乱处理器的高速缓存（高速缓存依赖于空间和时间局部性）和增加耗电。</p>]]></content>
+		</item>
+		
+		<item>
+			<title>DMA(直接内存访问)和零拷贝</title>
+			<link>/posts/dma/</link>
+			<pubDate>Sat, 16 May 2020 18:02:00 +0800</pubDate>
+			
+			<guid>/posts/dma/</guid>
+			<description>&lt;blockquote&gt;
 &lt;p&gt;许多设备都可以临时控制总线。这些设备可以执行涉及主内存和其他设备的数据传送。由于设备执行这些操作的过程中无需借助于 CPU，因此该类型的数据传送称为直接内存访问 (direct memory access, DMA)。&lt;sup id=&#34;fnref:1&#34;&gt;&lt;a href=&#34;#fn:1&#34; class=&#34;footnote-ref&#34; role=&#34;doc-noteref&#34;&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 &lt;/blockquote&gt;
 &lt;p&gt;大多数文件系统默认的IO操作都是缓存IO(Buffered I/O)，对于读(Read)操作，即IO设备先把数据发送到内核缓存区(Page Cache)，内核再将数据拷贝到应用程序地址空间的数据缓存区，而对于写(Write)操作，即反过来，从应用程序地址空间的数据缓存区拷贝到内核缓存区，内核再将数据发送到IO设备。&lt;/p&gt;</description>
-    </item>
-    
-  </channel>
+			<content type="html"><![CDATA[<blockquote>
+<p>许多设备都可以临时控制总线。这些设备可以执行涉及主内存和其他设备的数据传送。由于设备执行这些操作的过程中无需借助于 CPU，因此该类型的数据传送称为直接内存访问 (direct memory access, DMA)。<sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup></p>
+</blockquote>
+<p>大多数文件系统默认的IO操作都是缓存IO(Buffered I/O)，对于读(Read)操作，即IO设备先把数据发送到内核缓存区(Page Cache)，内核再将数据拷贝到应用程序地址空间的数据缓存区，而对于写(Write)操作，即反过来，从应用程序地址空间的数据缓存区拷贝到内核缓存区，内核再将数据发送到IO设备。</p>
+<p>缓存IO的优势：</p>
+<ol>
+<li>可以利用内核缓存，如果数据已经在页缓存内，则不需要再读取IO设备，直接返回页缓存中的数据</li>
+<li>对于写操作，应用程序只需要将数据拷贝到内核缓冲区即可返回，接下来应用程序缓冲区可以再次使用，而不需要等内核将数据写到IO设备(依赖于应用程序采用的写操作机制)。在一些场景下，比如应用程序每次只写1Byte，缓存IO可以将多次的写操作合并成一次IO写操作，有效地减少了IO操作次数，从而提供系统性能</li>
+</ol>
+<p>缓存IO的劣势：</p>
+<ol>
+<li>数据从IO设备到应用程序地址空间需要经过内核缓冲区的中转，也就是拷贝操作，这些拷贝操作会消耗CPU，增加了系统负载。在某些场景下，比如网络文件服务，数据到达应用程序缓冲区后，又会原样的再次拷贝到内核缓冲区以发送到IO设备，这里的中转次数又增加了一倍</li>
+<li>用于中转的缓冲区，不论是应用程序地址空间，还是内核空间，都会占用内存，加大了空间消耗</li>
+</ol>
+<h1 id="零拷贝">零拷贝</h1>
+<p>在一些场景下，我们需要减少数据拷贝的次数，以提高系统性能，零拷贝技术便是用来解决这个问题。在Linux操作系统中，有以下几种方式来实现零拷贝：</p>
+<h4 id="内存映射mmap">内存映射（mmap)</h4>
+<p>mmap机制是先将数据从IO设备读取到内核缓冲区，然后通过应用程序地址空间和内核共享该内核缓冲区，这样就不需要拷贝了。</p>
+<p>但是这里也会带来一次虚拟存储操作，而虚拟存储操作需要修改页表以及冲刷TLB(translate lookaside buffer，翻译后缓冲器)来维持存储的一致性，这里的开销也不小，但是如果传输的数据较大，那还是值得的。</p>
+<h4 id="sendfile">sendfile</h4>
+<p>mmap会有虚拟转储开销，同时如果是发送网络数据的话，还需要把数据从内核缓冲区发送到socket缓冲区，最后发送到协议引擎中去，这里还是会有拷贝操作(内核拷贝)。sendfile机制可以再进一步的减少拷贝次数，同时避免虚拟转储操作。</p>
+<p>sendfile利用DMA引擎将数据拷贝到内核缓冲区中，然后将带有文件位置和长度信息的缓冲区描述符添加到socket缓冲区中(这里不需要拷贝完整的数据)，DMA引擎将直接从内核缓冲区拷贝到协议引擎中去，这里避免了内核缓冲区到socket缓冲区的拷贝，同时没有映射内存。</p>
+<h1 id="dma直接内存访问">DMA（直接内存访问）</h1>
+<p>前面提到了零拷贝技术中应用了DMA，可以跳过应用程序地址空间的中转，但是如果应用需要读取或修改数据呢？这时DMA也可以跳过内核缓冲区，实现数据从IO设备到用户地址空间的直接数据交换。</p>
+<p>像数据库管理系统，希望自己管理页缓存，因为数据库知道自己存储的是什么数据，该如何换页等等。比如在提交事务时，需要redo log写入磁盘，才算事务提交完成，而buffer pool中的脏页并不需要立即写入磁盘，可以在换页时或者定时写入；在换页的时候，决定哪些页需要从buffer pool中换出，需要根据数据库自己的机制判断，依赖操作系统的换页机制将大大降低数据库系统的性能。</p>
+<p>当然并不是所有地址空间都支持DMA，受限与硬件，在Linux中，只有ZONE_DMA区的内存可支持DMA操作，详情可参考Linux内存管理。</p>
+<section class="footnotes" role="doc-endnotes">
+<hr>
+<ol>
+<li id="fn:1" role="doc-endnote">
+<p>第 9 章 直接内存访问 (Direct Memory Access, DMA) - <a href="https://docs.oracle.com/cd/E19253-01/819-7057/dma-29901/index.html">docs.oracle.com</a> <a href="#fnref:1" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+</ol>
+</section>]]></content>
+		</item>
+		
+	</channel>
 </rss>

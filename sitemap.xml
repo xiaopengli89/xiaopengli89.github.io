@@ -3,11 +3,6 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   
   <url>
-    <loc>/</loc>
-    <lastmod>2020-07-10T19:23:16+08:00</lastmod>
-  </url>
-  
-  <url>
     <loc>/tags/async/</loc>
     <lastmod>2020-07-10T19:23:16+08:00</lastmod>
   </url>
@@ -24,6 +19,11 @@
   
   <url>
     <loc>/tags/</loc>
+    <lastmod>2020-07-10T19:23:16+08:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>/</loc>
     <lastmod>2020-07-10T19:23:16+08:00</lastmod>
   </url>
   
@@ -210,10 +210,6 @@
   <url>
     <loc>/tags/zero-copy/</loc>
     <lastmod>2020-05-16T18:02:00+08:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>/categories/</loc>
   </url>
   
 </urlset>

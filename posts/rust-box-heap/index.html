@@ -1,126 +1,83 @@
 <!DOCTYPE html>
-<html lang="en"><head>
-    <meta charset="utf-8">
-    <meta name="theme-color" content="#000" />
-    <title>
-        
-            Rust动态内存分配 &middot;  Laika
-        
-    </title>
+<html lang="en-us">
 
-    
-	<link href="https://cdn.bootcdn.net/ajax/libs/pure/2.0.3/pure-min.css" rel="stylesheet" crossorigin="anonymous">
-    
-    
-	<link href="https://cdn.bootcdn.net/ajax/libs/pure/2.0.3/grids-responsive-min.css" rel="stylesheet">
-    
-    <link rel="stylesheet" href="/css/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Sans+Condensed:wght@300&family=Merriweather:ital,wght@0,300;0,700;1,300&display=swap" rel="stylesheet">
-    <link rel="icon" href="/img/favicon.ico" type="image/x-icon">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta http-equiv="X-UA-Compatible" content="ie=edge">
+	<meta name="theme-color" content="#494f5c">
+	<meta name="msapplication-TileColor" content="#494f5c">
+<meta itemprop="name" content="Rust动态内存分配">
+<meta itemprop="description" content="学习Rust的内存管理及实现一个简单的Box。">
+<meta itemprop="datePublished" content="2020-07-01T16:57:56&#43;08:00" />
+<meta itemprop="dateModified" content="2020-07-01T16:57:56&#43;08:00" />
+<meta itemprop="wordCount" content="1196">
 
-    <link rel="alternate" type="application/atom+xml" title="Atom Feed" href="/atom.xml" />
 
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="generator" content="">
-    
-    
-    <meta name="description" content="学习Rust的内存管理及实现一个简单的Box。">
-    
 
-    
-    <meta name="keywords" content="rust,heap,alloc,memory">
-    
-    <meta name="author" content="Xiaopeng Li"><link href="https://atelierbram.github.io/syntax-highlighting/archive/assets/css/prism/prism-base16-mocha.dark.css" rel="stylesheet" />
+<meta itemprop="keywords" content="rust,heap,alloc,memory," /><meta property="og:title" content="Rust动态内存分配" />
+<meta property="og:description" content="学习Rust的内存管理及实现一个简单的Box。" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="/posts/rust-box-heap/" />
+<meta property="article:published_time" content="2020-07-01T16:57:56+08:00" />
+<meta property="article:modified_time" content="2020-07-01T16:57:56+08:00" />
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="Rust动态内存分配"/>
+<meta name="twitter:description" content="学习Rust的内存管理及实现一个简单的Box。"/>
+
+	<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+	<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+	<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+	<link rel="manifest" href="/site.webmanifest">
+	<link rel="mask-icon" href="/safari-pinned-tab.svg" color="">
+	<link rel="shortcut icon" href="/favicon.ico">
+
+	<title>Rust动态内存分配</title>
+	<link rel="stylesheet" href="/css/style.min.eac77496566fd7d5768fd650ddb0b2b181ca6a2d7c5fdd6fe6b8ba4bf47e566f.css" integrity="sha256-6sd0llZv19V2j9ZQ3bCysYHKai18X91v5ri6S/R+Vm8=" crossorigin="anonymous">
+	
+	<link rel="stylesheet" href="https://atelierbram.github.io/syntax-highlighting/archive/assets/css/prism/prism-base16-railscasts.dark.css">
 </head>
-<body>
-        <div class="container"><div id="navbar" class="pure-menu pure-menu-open pure-menu-horizontal pure-menu-scrollable">
-    <a href="/" class="pure-menu-heading">
-        
-            Laika 
-         
-    </a>
-    <ul class="pure-menu-list">
-        <li class="pure-menu-item">
-            <a href="/posts" class="pure-menu-link">
-                <i class="fa fa-archive"></i>
-                Articles
-            </a>
-        </li>
-        <li class="pure-menu-item">
-            <a href="/tags" class="pure-menu-link">
-                <i class="fas fa-comments"></i>
-                Categories
-            </a>
-        </li>
-        <li class="pure-menu-item">
-            <a href="/about" class="pure-menu-link">
-                <i class="fas fa-smile"></i>
-                About
-            </a>
-        </li>
-    </ul>
-    <ul class="pure-menu-list pull-right">
-        
-        <li class="pure-menu-item">
-            <a href="https://github.com/xiaopengli89" title="Github" class="pure-menu-link">
-                <i class="fab fa-github"></i>
-                <span class="hide">Github</span>
-            </a>
-        </li>
-        
-        
-        
-        <li class="pure-menu-item">
-            <a href="https://www.linkedin.com/in/%E5%B0%8F%E9%B9%8F-%E6%9D%8E-078a86124/" title="Linked In" class="pure-menu-link">
-                <i class="fab fa-linkedin"></i>
-                <span class="hide">LinkedIn</span>
-            </a>
-        </li>
-        
-        
-        
-        <li class="pure-menu-item">
-            <a href="/posts/index.xml" title="Atom Feed" class="pure-menu-link">
-                <i class="fas fa-rss-square"></i>
-                <span class="hide">RSS Feed</span>
-            </a>
-        </li>
-    </ul>
-</div>
-<div class="pure-u-1">
-    <div class="pad">
-    </div>
-</div>
-<div class="pure-g">
+
+<body id="page">
+	
+	<header id="site-header" class="animated slideInUp">
+		<div class="hdr-wrapper section-inner">
+			<div class="hdr-left">
+				<div class="site-branding">
+					<a href="/">Torigoth</a>
+				</div>
+				<nav class="site-nav hide-in-mobile">
+					
+				<a href="/posts/">Posts</a>
+				<a href="/tags/">Tags</a>
+				<a href="/about/">About</a>
+
+				</nav>
+			</div>
+			<div class="hdr-right hdr-icons">
+				<span class="hdr-social hide-in-mobile"><a href="https://twitter.com/x__friday" target="_blank" rel="noopener me" title="Twitter"><svg xmlns="http://www.w3.org/2000/svg" class="feather" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z"></path></svg></a><a href="https://www.linkedin.com/in/%E5%B0%8F%E9%B9%8F-%E6%9D%8E-078a86124/" target="_blank" rel="noopener me" title="Linkedin"><svg xmlns="http://www.w3.org/2000/svg" class="feather" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path><rect x="2" y="9" width="4" height="12"></rect><circle cx="4" cy="4" r="2"></circle></svg></a><a href="https://github.com/xiaopengli89" target="_blank" rel="noopener me" title="Github"><svg xmlns="http://www.w3.org/2000/svg" class="feather" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg></a></span><button id="menu-btn" class="hdr-btn" title="Menu"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-menu"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg></button>
+			</div>
+		</div>
+	</header>
+	<div id="mobile-menu" class="animated fast">
+		<ul>
+			<li><a href="/posts/">Posts</a></li>
+			<li><a href="/tags/">Tags</a></li>
+			<li><a href="/about/">About</a></li>
+		</ul>
+	</div>
 
 
-<div id="content" class="pure-u-1 pure-u-md-3-4 pure-u-sm-1">
-    <div class="pad">
-<div class="date">
-    <time pubdate="2020-07-01">July 1, 2020</time>
-    <span class="author">by Xiaopeng Li</span>
-</div>
-
-<article>
-    <h1><a href="/posts/rust-box-heap/">Rust动态内存分配</a></h1>
-    <div class="tags">
-        
-        
-        <a href="/tags/rust" class="pure-button">rust</a>
-        
-        
-        <a href="/tags/heap" class="pure-button">heap</a>
-        
-        
-        <a href="/tags/alloc" class="pure-button">alloc</a>
-        
-        
-        <a href="/tags/memory" class="pure-button">memory</a>
-        
-    </div>
-    <p><a href="https://doc.rust-lang.org/std/boxed/index.html">Box</a> 是一个在Rust中经常被用到的智能指针，它的作用是实现堆内存分配，并且管理该块内存的生命周期。尤其在实现递归数据结构时，通过 <a href="https://doc.rust-lang.org/std/boxed/index.html">Box</a> 才能让一个类型大小不会无限膨胀。同时 <a href="https://doc.rust-lang.org/std/boxed/index.html">Box</a> 的内存布局同 <code>C</code> 二进制兼容，也就是说在使用 <code>FFI</code> 时，可以直接在参数或返回值中使用 <a href="https://doc.rust-lang.org/std/boxed/index.html">Box</a>。</p>
+	<main class="site-main section-inner animated fadeIn faster">
+		<article class="thin">
+			<header class="post-header">
+				<div class="post-meta"><span>Jul 1, 2020</span></div>
+				<h1>Rust动态内存分配</h1>
+			</header>
+			<div class="content">
+				<p><a href="https://doc.rust-lang.org/std/boxed/index.html">Box</a> 是一个在Rust中经常被用到的智能指针，它的作用是实现堆内存分配，并且管理该块内存的生命周期。尤其在实现递归数据结构时，通过 <a href="https://doc.rust-lang.org/std/boxed/index.html">Box</a> 才能让一个类型大小不会无限膨胀。同时 <a href="https://doc.rust-lang.org/std/boxed/index.html">Box</a> 的内存布局同 <code>C</code> 二进制兼容，也就是说在使用 <code>FFI</code> 时，可以直接在参数或返回值中使用 <a href="https://doc.rust-lang.org/std/boxed/index.html">Box</a>。</p>
 <p>这篇文章将介绍利用Rust的动态内存分配实现一个简单的自定义 <code>Box</code> 。</p>
-<h3 id="内存分配器">内存分配器</h3>
+<h3 id="内存分配器">内存分配器<a href="#内存分配器" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
 <p>对于每一个程序，标准库中都会带有一个全局的内存分配器，并且内存分配器需要实现 <code>GlobalAlloc</code> 这个 <code>trait</code> ，在使用 <code>alloc</code> 和 <code>dealloc</code> 时会使用该内存分配器动态分配和释放内存。默认情况下，这个内存分配器是 <code>std::alloc::System</code> ，由具体的操作系统提供，比如 <code>Unix</code> 平台的 <code>malloc</code>，<code>Windows</code> 平台的 <code>HeapAlloc</code> 。</p>
 <p>我们也可以利用 <code>#[global_allocator]</code> 这个 <code>attribute</code> 替换默认的内存分配器。</p>
 <pre><code class="language-rust">use std::alloc::{GlobalAlloc, System, Layout};
@@ -140,7 +97,7 @@ unsafe impl GlobalAlloc for MyAllocator {
 #[global_allocator]
 static GLOBAL: MyAllocator = MyAllocator;
 </code></pre>
-<h3 id="实现-mybox-智能指针">实现 <code>MyBox</code> 智能指针</h3>
+<h3 id="实现-mybox-智能指针">实现 <code>MyBox</code> 智能指针<a href="#实现-mybox-智能指针" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
 <p>由 <code>alloc</code> 分配好内存，会返回指向该块内存的指针，因此首先 <code>MyBox</code> 内需要持有一个裸指针，来代表对该块内存的所有权。</p>
 <pre><code class="language-rust">pub struct MyBox&lt;T&gt; {
     inner: *mut T,
@@ -150,7 +107,7 @@ static GLOBAL: MyAllocator = MyAllocator;
 <pre><code class="language-rust">impl&lt;T&gt; MyBox&lt;T&gt; {
     pub fn new(t: T) -&gt; Self {
         unsafe {
-            let layout = Layout::new::&lt;T&gt;();
+            let layout = Layout:🆕:&lt;T&gt;();
             let ptr = alloc(layout) as *mut T;
             ptr.write(t);
             Self { inner: ptr }
@@ -165,7 +122,7 @@ fn main() {
 <p>这种方法首先需要在栈上创建一个变量 <code>T</code> ，然后再拷贝到堆上。也可以实现类似 <code>Java</code> 风格的构造方法，但是在构造方法内，必须初始化所有字段的值，否则后面使用时会 <code>UB</code>，因此我们将这种构造方式标记为 <code>unsafe</code> ：</p>
 <pre><code class="language-rust">impl&lt;T&gt; MyBox&lt;T&gt; {
     pub unsafe fn init(f: impl FnOnce(&amp;mut T)) -&gt; Self {
-        let layout = Layout::new::&lt;T&gt;();
+        let layout = Layout:🆕:&lt;T&gt;();
         let ptr = alloc(layout) as *mut T;
         f(&amp;mut *ptr);
         Self { inner: ptr }
@@ -187,7 +144,7 @@ fn main() {
 <p>内存分配了就需要释放，我们可以在析构方法内完成内存的释放，实现 <code>Drop</code>：</p>
 <pre><code class="language-rust">impl&lt;T&gt; Drop for MyBox&lt;T&gt; {
     fn drop(&amp;mut self) {
-        let layout = Layout::new::&lt;T&gt;();
+        let layout = Layout:🆕:&lt;T&gt;();
         unsafe {
             dealloc(self.inner as *mut u8, layout);
         }
@@ -236,7 +193,7 @@ fn main() {
 	println!(&quot;{}&quot;, a);
 }
 </code></pre>
-<h3 id="验证内存的回收">验证内存的回收</h3>
+<h3 id="验证内存的回收">验证内存的回收<a href="#验证内存的回收" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
 <p>我们可以在自定义内存分配器时，通过记录已分配的内存大小来追踪内存的分配和回收情况：</p>
 <pre><code class="language-rust">use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 
@@ -278,7 +235,7 @@ static GLOBAL: MyAllocator = MyAllocator;
 <p>如果我们注释掉析构方法的内存释放操作：</p>
 <pre><code class="language-rust">impl&lt;T&gt; Drop for MyBox&lt;T&gt; {
     fn drop(&amp;mut self) {
-        //let layout = Layout::new::&lt;T&gt;();
+        //let layout = Layout:🆕:&lt;T&gt;();
         //unsafe {
         //    dealloc(self.inner as *mut u8, layout);
         //}
@@ -289,185 +246,46 @@ static GLOBAL: MyAllocator = MyAllocator;
 <pre><code class="language-none">allocated bytes: 4000285
 </code></pre>
 <p>说明我们的实现确实实现了内存的动态分配和回收。</p>
-</article>
-
-    </div>
+			</div>
+			<hr class="post-end">
+			<footer class="post-info">
+				<p><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-feather"><path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"></path><line x1="16" y1="8" x2="2" y2="22"></line><line x1="17.5" y1="15" x2="9" y2="15"></line></svg>Xiaopeng Li</p>
+				<p>
+					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-tag meta-icon"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7" y2="7"></line></svg><span class="tag"><a href="/tags/rust">rust</a></span><span class="tag"><a href="/tags/heap">heap</a></span><span class="tag"><a href="/tags/alloc">alloc</a></span><span class="tag"><a href="/tags/memory">memory</a></span>
+				</p>
+				<p><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-file-text"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>1196 Words</p>
+				<p><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-calendar"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>2020-07-01 16:57 &#43;0800</p>
+			</footer>
+		</article>
+		<div class="post-nav thin">
+			<a class="next-post" href="/posts/rust-hrtbs/">
+				<span class="post-nav-label"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-left"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>&nbsp;Newer</span><br><span>Rust高阶生命周期绑定</span>
+			</a>
+			<a class="prev-post" href="/posts/rust-no-std/">
+				<span class="post-nav-label">Older&nbsp;<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-right"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></span><br><span>不使用Rust标准库编写一个可运行的程序</span>
+			</a>
+		</div>
+		<div id="comments" class="thin">
 </div>
+	</main>
 
-
-                
-<div id="sidebar" class="pure-u-1 pure-u-md-1-4 pure-u-sm-1">
-    <div class="pad">
-        <a name="about"></a>
-        <h3>About Me</h3>
-        <div style="text-align: center;">
-            <img src="/img/DvZdstGUUAANxzC.jpg" alt="Xiaopeng Li" class="pure-img" />
-            <p><em>Sorcerer in C.E.</em></p>
-        </div>
-
-        <h3>Latest Articles</h3>
-        <div class="pure-menu pure-menu-open">
-            <ul class="pure-menu-list">
-                
-                <li class="pure-menu-item">
-                    <a href="/posts/plain-rt/" class="pure-menu-link">实现一个无依赖的Rust异步运行时<br>
-                        <small>一个基本的Rust异步运行时实现，不依赖第三方crate，单文件，非常直观地解释Rust异步的基本原理。</small>
-                    </a>
-                </li>
-                
-                <li class="pure-menu-item">
-                    <a href="/posts/rust-hrtbs/" class="pure-menu-link">Rust高阶生命周期绑定<br>
-                        <small>有时无法静态描述一个生命周期，Rust中提供了一种&#34;动态&#34;绑定生命周期的方式。</small>
-                    </a>
-                </li>
-                
-                <li class="pure-menu-item">
-                    <a href="/posts/rust-box-heap/" class="pure-menu-link">Rust动态内存分配<br>
-                        <small>学习Rust的内存管理及实现一个简单的Box。</small>
-                    </a>
-                </li>
-                
-                <li class="pure-menu-item">
-                    <a href="/posts/rust-no-std/" class="pure-menu-link">不使用Rust标准库编写一个可运行的程序<br>
-                        <small>Rust是一门真正的系统编程语言。</small>
-                    </a>
-                </li>
-                
-                <li class="pure-menu-item">
-                    <a href="/posts/rust-procedural-macro-1/" class="pure-menu-link">Rust过程宏（一）<br>
-                        <small>开始Rust元编程，利用Rust的derive派生宏，消除重复的样板代码。</small>
-                    </a>
-                </li>
-                
-                <li class="pure-menu-item">
-                    <a href="/posts/rust-closure/" class="pure-menu-link">Rust闭包<br>
-                        <small>Rust也可以函数式，像动态创建&#34;函数&#34;一样使用闭包。</small>
-                    </a>
-                </li>
-                
-                <li class="pure-menu-item">
-                    <a href="/posts/go-mysql-driver-race/" class="pure-menu-link">关于Go Mysql Driver引入QueryContext带来的数据竞争<br>
-                        <small>并发编程里的常见问题--数据竞争。</small>
-                    </a>
-                </li>
-                
-                <li class="pure-menu-item">
-                    <a href="/posts/go-mysql-driver-eof/" class="pure-menu-link">关于Go Mysql Driver的unexpected EOF错误<br>
-                        <small>应该是大多数Golang开发者日志里的东西了。</small>
-                    </a>
-                </li>
-                
-                <li class="pure-menu-item">
-                    <a href="/posts/socket-optimize/" class="pure-menu-link">关于Socket应用的性能优化<br>
-                        <small>一点网络优化的小技巧。</small>
-                    </a>
-                </li>
-                
-                <li class="pure-menu-item">
-                    <a href="/posts/two-queue/" class="pure-menu-link">2Q(双链)缓存淘汰策略<br>
-                        <small>经典LRU算法的实用变体。</small>
-                    </a>
-                </li>
-                
-            </ul>
-        </div>
-
-        <h3>Categories</h3>
-        <div style="text-align:center" class="tags">
-            
-            
-            <a href="/tags/rust" class="pure-button"> rust
-                <small>(8)</small></a>
-            
-            
-            
-            <a href="/tags/database" class="pure-button"> database
-                <small>(2)</small></a>
-            
-            
-            
-            <a href="/tags/golang" class="pure-button"> golang
-                <small>(2)</small></a>
-            
-            
-            
-            <a href="/tags/kernel" class="pure-button"> kernel
-                <small>(2)</small></a>
-            
-            
-            
-            <a href="/tags/linux" class="pure-button"> linux
-                <small>(2)</small></a>
-            
-            
-            
-            <a href="/tags/memory" class="pure-button"> memory
-                <small>(2)</small></a>
-            
-            
-            
-            <a href="/tags/mysql" class="pure-button"> mysql
-                <small>(2)</small></a>
-            
-            
-            
-            <a href="/tags/tcp" class="pure-button"> tcp
-                <small>(2)</small></a>
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-        </div>
-    </div> 
-</div> 
-
-                
-            </div><div class="pure-g">
-	<footer class="pure-u-1 pure-u-md-1 pure-u-sm-1">
-		<p>This page and its contents are copyright &copy; 2020,
-			<a href="">Xiaopeng Li</a>.</p>
-		<p><a href="https://github.com/pravin/hugo-theme-prav">Theme Prav</a> by <a href="https://cto.me.uk">Pravin
-				Paratey</a></p>
+	<footer id="site-footer" class="section-inner thin animated fadeIn faster">
+		<p>&copy; 2020 <a href="/">Xiaopeng Li</a> &#183; <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a></p>
+		<p>
+			Made with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> &#183; Theme <a href="https://github.com/Track3/hermit" target="_blank" rel="noopener">Hermit</a> &#183; <a href="/posts/index.xml" target="_blank" title="rss"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-rss"><path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle></svg></a>
+		</p>
 	</footer>
 
-	<script defer src="https://cdn.bootcdn.net/ajax/libs/font-awesome/5.13.1/js/all.min.js" crossorigin="anonymous"></script>
-</div>
-</div><script src="https://cdn.bootcdn.net/ajax/libs/prism/1.20.0/prism.min.js"></script>
+
+
+	<script src="/js/bundle.min.4a9a0ac3d2217822c7865b4161e6c2a71de1d70492264337755427898dd718f6.js" integrity="sha256-SpoKw9IheCLHhltBYebCpx3h1wSSJkM3dVQniY3XGPY=" crossorigin="anonymous"></script>
+	
+<script src="https://cdn.bootcdn.net/ajax/libs/prism/1.20.0/prism.min.js"></script>
 <script src="https://cdn.bootcdn.net/ajax/libs/prism/1.20.0/plugins/autoloader/prism-autoloader.min.js"></script>
 <script>Prism.plugins.autoloader.languages_path = 'https://cdn.bootcdn.net/ajax/libs/prism/1.20.0/components/'</script>
+
+
+
 </body>
+
 </html>

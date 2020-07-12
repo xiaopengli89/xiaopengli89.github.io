@@ -1,16 +1,173 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title> </title>
-        <link>/</link>
-        <language>en-us</language>
-        <author>Xiaopeng Li</author>
-        <rights>(c) 2020</rights>
-        <updated>2020-07-10 19:23:16 &#43;0800 CST</updated>
+  <channel>
+    <title>Torigoth</title>
+    <link>/</link>
+    <description>Recent content on Torigoth</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright>
+    <lastBuildDate>Fri, 10 Jul 2020 19:23:16 +0800</lastBuildDate>
+    
+	<atom:link href="/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>实现一个无依赖的Rust异步运行时</title>
+      <link>/posts/plain-rt/</link>
+      <pubDate>Fri, 10 Jul 2020 19:23:16 +0800</pubDate>
+      
+      <guid>/posts/plain-rt/</guid>
+      <description>&lt;p&gt;这篇文章将非常直观、易懂地解释Rust异步运行时的实现。代码不超过300行，只依赖标准库，支持 &lt;code&gt;spawn&lt;/code&gt; 多个 &lt;code&gt;Task&lt;/code&gt; 并发执行。&lt;/p&gt;
+&lt;p&gt;首先，Rust标准库对异步的抽象主要集中于几个类型，分别是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;Future&lt;/code&gt; - 对于一个异步操作的抽象，代表一个未来事件，如果事件未就绪，应暂停当前 &lt;code&gt;Task&lt;/code&gt;（可以去执行其他 &lt;code&gt;Task&lt;/code&gt;），事件就绪后，恢复执行&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;Waker&lt;/code&gt; - 唤醒器，当事件就绪后，通知运行时重新调度和这个 &lt;code&gt;Waker&lt;/code&gt; 绑定的 &lt;code&gt;Task&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;Pin&lt;/code&gt; - 固定对象，是为了解决生成器状态机的自引用问题&lt;/li&gt;
+&lt;/ul&gt;</description>
+    </item>
+    
+    <item>
+      <title>Rust高阶生命周期绑定</title>
+      <link>/posts/rust-hrtbs/</link>
+      <pubDate>Fri, 03 Jul 2020 23:40:45 +0800</pubDate>
+      
+      <guid>/posts/rust-hrtbs/</guid>
+      <description>&lt;p&gt;Rust中，&lt;code&gt;lifetime&lt;/code&gt; 其实也是一种类型参数，可以看成范型的一种特殊形式。编译时需要将所有类型（包括 &lt;code&gt;lifetime&lt;/code&gt; ）确定下来，比如：&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-rust&#34;&gt;fn foo&amp;lt;&#39;a&amp;gt;(x: &amp;amp;&#39;a i32) {
+	// ...
+}
 
-        
-        
-        
-        
-        
-    </channel>
+&#39;a: {
+	let x = 1;
+	foo::&amp;lt;&#39;a&amp;gt;(&amp;amp;x);
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;上面的 &lt;code&gt;&#39;a&lt;/code&gt; 生命周期其实就是变量 &lt;code&gt;x&lt;/code&gt; 所在的block。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Rust动态内存分配</title>
+      <link>/posts/rust-box-heap/</link>
+      <pubDate>Wed, 01 Jul 2020 16:57:56 +0800</pubDate>
+      
+      <guid>/posts/rust-box-heap/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://doc.rust-lang.org/std/boxed/index.html&#34;&gt;Box&lt;/a&gt; 是一个在Rust中经常被用到的智能指针，它的作用是实现堆内存分配，并且管理该块内存的生命周期。尤其在实现递归数据结构时，通过 &lt;a href=&#34;https://doc.rust-lang.org/std/boxed/index.html&#34;&gt;Box&lt;/a&gt; 才能让一个类型大小不会无限膨胀。同时 &lt;a href=&#34;https://doc.rust-lang.org/std/boxed/index.html&#34;&gt;Box&lt;/a&gt; 的内存布局同 &lt;code&gt;C&lt;/code&gt; 二进制兼容，也就是说在使用 &lt;code&gt;FFI&lt;/code&gt; 时，可以直接在参数或返回值中使用 &lt;a href=&#34;https://doc.rust-lang.org/std/boxed/index.html&#34;&gt;Box&lt;/a&gt;。&lt;/p&gt;
+&lt;p&gt;这篇文章将介绍利用Rust的动态内存分配实现一个简单的自定义 &lt;code&gt;Box&lt;/code&gt; 。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>不使用Rust标准库编写一个可运行的程序</title>
+      <link>/posts/rust-no-std/</link>
+      <pubDate>Wed, 01 Jul 2020 00:02:35 +0800</pubDate>
+      
+      <guid>/posts/rust-no-std/</guid>
+      <description>&lt;p&gt;Rust是一门系统编程语言，比如使得编写操作系统内核变得可能。而在编写内核时，是不能有任何和操作系统相关的依赖的，因为操作系统内核是运行于裸机之上的，这就像鸡和鸡蛋的关系。而标准库的实现是基于操作系统的，诸如线程、文件、网络等等。因此在编写内核代码时不能使用标准库。这篇文章将介绍如何不使用Rust标准库编写一个可运行的程序。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>Rust过程宏（一）</title>
+      <link>/posts/rust-procedural-macro-1/</link>
+      <pubDate>Sat, 27 Jun 2020 17:22:04 +0800</pubDate>
+      
+      <guid>/posts/rust-procedural-macro-1/</guid>
+      <description>&lt;h3 id=&#34;rust宏&#34;&gt;Rust宏&lt;/h3&gt;
+&lt;p&gt;宏属于元编程，用于生成代码，减少重复代码的编写，同时不同于运行时反射，宏会在编译时被展开，没有运行时开销。在Rust中，宏大体分为2类：声明宏和过程宏。&lt;/p&gt;
+&lt;p&gt;声明宏较为简单，类似模式匹配，利用递归和替换把重复的代码片段隐藏起来，典型的实现是标准库中 &lt;code&gt;vec!&lt;/code&gt;，&lt;code&gt;println!&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;过程宏则稍微复杂，但是功能强大的多，可以精确地控制语法树的生成。同时过程宏使用Rust代码编写，灵活性和表达能力丰富。过程宏经常被用于3种情景下：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;自动实现 &lt;code&gt;trait&lt;/code&gt;，使用 &lt;code&gt;derive&lt;/code&gt; 派生宏&lt;/li&gt;
+&lt;li&gt;装饰 &lt;code&gt;field&lt;/code&gt; 或 函数，使用 &lt;code&gt;attribute&lt;/code&gt; 属性宏&lt;/li&gt;
+&lt;li&gt;实现 &lt;code&gt;DSL&lt;/code&gt;，使用 &lt;code&gt;function&lt;/code&gt; 函数宏&lt;/li&gt;
+&lt;/ol&gt;</description>
+    </item>
+    
+    <item>
+      <title>Rust闭包</title>
+      <link>/posts/rust-closure/</link>
+      <pubDate>Tue, 23 Jun 2020 22:59:21 +0800</pubDate>
+      
+      <guid>/posts/rust-closure/</guid>
+      <description>&lt;h3 id=&#34;闭包closure的实现原理&#34;&gt;闭包(Closure)的实现原理&lt;/h3&gt;
+&lt;p&gt;闭包在调用形式上和函数非常相似：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;传递参数&lt;/li&gt;
+&lt;li&gt;执行一段代码&lt;/li&gt;
+&lt;li&gt;返回结果&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;但是闭包可以捕获当前上下文环境中的变量，而函数不可以（访问全局静态变量除外，但是这和闭包的实现完全不一样）。&lt;/p&gt;
+&lt;p&gt;闭包的创建和调用：&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-rust&#34;&gt;let env_var = 1;
+let fn1 = |x| x + env_var;
+
+let result1 = fn1(2);
+assert_eq!(result1, 3);
+
+let result2 = fn1(3);
+assert_eq!(result2, 4);
+&lt;/code&gt;&lt;/pre&gt;</description>
+    </item>
+    
+    <item>
+      <title>关于Go Mysql Driver引入QueryContext带来的数据竞争</title>
+      <link>/posts/go-mysql-driver-race/</link>
+      <pubDate>Sun, 24 May 2020 14:50:06 +0800</pubDate>
+      
+      <guid>/posts/go-mysql-driver-race/</guid>
+      <description>&lt;p&gt;在&lt;a href=&#34;/posts/go-mysql-driver-eof/&#34;&gt;关于Go Mysql Driver的unexpected EOF错误&lt;/a&gt;里提到了连接池，当连接&lt;strong&gt;使用完毕&lt;/strong&gt;后会放回连接池以便其他的操作可以复用这条连接。这里的&lt;strong&gt;使用完毕&lt;/strong&gt;有非常明确的定义：发送缓冲区中不再有未发送的指令，接收缓冲区不再有未接收的数据，下次能读取的数据必须是下一次发送的指令的响应。&lt;/p&gt;
+&lt;p&gt;通常情况下的SQL操作如下：&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-go&#34;&gt;rows, err := db.Query(&amp;quot;SELECT a, b FROM some_table&amp;quot;)
+if err != nil {
+    return err
+}
+defer rows.Close()
+
+for rows.Next() {
+    var a, b string
+    if err := rows.Scan(&amp;amp;a, &amp;amp;b); err != nil {
+        return err
+    }
+    // ...
+}
+&lt;/code&gt;&lt;/pre&gt;</description>
+    </item>
+    
+    <item>
+      <title>关于Go Mysql Driver的unexpected EOF错误</title>
+      <link>/posts/go-mysql-driver-eof/</link>
+      <pubDate>Sat, 23 May 2020 11:55:30 +0800</pubDate>
+      
+      <guid>/posts/go-mysql-driver-eof/</guid>
+      <description>&lt;p&gt;在使用 &lt;a href=&#34;https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc&#34;&gt;github.com/go-sql-driver/mysql&lt;/a&gt; 作为客户端连接Mysql时，日志中偶然会出现下面的错误：&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-none&#34;&gt;[mysql] 2019/08/26 16:07:00 packets.go:36: unexpected EOF
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;a href=&#34;https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc&#34;&gt;github.com/go-sql-driver/mysql&lt;/a&gt; 为了复用TCP连接以提高性能，内部实现了连接池。当需要一次SQL操作时，会先从连接池中拿出一条可用的空闲连接去执行操作。如果没有空闲的连接，或者连接已经失效，就打开一条新的TCP连接、SSL认证（如果使用SSL连接的话）、协议握手、认证等，完成初始化连接，再使用这条连接执行操作，使用完后再放回连接池。连接失效的标记可以在上一次使用连接后根据对应的错误来完成，或者本次操作指令发送失败也标记为连接失效，driver会重新执行上面的步骤来进行重试，应用层不会感知。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>关于Socket应用的性能优化</title>
+      <link>/posts/socket-optimize/</link>
+      <pubDate>Thu, 21 May 2020 21:58:01 +0800</pubDate>
+      
+      <guid>/posts/socket-optimize/</guid>
+      <description>&lt;p&gt;TCP/IP协议栈是计算机网络的基础通信架构，其中IP协议完成了跨链路的路由、寻址，TCP协议完成了面向连接的可靠字节流抽象，提供数据的分段、重传、重组，流量控制和拥塞控制，使得建立在TCP/IP协议之上的应用协议不用再关心各种硬件、网络环境，TCP/IP协议是今天的互联网的基石。&lt;/p&gt;</description>
+    </item>
+    
+    <item>
+      <title>2Q(双链)缓存淘汰策略</title>
+      <link>/posts/two-queue/</link>
+      <pubDate>Tue, 19 May 2020 00:00:00 +0000</pubDate>
+      
+      <guid>/posts/two-queue/</guid>
+      <description>&lt;p&gt;LRU(最近使用)算法经常用于缓存应用中，最简单的实现是通过一个链表实现：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;插入数据时向头节点插入&lt;/li&gt;
+&lt;li&gt;更新数据时，移动节点到头节点&lt;/li&gt;
+&lt;li&gt;淘汰数据时删除尾节点&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;但是这个简单的实现并不能很好地应付很多场景，缓存的理想情况是预测未来数据的使用情况，尽可能的从缓存中读取数据，减少实际IO操作。&lt;/p&gt;
+&lt;p&gt;今天的记录是关于1个LRU的变种算法：2Q(双链)，该算法在Linux页高速缓存回收中被应用。&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
 </rss>

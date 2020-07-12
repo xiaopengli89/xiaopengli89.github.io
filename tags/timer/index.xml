@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>timer on </title>
+    <title>timer on Torigoth</title>
     <link>/tags/timer/</link>
-    <description>Recent content in timer on </description>
+    <description>Recent content in timer on Torigoth</description>
     <generator>Hugo -- gohugo.io</generator>
-    <language>en-gb</language>
+    <language>en-us</language>
+    <copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright>
     <lastBuildDate>Sun, 17 May 2020 20:14:50 +0800</lastBuildDate>
     
 	<atom:link href="/tags/timer/index.xml" rel="self" type="application/rss+xml" />

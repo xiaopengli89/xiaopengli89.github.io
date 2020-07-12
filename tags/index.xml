@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>Tags on </title>
+    <title>Tags on Torigoth</title>
     <link>/tags/</link>
-    <description>Recent content in Tags on </description>
+    <description>Recent content in Tags on Torigoth</description>
     <generator>Hugo -- gohugo.io</generator>
-    <language>en-gb</language>
+    <language>en-us</language>
+    <copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright>
     <lastBuildDate>Fri, 10 Jul 2020 19:23:16 +0800</lastBuildDate>
     
 	<atom:link href="/tags/index.xml" rel="self" type="application/rss+xml" />
@@ -98,150 +99,6 @@
       <pubDate>Wed, 01 Jul 2020 00:02:35 +0800</pubDate>
       
       <guid>/tags/panic/</guid>
-      <description></description>
-    </item>
-    
-    <item>
-      <title>macro</title>
-      <link>/tags/macro/</link>
-      <pubDate>Sat, 27 Jun 2020 17:22:04 +0800</pubDate>
-      
-      <guid>/tags/macro/</guid>
-      <description></description>
-    </item>
-    
-    <item>
-      <title>mataprogramming</title>
-      <link>/tags/mataprogramming/</link>
-      <pubDate>Sat, 27 Jun 2020 17:22:04 +0800</pubDate>
-      
-      <guid>/tags/mataprogramming/</guid>
-      <description></description>
-    </item>
-    
-    <item>
-      <title>closure</title>
-      <link>/tags/closure/</link>
-      <pubDate>Tue, 23 Jun 2020 22:59:21 +0800</pubDate>
-      
-      <guid>/tags/closure/</guid>
-      <description></description>
-    </item>
-    
-    <item>
-      <title>database</title>
-      <link>/tags/database/</link>
-      <pubDate>Sun, 24 May 2020 14:50:06 +0800</pubDate>
-      
-      <guid>/tags/database/</guid>
-      <description></description>
-    </item>
-    
-    <item>
-      <title>golang</title>
-      <link>/tags/golang/</link>
-      <pubDate>Sun, 24 May 2020 14:50:06 +0800</pubDate>
-      
-      <guid>/tags/golang/</guid>
-      <description></description>
-    </item>
-    
-    <item>
-      <title>mysql</title>
-      <link>/tags/mysql/</link>
-      <pubDate>Sun, 24 May 2020 14:50:06 +0800</pubDate>
-      
-      <guid>/tags/mysql/</guid>
-      <description></description>
-    </item>
-    
-    <item>
-      <title>race</title>
-      <link>/tags/race/</link>
-      <pubDate>Sun, 24 May 2020 14:50:06 +0800</pubDate>
-      
-      <guid>/tags/race/</guid>
-      <description></description>
-    </item>
-    
-    <item>
-      <title>tcp</title>
-      <link>/tags/tcp/</link>
-      <pubDate>Sat, 23 May 2020 11:55:30 +0800</pubDate>
-      
-      <guid>/tags/tcp/</guid>
-      <description></description>
-    </item>
-    
-    <item>
-      <title>socket</title>
-      <link>/tags/socket/</link>
-      <pubDate>Thu, 21 May 2020 21:58:01 +0800</pubDate>
-      
-      <guid>/tags/socket/</guid>
-      <description></description>
-    </item>
-    
-    <item>
-      <title>cache</title>
-      <link>/tags/cache/</link>
-      <pubDate>Tue, 19 May 2020 00:00:00 +0000</pubDate>
-      
-      <guid>/tags/cache/</guid>
-      <description></description>
-    </item>
-    
-    <item>
-      <title>lru</title>
-      <link>/tags/lru/</link>
-      <pubDate>Tue, 19 May 2020 00:00:00 +0000</pubDate>
-      
-      <guid>/tags/lru/</guid>
-      <description></description>
-    </item>
-    
-    <item>
-      <title>kernel</title>
-      <link>/tags/kernel/</link>
-      <pubDate>Sun, 17 May 2020 20:14:50 +0800</pubDate>
-      
-      <guid>/tags/kernel/</guid>
-      <description></description>
-    </item>
-    
-    <item>
-      <title>linux</title>
-      <link>/tags/linux/</link>
-      <pubDate>Sun, 17 May 2020 20:14:50 +0800</pubDate>
-      
-      <guid>/tags/linux/</guid>
-      <description></description>
-    </item>
-    
-    <item>
-      <title>sched</title>
-      <link>/tags/sched/</link>
-      <pubDate>Sun, 17 May 2020 20:14:50 +0800</pubDate>
-      
-      <guid>/tags/sched/</guid>
-      <description></description>
-    </item>
-    
-    <item>
-      <title>timer</title>
-      <link>/tags/timer/</link>
-      <pubDate>Sun, 17 May 2020 20:14:50 +0800</pubDate>
-      
-      <guid>/tags/timer/</guid>
-      <description></description>
-    </item>
-    
-    <item>
-      <title>zero copy</title>
-      <link>/tags/zero-copy/</link>
-      <pubDate>Sat, 16 May 2020 18:02:00 +0800</pubDate>
-      
-      <guid>/tags/zero-copy/</guid>
       <description></description>
     </item>
     
