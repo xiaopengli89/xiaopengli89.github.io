@@ -7,10 +7,55 @@
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright>
-    <lastBuildDate>Fri, 10 Jul 2020 19:23:16 +0800</lastBuildDate>
+    <lastBuildDate>Sat, 18 Jul 2020 22:15:35 +0800</lastBuildDate>
     
 	<atom:link href="/tags/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>container</title>
+      <link>/tags/container/</link>
+      <pubDate>Sat, 18 Jul 2020 22:15:35 +0800</pubDate>
+      
+      <guid>/tags/container/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>namespace</title>
+      <link>/tags/namespace/</link>
+      <pubDate>Sat, 18 Jul 2020 22:15:35 +0800</pubDate>
+      
+      <guid>/tags/namespace/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>oci</title>
+      <link>/tags/oci/</link>
+      <pubDate>Sat, 18 Jul 2020 22:15:35 +0800</pubDate>
+      
+      <guid>/tags/oci/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>pivot_root</title>
+      <link>/tags/pivot_root/</link>
+      <pubDate>Sat, 18 Jul 2020 22:15:35 +0800</pubDate>
+      
+      <guid>/tags/pivot_root/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>rust</title>
+      <link>/tags/rust/</link>
+      <pubDate>Sat, 18 Jul 2020 22:15:35 +0800</pubDate>
+      
+      <guid>/tags/rust/</guid>
+      <description></description>
+    </item>
     
     <item>
       <title>async</title>
@@ -18,15 +63,6 @@
       <pubDate>Fri, 10 Jul 2020 19:23:16 +0800</pubDate>
       
       <guid>/tags/async/</guid>
-      <description></description>
-    </item>
-    
-    <item>
-      <title>rust</title>
-      <link>/tags/rust/</link>
-      <pubDate>Fri, 10 Jul 2020 19:23:16 +0800</pubDate>
-      
-      <guid>/tags/rust/</guid>
       <description></description>
     </item>
     
@@ -63,42 +99,6 @@
       <pubDate>Wed, 01 Jul 2020 16:57:56 +0800</pubDate>
       
       <guid>/tags/heap/</guid>
-      <description></description>
-    </item>
-    
-    <item>
-      <title>memory</title>
-      <link>/tags/memory/</link>
-      <pubDate>Wed, 01 Jul 2020 16:57:56 +0800</pubDate>
-      
-      <guid>/tags/memory/</guid>
-      <description></description>
-    </item>
-    
-    <item>
-      <title>libc</title>
-      <link>/tags/libc/</link>
-      <pubDate>Wed, 01 Jul 2020 00:02:35 +0800</pubDate>
-      
-      <guid>/tags/libc/</guid>
-      <description></description>
-    </item>
-    
-    <item>
-      <title>no_std</title>
-      <link>/tags/no_std/</link>
-      <pubDate>Wed, 01 Jul 2020 00:02:35 +0800</pubDate>
-      
-      <guid>/tags/no_std/</guid>
-      <description></description>
-    </item>
-    
-    <item>
-      <title>panic</title>
-      <link>/tags/panic/</link>
-      <pubDate>Wed, 01 Jul 2020 00:02:35 +0800</pubDate>
-      
-      <guid>/tags/panic/</guid>
       <description></description>
     </item>
     

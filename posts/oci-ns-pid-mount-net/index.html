@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en-us">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta http-equiv="X-UA-Compatible" content="ie=edge">
+	<meta name="theme-color" content="#494f5c">
+	<meta name="msapplication-TileColor" content="#494f5c">
+<meta itemprop="name" content="OCI容器运行时实现（一）">
+<meta itemprop="description" content="一个OCI容器运行时有3个组成部分：
+
+NAMESPACES - 实现资源的隔离
+CGROUPS - 实现资源的限制
+PIVOT_ROOT - 实现独立的根文件系统
+
+本文将实现一个简易的 进程、根文件系统、网络 隔离的容器运行时。">
+<meta itemprop="datePublished" content="2020-07-18T22:15:35&#43;08:00" />
+<meta itemprop="dateModified" content="2020-07-18T22:15:35&#43;08:00" />
+<meta itemprop="wordCount" content="1098">
+
+
+
+<meta itemprop="keywords" content="rust,oci,container,namespace,pivot_root," /><meta property="og:title" content="OCI容器运行时实现（一）" />
+<meta property="og:description" content="一个OCI容器运行时有3个组成部分：
+
+NAMESPACES - 实现资源的隔离
+CGROUPS - 实现资源的限制
+PIVOT_ROOT - 实现独立的根文件系统
+
+本文将实现一个简易的 进程、根文件系统、网络 隔离的容器运行时。" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="/posts/oci-ns-pid-mount-net/" />
+<meta property="article:published_time" content="2020-07-18T22:15:35+08:00" />
+<meta property="article:modified_time" content="2020-07-18T22:15:35+08:00" />
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="OCI容器运行时实现（一）"/>
+<meta name="twitter:description" content="一个OCI容器运行时有3个组成部分：
+
+NAMESPACES - 实现资源的隔离
+CGROUPS - 实现资源的限制
+PIVOT_ROOT - 实现独立的根文件系统
+
+本文将实现一个简易的 进程、根文件系统、网络 隔离的容器运行时。"/>
+
+<link rel="icon" type="image/png" href="/favicon.png">
+
+	<title>OCI容器运行时实现（一）</title>
+	<link rel="stylesheet" href="/css/style.min.eac77496566fd7d5768fd650ddb0b2b181ca6a2d7c5fdd6fe6b8ba4bf47e566f.css" integrity="sha256-6sd0llZv19V2j9ZQ3bCysYHKai18X91v5ri6S/R+Vm8=" crossorigin="anonymous">
+	
+	<link rel="stylesheet" href="https://atelierbram.github.io/syntax-highlighting/archive/assets/css/prism/prism-base16-railscasts.dark.css">
+	<link rel="stylesheet" href="/css/site.css">
+</head>
+
+<body id="page">
+	
+	<header id="site-header" class="animated slideInUp">
+		<div class="hdr-wrapper section-inner">
+			<div class="hdr-left">
+				<div class="site-branding">
+					<a href="/">Torigoth</a>
+				</div>
+				<nav class="site-nav hide-in-mobile">
+					
+				<a href="/posts/">Posts</a>
+				<a href="/tags/">Tags</a>
+				<a href="/about/">About</a>
+
+				</nav>
+			</div>
+			<div class="hdr-right hdr-icons">
+				<span class="hdr-social hide-in-mobile"><a href="https://twitter.com/x__friday" target="_blank" rel="noopener me" title="Twitter"><svg xmlns="http://www.w3.org/2000/svg" class="feather" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z"></path></svg></a><a href="https://www.linkedin.com/in/%E5%B0%8F%E9%B9%8F-%E6%9D%8E-078a86124/" target="_blank" rel="noopener me" title="Linkedin"><svg xmlns="http://www.w3.org/2000/svg" class="feather" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path><rect x="2" y="9" width="4" height="12"></rect><circle cx="4" cy="4" r="2"></circle></svg></a><a href="https://github.com/xiaopengli89" target="_blank" rel="noopener me" title="Github"><svg xmlns="http://www.w3.org/2000/svg" class="feather" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg></a></span><button id="menu-btn" class="hdr-btn" title="Menu"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-menu"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg></button>
+			</div>
+		</div>
+	</header>
+	<div id="mobile-menu" class="animated fast">
+		<ul>
+			<li><a href="/posts/">Posts</a></li>
+			<li><a href="/tags/">Tags</a></li>
+			<li><a href="/about/">About</a></li>
+		</ul>
+	</div>
+
+
+	<main class="site-main section-inner animated fadeIn faster">
+		<article class="thin">
+			<header class="post-header">
+				<div class="post-meta"><span>Jul 18, 2020</span></div>
+				<h1>OCI容器运行时实现（一）</h1>
+			</header>
+			<div class="content">
+				<p>一个OCI容器运行时有3个组成部分：</p>
+<ol>
+<li><a href="https://man7.org/linux/man-pages/man7/namespaces.7.html">NAMESPACES</a> - 实现资源的隔离</li>
+<li><a href="https://man7.org/linux/man-pages/man7/cgroups.7.html">CGROUPS</a> - 实现资源的限制</li>
+<li><a href="https://man7.org/linux/man-pages/man2/pivot_root.2.html">PIVOT_ROOT</a> - 实现独立的根文件系统</li>
+</ol>
+<p>本文将实现一个简易的 <code>进程</code>、<code>根文件系统</code>、<code>网络</code> 隔离的容器运行时。</p>
+<p>实现思路：</p>
+<ol>
+<li>利用 <code>fork</code> 系统调用创建子进程</li>
+<li>修改子进程的命名空间</li>
+<li>利用 <code>pivot_root</code> 系统调用替换子进程的文件系统</li>
+<li>在子进程命名空间挂载 <code>/proc</code> 、<code>/dev</code> 文件系统</li>
+<li>在子进程命名空间中卸载旧文件系统</li>
+<li>利用 <code>execve</code> 系统调用在子进程命名空间中执行对应程序</li>
+</ol>
+<h3 id="准备镜像文件系统">准备镜像文件系统<a href="#准备镜像文件系统" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
+<p>新建工作目录，需要注意的是，镜像文件系统的父目录挂载类型需要 <code>private</code>：</p>
+<pre><code class="language-bash">$ mkdir workspace
+$ mount --bind --make-private workspace workspace
+$ cd workspace
+$ mkdir alpine
+</code></pre>
+<p>测试使用 <a href="http://dl-cdn.alpinelinux.org/alpine/v3.12/releases/x86_64/alpine-minirootfs-3.12.0-x86_64.tar.gz">alpine-minirootfs-3.12.0-x86_64.tar.gz</a> 镜像，下载后解压：</p>
+<pre><code class="language-bash">$ tar -C alpine -xf alpine-minirootfs-3.12.0-x86_64.tar.gz
+</code></pre>
+<h3 id="依赖">依赖<a href="#依赖" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
+<p>添加 <a href="https://crates.io/crates/libc">libc</a> 依赖</p>
+<pre><code class="language-toml">[dependencies]
+libc = &quot;0.2.72&quot;
+</code></pre>
+<h3 id="参数解析">参数解析<a href="#参数解析" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
+<pre><code class="language-rust">use std::ffi::CString;
+use std::ptr;
+
+let mut args = std::env::args();
+
+let _ = args.next().unwrap();
+let image_fs = args.next().unwrap(); // 镜像文件系统，提前解压
+let command = args.next().unwrap(); // 要运行的容器命令
+
+// 运行容器命令的参数列表
+let mut command_args: Vec&lt;CString&gt; = args.map(|arg| CString::new(arg).unwrap()).collect();
+command_args.insert(0, CString::new(command.as_str()).unwrap());
+let mut command_args: Vec&lt;*const libc::c_char&gt; =
+	command_args.iter().map(|arg| arg.as_ptr()).collect();
+command_args.push(ptr::null());
+
+// 转换成绝对目录
+let image_fs = std::path::Path::new(&amp;image_fs).to_path_buf();
+let image_fs = if image_fs.is_relative() {
+	std::env::current_dir().unwrap().join(image_fs)
+} else {
+	image_fs
+};
+
+// 重要：image_fs的父目录挂载类型必须为private
+// 如果父目录不是挂载目录，执行sudo mount --bind --make-private $(parent) $(parent)
+
+let new_root = CString::new(image_fs.to_str().unwrap()).unwrap();
+let old_root = CString::new(image_fs.join(&quot;.old_root&quot;).to_str().unwrap()).unwrap();
+</code></pre>
+<h3 id="声明-pivot_root-系统调用">声明 <code>pivot_root</code> 系统调用<a href="#声明-pivot_root-系统调用" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
+<p>由于 <a href="https://crates.io/crates/libc">libc</a> 没有封装 <code>pivot_root</code> 系统调用，可以手动声明FFI：</p>
+<pre><code class="language-rust">mod ffi {
+    extern &quot;C&quot; {
+        pub fn pivot_root(
+            new_root: *const libc::c_char,
+            put_old: *const libc::c_char,
+        ) -&gt; libc::c_int;
+    }
+}
+</code></pre>
+<h3 id="创建子进程">创建子进程<a href="#创建子进程" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
+<pre><code class="language-rust">unsafe {
+	let r = libc::unshare(libc::CLONE_NEWPID);
+	assert_eq!(r, 0);
+
+	let pid = libc::fork();
+	assert!(pid &gt;= 0);
+
+	if pid == 0 {
+		// child process
+		let r = libc::mount(
+			new_root.as_ptr(),
+			new_root.as_ptr(),
+			CString::new(&quot;&quot;).unwrap().as_ptr(),
+			libc::MS_BIND | libc::MS_REC | libc::MS_PRIVATE,
+			CString::new(&quot;&quot;).unwrap().as_ptr() as *const _,
+		);
+		assert_eq!(r, 0);
+
+		let r = libc::mkdir(old_root.as_ptr(), 0755);
+		assert_eq!(r, 0);
+
+		// ...
+
+	} else {
+		// parent process
+		let _ = libc::wait4(
+			pid,
+			ptr::null::&lt;i32&gt;() as *mut _,
+			0,
+			ptr::null::&lt;i32&gt;() as *mut _,
+		);
+
+		libc::rmdir(old_root.as_ptr());
+		libc::umount(new_root.as_ptr());
+	}
+}
+
+</code></pre>
+<p><code>new_root</code> 目录同样需要挂载成 <code>private</code>，以及在 <code>new_root</code> 目录下创建 <code>.old_root</code> 目录用于放旧的文件系统。</p>
+<h3 id="切换命名空间">切换命名空间<a href="#切换命名空间" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
+<pre><code class="language-rust">// unshare新命名空间
+let r = libc::unshare(libc::CLONE_NEWNS | libc::CLONE_NEWNET);
+assert_eq!(r, 0);
+</code></pre>
+<h3 id="切换文件系统">切换文件系统<a href="#切换文件系统" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
+<pre><code class="language-rust">// 切换根文件系统
+let r = ffi::pivot_root(new_root.as_ptr(), old_root.as_ptr());
+assert_eq!(r, 0);
+
+let root_dir = CString::new(&quot;/&quot;).unwrap();
+libc::chdir(root_dir.as_ptr());
+
+// 挂载/proc
+let r = libc::mount(
+	CString::new(&quot;&quot;).unwrap().as_ptr(),
+	CString::new(&quot;/proc&quot;).unwrap().as_ptr(),
+	CString::new(&quot;proc&quot;).unwrap().as_ptr(),
+	libc::MS_NOEXEC | libc::MS_NOSUID | libc::MS_NODEV,
+	CString::new(&quot;&quot;).unwrap().as_ptr() as *const _,
+);
+assert_eq!(r, 0);
+
+// 挂载/dev
+let r = libc::mount(
+	CString::new(&quot;&quot;).unwrap().as_ptr(),
+	CString::new(&quot;/dev&quot;).unwrap().as_ptr(),
+	CString::new(&quot;devtmpfs&quot;).unwrap().as_ptr(),
+	libc::MS_STRICTATIME | libc::MS_NOSUID,
+	CString::new(&quot;mode=755&quot;).unwrap().as_ptr() as *const _,
+);
+assert_eq!(r, 0);
+</code></pre>
+<h3 id="卸载旧文件系统">卸载旧文件系统<a href="#卸载旧文件系统" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
+<pre><code class="language-rust">// 防止umount事件扩散到宿主环境
+let old_root_2 = CString::new(&quot;/.old_root&quot;).unwrap();
+let r = libc::mount(
+	CString::new(&quot;&quot;).unwrap().as_ptr(),
+	old_root_2.as_ptr(),
+	CString::new(&quot;&quot;).unwrap().as_ptr(),
+	libc::MS_SLAVE | libc::MS_REC,
+	CString::new(&quot;&quot;).unwrap().as_ptr() as *const _,
+);
+assert_eq!(r, 0);
+
+// umount /.old_root
+let r = libc::umount2(old_root_2.as_ptr(), libc::MNT_DETACH);
+assert_eq!(r, 0);
+
+libc::rmdir(old_root_2.as_ptr());
+</code></pre>
+<h3 id="执行容器内程序">执行容器内程序<a href="#执行容器内程序" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
+<pre><code class="language-rust">let prog = CString::new(command).unwrap();
+let _ = libc::execve(
+	prog.as_ptr(),
+	command_args.as_ptr(),
+	ptr::null::&lt;libc::c_char&gt;() as *const _,
+);
+unreachable!();
+</code></pre>
+<h3 id="编译运行">编译运行<a href="#编译运行" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
+<pre><code class="language-bash">$ cargo build
+$ ./target/debug/$(program) $(workspace)/alpine /bin/sh
+</code></pre>
+<p>查看根文件系统：</p>
+<pre><code class="language-none">/ # ls -la
+total 68
+drwxr-xr-x   19 root     root          4096 Jul 18 15:48 .
+drwxr-xr-x   19 root     root          4096 Jul 18 15:48 ..
+drwxr-xr-x    2 root     root          4096 May 29 14:20 bin
+drwxr-xr-x   20 root     root          3160 Jul 18 13:10 dev
+drwxr-xr-x   15 root     root          4096 May 29 14:20 etc
+drwxr-xr-x    2 root     root          4096 May 29 14:20 home
+drwxr-xr-x    7 root     root          4096 May 29 14:20 lib
+drwxr-xr-x    5 root     root          4096 May 29 14:20 media
+drwxr-xr-x    2 root     root          4096 May 29 14:20 mnt
+drwxr-xr-x    2 root     root          4096 May 29 14:20 opt
+dr-xr-xr-x  165 root     root             0 Jul 18 15:48 proc
+drwx------    2 root     root          4096 May 29 14:20 root
+drwxr-xr-x    2 root     root          4096 May 29 14:20 run
+drwxr-xr-x    2 root     root          4096 May 29 14:20 sbin
+drwxr-xr-x    2 root     root          4096 May 29 14:20 srv
+drwxr-xr-x    2 root     root          4096 May 29 14:20 sys
+drwxrwxrwt    2 root     root          4096 May 29 14:20 tmp
+drwxr-xr-x    7 root     root          4096 May 29 14:20 usr
+drwxr-xr-x   12 root     root          4096 May 29 14:20 var
+/ #
+</code></pre>
+<p>查看进程：</p>
+<pre><code class="language-none">/ # ps aux
+PID   USER     TIME  COMMAND
+    1 root      0:00 /bin/sh
+    8 root      0:00 ps aux
+/ #
+</code></pre>
+<p>查看网络接口：</p>
+<pre><code class="language-none">/ # ip link
+1: lo: &lt;LOOPBACK&gt; mtu 65536 qdisc noop state DOWN qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+/ #
+</code></pre>
+<p>容易忽视的要点是镜像文件系统目录及其父目录的挂载属性必须为 <code>private</code>，尤其是在 <code>systemd</code> 环境下！</p>
+<p>完整代码见：<a href="https://github.com/xiaopengli89/runc-rs">runc-rs</a></p>
+			</div>
+			<hr class="post-end">
+			<footer class="post-info">
+				<p>
+					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-tag meta-icon"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7" y2="7"></line></svg><span class="tag"><a href="/tags/rust">rust</a></span><span class="tag"><a href="/tags/oci">oci</a></span><span class="tag"><a href="/tags/container">container</a></span><span class="tag"><a href="/tags/namespace">namespace</a></span><span class="tag"><a href="/tags/pivot_root">pivot_root</a></span>
+				</p>
+				<p><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-file-text"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>1098 Words</p>
+				<p><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-calendar"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>2020-07-18 22:15 &#43;0800</p>
+			</footer>
+		</article>
+		<div class="post-nav thin">
+			<a class="prev-post" href="/posts/plain-rt/">
+				<span class="post-nav-label">Older&nbsp;<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-right"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></span><br><span>实现一个无依赖的Rust异步运行时</span>
+			</a>
+		</div>
+		<div id="comments" class="thin">
+</div>
+	</main>
+
+	<footer id="site-footer" class="section-inner thin animated fadeIn faster">
+		<p>&copy; 2020 <a href="/">Xiaopeng Li</a> &#183; <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a></p>
+		<p>
+			Made with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> &#183; Theme <a href="https://github.com/Track3/hermit" target="_blank" rel="noopener">Hermit</a> &#183; <a href="/posts/index.xml" target="_blank" title="rss"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-rss"><path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle></svg></a>
+		</p>
+	</footer>
+
+
+
+	<script src="/js/bundle.min.4a9a0ac3d2217822c7865b4161e6c2a71de1d70492264337755427898dd718f6.js" integrity="sha256-SpoKw9IheCLHhltBYebCpx3h1wSSJkM3dVQniY3XGPY=" crossorigin="anonymous"></script>
+	
+<script src="https://cdn.bootcdn.net/ajax/libs/prism/1.20.0/prism.min.js"></script>
+<script src="https://cdn.bootcdn.net/ajax/libs/prism/1.20.0/plugins/autoloader/prism-autoloader.min.js"></script>
+<script>Prism.plugins.autoloader.languages_path = 'https://cdn.bootcdn.net/ajax/libs/prism/1.20.0/components/'</script>
+
+
+
+</body>
+
+</html>

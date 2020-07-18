@@ -6,8 +6,239 @@
 		<generator>Hugo -- gohugo.io</generator>
 		<language>en-us</language>
 		<copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright>
-		<lastBuildDate>Fri, 10 Jul 2020 19:23:16 +0800</lastBuildDate>
+		<lastBuildDate>Sat, 18 Jul 2020 22:15:35 +0800</lastBuildDate>
 		<atom:link href="/posts/index.xml" rel="self" type="application/rss+xml" />
+		
+		<item>
+			<title>OCI容器运行时实现（一）</title>
+			<link>/posts/oci-ns-pid-mount-net/</link>
+			<pubDate>Sat, 18 Jul 2020 22:15:35 +0800</pubDate>
+			
+			<guid>/posts/oci-ns-pid-mount-net/</guid>
+			<description>&lt;p&gt;一个OCI容器运行时有3个组成部分：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;a href=&#34;https://man7.org/linux/man-pages/man7/namespaces.7.html&#34;&gt;NAMESPACES&lt;/a&gt; - 实现资源的隔离&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://man7.org/linux/man-pages/man7/cgroups.7.html&#34;&gt;CGROUPS&lt;/a&gt; - 实现资源的限制&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://man7.org/linux/man-pages/man2/pivot_root.2.html&#34;&gt;PIVOT_ROOT&lt;/a&gt; - 实现独立的根文件系统&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;本文将实现一个简易的 &lt;code&gt;进程&lt;/code&gt;、&lt;code&gt;根文件系统&lt;/code&gt;、&lt;code&gt;网络&lt;/code&gt; 隔离的容器运行时。&lt;/p&gt;</description>
+			<content type="html"><![CDATA[<p>一个OCI容器运行时有3个组成部分：</p>
+<ol>
+<li><a href="https://man7.org/linux/man-pages/man7/namespaces.7.html">NAMESPACES</a> - 实现资源的隔离</li>
+<li><a href="https://man7.org/linux/man-pages/man7/cgroups.7.html">CGROUPS</a> - 实现资源的限制</li>
+<li><a href="https://man7.org/linux/man-pages/man2/pivot_root.2.html">PIVOT_ROOT</a> - 实现独立的根文件系统</li>
+</ol>
+<p>本文将实现一个简易的 <code>进程</code>、<code>根文件系统</code>、<code>网络</code> 隔离的容器运行时。</p>
+<p>实现思路：</p>
+<ol>
+<li>利用 <code>fork</code> 系统调用创建子进程</li>
+<li>修改子进程的命名空间</li>
+<li>利用 <code>pivot_root</code> 系统调用替换子进程的文件系统</li>
+<li>在子进程命名空间挂载 <code>/proc</code> 、<code>/dev</code> 文件系统</li>
+<li>在子进程命名空间中卸载旧文件系统</li>
+<li>利用 <code>execve</code> 系统调用在子进程命名空间中执行对应程序</li>
+</ol>
+<h3 id="准备镜像文件系统">准备镜像文件系统</h3>
+<p>新建工作目录，需要注意的是，镜像文件系统的父目录挂载类型需要 <code>private</code>：</p>
+<pre><code class="language-bash">$ mkdir workspace
+$ mount --bind --make-private workspace workspace
+$ cd workspace
+$ mkdir alpine
+</code></pre>
+<p>测试使用 <a href="http://dl-cdn.alpinelinux.org/alpine/v3.12/releases/x86_64/alpine-minirootfs-3.12.0-x86_64.tar.gz">alpine-minirootfs-3.12.0-x86_64.tar.gz</a> 镜像，下载后解压：</p>
+<pre><code class="language-bash">$ tar -C alpine -xf alpine-minirootfs-3.12.0-x86_64.tar.gz
+</code></pre>
+<h3 id="依赖">依赖</h3>
+<p>添加 <a href="https://crates.io/crates/libc">libc</a> 依赖</p>
+<pre><code class="language-toml">[dependencies]
+libc = &quot;0.2.72&quot;
+</code></pre>
+<h3 id="参数解析">参数解析</h3>
+<pre><code class="language-rust">use std::ffi::CString;
+use std::ptr;
+
+let mut args = std::env::args();
+
+let _ = args.next().unwrap();
+let image_fs = args.next().unwrap(); // 镜像文件系统，提前解压
+let command = args.next().unwrap(); // 要运行的容器命令
+
+// 运行容器命令的参数列表
+let mut command_args: Vec&lt;CString&gt; = args.map(|arg| CString::new(arg).unwrap()).collect();
+command_args.insert(0, CString::new(command.as_str()).unwrap());
+let mut command_args: Vec&lt;*const libc::c_char&gt; =
+	command_args.iter().map(|arg| arg.as_ptr()).collect();
+command_args.push(ptr::null());
+
+// 转换成绝对目录
+let image_fs = std::path::Path::new(&amp;image_fs).to_path_buf();
+let image_fs = if image_fs.is_relative() {
+	std::env::current_dir().unwrap().join(image_fs)
+} else {
+	image_fs
+};
+
+// 重要：image_fs的父目录挂载类型必须为private
+// 如果父目录不是挂载目录，执行sudo mount --bind --make-private $(parent) $(parent)
+
+let new_root = CString::new(image_fs.to_str().unwrap()).unwrap();
+let old_root = CString::new(image_fs.join(&quot;.old_root&quot;).to_str().unwrap()).unwrap();
+</code></pre>
+<h3 id="声明-pivot_root-系统调用">声明 <code>pivot_root</code> 系统调用</h3>
+<p>由于 <a href="https://crates.io/crates/libc">libc</a> 没有封装 <code>pivot_root</code> 系统调用，可以手动声明FFI：</p>
+<pre><code class="language-rust">mod ffi {
+    extern &quot;C&quot; {
+        pub fn pivot_root(
+            new_root: *const libc::c_char,
+            put_old: *const libc::c_char,
+        ) -&gt; libc::c_int;
+    }
+}
+</code></pre>
+<h3 id="创建子进程">创建子进程</h3>
+<pre><code class="language-rust">unsafe {
+	let r = libc::unshare(libc::CLONE_NEWPID);
+	assert_eq!(r, 0);
+
+	let pid = libc::fork();
+	assert!(pid &gt;= 0);
+
+	if pid == 0 {
+		// child process
+		let r = libc::mount(
+			new_root.as_ptr(),
+			new_root.as_ptr(),
+			CString::new(&quot;&quot;).unwrap().as_ptr(),
+			libc::MS_BIND | libc::MS_REC | libc::MS_PRIVATE,
+			CString::new(&quot;&quot;).unwrap().as_ptr() as *const _,
+		);
+		assert_eq!(r, 0);
+
+		let r = libc::mkdir(old_root.as_ptr(), 0755);
+		assert_eq!(r, 0);
+
+		// ...
+
+	} else {
+		// parent process
+		let _ = libc::wait4(
+			pid,
+			ptr::null::&lt;i32&gt;() as *mut _,
+			0,
+			ptr::null::&lt;i32&gt;() as *mut _,
+		);
+
+		libc::rmdir(old_root.as_ptr());
+		libc::umount(new_root.as_ptr());
+	}
+}
+
+</code></pre>
+<p><code>new_root</code> 目录同样需要挂载成 <code>private</code>，以及在 <code>new_root</code> 目录下创建 <code>.old_root</code> 目录用于放旧的文件系统。</p>
+<h3 id="切换命名空间">切换命名空间</h3>
+<pre><code class="language-rust">// unshare新命名空间
+let r = libc::unshare(libc::CLONE_NEWNS | libc::CLONE_NEWNET);
+assert_eq!(r, 0);
+</code></pre>
+<h3 id="切换文件系统">切换文件系统</h3>
+<pre><code class="language-rust">// 切换根文件系统
+let r = ffi::pivot_root(new_root.as_ptr(), old_root.as_ptr());
+assert_eq!(r, 0);
+
+let root_dir = CString::new(&quot;/&quot;).unwrap();
+libc::chdir(root_dir.as_ptr());
+
+// 挂载/proc
+let r = libc::mount(
+	CString::new(&quot;&quot;).unwrap().as_ptr(),
+	CString::new(&quot;/proc&quot;).unwrap().as_ptr(),
+	CString::new(&quot;proc&quot;).unwrap().as_ptr(),
+	libc::MS_NOEXEC | libc::MS_NOSUID | libc::MS_NODEV,
+	CString::new(&quot;&quot;).unwrap().as_ptr() as *const _,
+);
+assert_eq!(r, 0);
+
+// 挂载/dev
+let r = libc::mount(
+	CString::new(&quot;&quot;).unwrap().as_ptr(),
+	CString::new(&quot;/dev&quot;).unwrap().as_ptr(),
+	CString::new(&quot;devtmpfs&quot;).unwrap().as_ptr(),
+	libc::MS_STRICTATIME | libc::MS_NOSUID,
+	CString::new(&quot;mode=755&quot;).unwrap().as_ptr() as *const _,
+);
+assert_eq!(r, 0);
+</code></pre>
+<h3 id="卸载旧文件系统">卸载旧文件系统</h3>
+<pre><code class="language-rust">// 防止umount事件扩散到宿主环境
+let old_root_2 = CString::new(&quot;/.old_root&quot;).unwrap();
+let r = libc::mount(
+	CString::new(&quot;&quot;).unwrap().as_ptr(),
+	old_root_2.as_ptr(),
+	CString::new(&quot;&quot;).unwrap().as_ptr(),
+	libc::MS_SLAVE | libc::MS_REC,
+	CString::new(&quot;&quot;).unwrap().as_ptr() as *const _,
+);
+assert_eq!(r, 0);
+
+// umount /.old_root
+let r = libc::umount2(old_root_2.as_ptr(), libc::MNT_DETACH);
+assert_eq!(r, 0);
+
+libc::rmdir(old_root_2.as_ptr());
+</code></pre>
+<h3 id="执行容器内程序">执行容器内程序</h3>
+<pre><code class="language-rust">let prog = CString::new(command).unwrap();
+let _ = libc::execve(
+	prog.as_ptr(),
+	command_args.as_ptr(),
+	ptr::null::&lt;libc::c_char&gt;() as *const _,
+);
+unreachable!();
+</code></pre>
+<h3 id="编译运行">编译运行</h3>
+<pre><code class="language-bash">$ cargo build
+$ ./target/debug/$(program) $(workspace)/alpine /bin/sh
+</code></pre>
+<p>查看根文件系统：</p>
+<pre><code class="language-none">/ # ls -la
+total 68
+drwxr-xr-x   19 root     root          4096 Jul 18 15:48 .
+drwxr-xr-x   19 root     root          4096 Jul 18 15:48 ..
+drwxr-xr-x    2 root     root          4096 May 29 14:20 bin
+drwxr-xr-x   20 root     root          3160 Jul 18 13:10 dev
+drwxr-xr-x   15 root     root          4096 May 29 14:20 etc
+drwxr-xr-x    2 root     root          4096 May 29 14:20 home
+drwxr-xr-x    7 root     root          4096 May 29 14:20 lib
+drwxr-xr-x    5 root     root          4096 May 29 14:20 media
+drwxr-xr-x    2 root     root          4096 May 29 14:20 mnt
+drwxr-xr-x    2 root     root          4096 May 29 14:20 opt
+dr-xr-xr-x  165 root     root             0 Jul 18 15:48 proc
+drwx------    2 root     root          4096 May 29 14:20 root
+drwxr-xr-x    2 root     root          4096 May 29 14:20 run
+drwxr-xr-x    2 root     root          4096 May 29 14:20 sbin
+drwxr-xr-x    2 root     root          4096 May 29 14:20 srv
+drwxr-xr-x    2 root     root          4096 May 29 14:20 sys
+drwxrwxrwt    2 root     root          4096 May 29 14:20 tmp
+drwxr-xr-x    7 root     root          4096 May 29 14:20 usr
+drwxr-xr-x   12 root     root          4096 May 29 14:20 var
+/ #
+</code></pre>
+<p>查看进程：</p>
+<pre><code class="language-none">/ # ps aux
+PID   USER     TIME  COMMAND
+    1 root      0:00 /bin/sh
+    8 root      0:00 ps aux
+/ #
+</code></pre>
+<p>查看网络接口：</p>
+<pre><code class="language-none">/ # ip link
+1: lo: &lt;LOOPBACK&gt; mtu 65536 qdisc noop state DOWN qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+/ #
+</code></pre>
+<p>容易忽视的要点是镜像文件系统目录及其父目录的挂载属性必须为 <code>private</code>，尤其是在 <code>systemd</code> 环境下！</p>
+<p>完整代码见：<a href="https://github.com/xiaopengli89/runc-rs">runc-rs</a></p>]]></content>
+		</item>
 		
 		<item>
 			<title>实现一个无依赖的Rust异步运行时</title>
