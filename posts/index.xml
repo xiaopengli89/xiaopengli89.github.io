@@ -34,7 +34,7 @@
 <li>利用 <code>fork</code> 系统调用创建子进程</li>
 <li>修改子进程的命名空间</li>
 <li>利用 <code>pivot_root</code> 系统调用替换子进程的文件系统</li>
-<li>在子进程命名空间挂载 <code>/proc</code> 、<code>/dev</code> 文件系统</li>
+<li>在子进程命名空间挂载 <code>/proc</code> 、<code>/sys</code> 、<code>/dev</code> 文件系统</li>
 <li>在子进程命名空间中卸载旧文件系统</li>
 <li>利用 <code>execve</code> 系统调用在子进程命名空间中执行对应程序</li>
 </ol>
@@ -153,6 +153,16 @@ let r = libc::mount(
 	CString::new(&quot;&quot;).unwrap().as_ptr(),
 	CString::new(&quot;/proc&quot;).unwrap().as_ptr(),
 	CString::new(&quot;proc&quot;).unwrap().as_ptr(),
+	libc::MS_NOEXEC | libc::MS_NOSUID | libc::MS_NODEV,
+	CString::new(&quot;&quot;).unwrap().as_ptr() as *const _,
+);
+assert_eq!(r, 0);
+
+// 挂载/sys
+let r = libc::mount(
+	CString::new(&quot;&quot;).unwrap().as_ptr(),
+	CString::new(&quot;/sys&quot;).unwrap().as_ptr(),
+	CString::new(&quot;sysfs&quot;).unwrap().as_ptr(),
 	libc::MS_NOEXEC | libc::MS_NOSUID | libc::MS_NODEV,
 	CString::new(&quot;&quot;).unwrap().as_ptr() as *const _,
 );
