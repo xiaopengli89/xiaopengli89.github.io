@@ -11,7 +11,7 @@
 <meta itemprop="description" content="学习Rust的内存管理及实现一个简单的Box。">
 <meta itemprop="datePublished" content="2020-07-01T16:57:56&#43;08:00" />
 <meta itemprop="dateModified" content="2020-07-01T16:57:56&#43;08:00" />
-<meta itemprop="wordCount" content="1196">
+<meta itemprop="wordCount" content="1116">
 
 
 
@@ -108,7 +108,7 @@ static GLOBAL: MyAllocator = MyAllocator;
 <pre><code class="language-rust">impl&lt;T&gt; MyBox&lt;T&gt; {
     pub fn new(t: T) -&gt; Self {
         unsafe {
-            let layout = Layout:🆕:&lt;T&gt;();
+            let layout = Layout::new::&lt;T&gt;();
             let ptr = alloc(layout) as *mut T;
             ptr.write(t);
             Self { inner: ptr }
@@ -123,7 +123,7 @@ fn main() {
 <p>这种方法首先需要在栈上创建一个变量 <code>T</code> ，然后再拷贝到堆上。也可以实现类似 <code>Java</code> 风格的构造方法，但是在构造方法内，必须初始化所有字段的值，否则后面使用时会 <code>UB</code>，因此我们将这种构造方式标记为 <code>unsafe</code> ：</p>
 <pre><code class="language-rust">impl&lt;T&gt; MyBox&lt;T&gt; {
     pub unsafe fn init(f: impl FnOnce(&amp;mut T)) -&gt; Self {
-        let layout = Layout:🆕:&lt;T&gt;();
+        let layout = Layout::new::&lt;T&gt;();
         let ptr = alloc(layout) as *mut T;
         f(&amp;mut *ptr);
         Self { inner: ptr }
@@ -145,7 +145,7 @@ fn main() {
 <p>内存分配了就需要释放，我们可以在析构方法内完成内存的释放，实现 <code>Drop</code>：</p>
 <pre><code class="language-rust">impl&lt;T&gt; Drop for MyBox&lt;T&gt; {
     fn drop(&amp;mut self) {
-        let layout = Layout:🆕:&lt;T&gt;();
+        let layout = Layout::new::&lt;T&gt;();
         unsafe {
             dealloc(self.inner as *mut u8, layout);
         }
@@ -236,7 +236,7 @@ static GLOBAL: MyAllocator = MyAllocator;
 <p>如果我们注释掉析构方法的内存释放操作：</p>
 <pre><code class="language-rust">impl&lt;T&gt; Drop for MyBox&lt;T&gt; {
     fn drop(&amp;mut self) {
-        //let layout = Layout:🆕:&lt;T&gt;();
+        //let layout = Layout::new::&lt;T&gt;();
         //unsafe {
         //    dealloc(self.inner as *mut u8, layout);
         //}
@@ -254,7 +254,7 @@ static GLOBAL: MyAllocator = MyAllocator;
 				<p>
 					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-tag meta-icon"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7" y2="7"></line></svg><span class="tag"><a href="/tags/rust">rust</a></span><span class="tag"><a href="/tags/heap">heap</a></span><span class="tag"><a href="/tags/alloc">alloc</a></span><span class="tag"><a href="/tags/memory">memory</a></span>
 				</p>
-				<p><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-file-text"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>1196 Words</p>
+				<p><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-file-text"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>1116 Words</p>
 				<p><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-calendar"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>2020-07-01 16:57 &#43;0800</p>
 			</footer>
 		</article>

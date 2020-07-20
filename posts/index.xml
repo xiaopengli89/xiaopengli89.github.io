@@ -1076,7 +1076,7 @@ static GLOBAL: MyAllocator = MyAllocator;
 <pre><code class="language-rust">impl&lt;T&gt; MyBox&lt;T&gt; {
     pub fn new(t: T) -&gt; Self {
         unsafe {
-            let layout = Layout:🆕:&lt;T&gt;();
+            let layout = Layout::new::&lt;T&gt;();
             let ptr = alloc(layout) as *mut T;
             ptr.write(t);
             Self { inner: ptr }
@@ -1091,7 +1091,7 @@ fn main() {
 <p>这种方法首先需要在栈上创建一个变量 <code>T</code> ，然后再拷贝到堆上。也可以实现类似 <code>Java</code> 风格的构造方法，但是在构造方法内，必须初始化所有字段的值，否则后面使用时会 <code>UB</code>，因此我们将这种构造方式标记为 <code>unsafe</code> ：</p>
 <pre><code class="language-rust">impl&lt;T&gt; MyBox&lt;T&gt; {
     pub unsafe fn init(f: impl FnOnce(&amp;mut T)) -&gt; Self {
-        let layout = Layout:🆕:&lt;T&gt;();
+        let layout = Layout::new::&lt;T&gt;();
         let ptr = alloc(layout) as *mut T;
         f(&amp;mut *ptr);
         Self { inner: ptr }
@@ -1113,7 +1113,7 @@ fn main() {
 <p>内存分配了就需要释放，我们可以在析构方法内完成内存的释放，实现 <code>Drop</code>：</p>
 <pre><code class="language-rust">impl&lt;T&gt; Drop for MyBox&lt;T&gt; {
     fn drop(&amp;mut self) {
-        let layout = Layout:🆕:&lt;T&gt;();
+        let layout = Layout::new::&lt;T&gt;();
         unsafe {
             dealloc(self.inner as *mut u8, layout);
         }
@@ -1204,7 +1204,7 @@ static GLOBAL: MyAllocator = MyAllocator;
 <p>如果我们注释掉析构方法的内存释放操作：</p>
 <pre><code class="language-rust">impl&lt;T&gt; Drop for MyBox&lt;T&gt; {
     fn drop(&amp;mut self) {
-        //let layout = Layout:🆕:&lt;T&gt;();
+        //let layout = Layout::new::&lt;T&gt;();
         //unsafe {
         //    dealloc(self.inner as *mut u8, layout);
         //}
