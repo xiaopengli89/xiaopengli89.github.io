@@ -7,10 +7,29 @@
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright>
-    <lastBuildDate>Sat, 18 Jul 2020 22:15:35 +0800</lastBuildDate>
+    <lastBuildDate>Mon, 20 Jul 2020 19:42:00 +0800</lastBuildDate>
     
 	<atom:link href="/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>OCI容器运行时实现（二）</title>
+      <link>/posts/oci-ns-network/</link>
+      <pubDate>Mon, 20 Jul 2020 19:42:00 +0800</pubDate>
+      
+      <guid>/posts/oci-ns-network/</guid>
+      <description>&lt;p&gt;本篇文章在之前基础上实现容器的网络互通。&lt;/p&gt;
+&lt;p&gt;实现思路：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;在宿主机上创建网桥设备&lt;/li&gt;
+&lt;li&gt;当子进程命名空间创建后，父进程获取子进程的命名空间&lt;/li&gt;
+&lt;li&gt;利用管道实现父子进程同步&lt;/li&gt;
+&lt;li&gt;创建虚拟设备对&lt;/li&gt;
+&lt;li&gt;分别将虚拟设备对添加进子进程网络命名空间和连接到网桥&lt;/li&gt;
+&lt;li&gt;分配虚拟设备ip并启动&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;NOTE:&lt;/strong&gt; 由于很多系统调用没有封装，这里将使用宿主机上的命令代替实现。&lt;/p&gt;</description>
+    </item>
     
     <item>
       <title>OCI容器运行时实现（一）</title>
@@ -157,15 +176,6 @@ for rows.Next() {
 &lt;pre&gt;&lt;code class=&#34;language-none&#34;&gt;[mysql] 2019/08/26 16:07:00 packets.go:36: unexpected EOF
 &lt;/code&gt;&lt;/pre&gt;
 &lt;p&gt;&lt;a href=&#34;https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc&#34;&gt;github.com/go-sql-driver/mysql&lt;/a&gt; 为了复用TCP连接以提高性能，内部实现了连接池。当需要一次SQL操作时，会先从连接池中拿出一条可用的空闲连接去执行操作。如果没有空闲的连接，或者连接已经失效，就打开一条新的TCP连接、SSL认证（如果使用SSL连接的话）、协议握手、认证等，完成初始化连接，再使用这条连接执行操作，使用完后再放回连接池。连接失效的标记可以在上一次使用连接后根据对应的错误来完成，或者本次操作指令发送失败也标记为连接失效，driver会重新执行上面的步骤来进行重试，应用层不会感知。&lt;/p&gt;</description>
-    </item>
-    
-    <item>
-      <title>关于Socket应用的性能优化</title>
-      <link>/posts/socket-optimize/</link>
-      <pubDate>Thu, 21 May 2020 21:58:01 +0800</pubDate>
-      
-      <guid>/posts/socket-optimize/</guid>
-      <description>&lt;p&gt;TCP/IP协议栈是计算机网络的基础通信架构，其中IP协议完成了跨链路的路由、寻址，TCP协议完成了面向连接的可靠字节流抽象，提供数据的分段、重传、重组，流量控制和拥塞控制，使得建立在TCP/IP协议之上的应用协议不用再关心各种硬件、网络环境，TCP/IP协议是今天的互联网的基石。&lt;/p&gt;</description>
     </item>
     
   </channel>

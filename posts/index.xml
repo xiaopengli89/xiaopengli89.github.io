@@ -6,8 +6,347 @@
 		<generator>Hugo -- gohugo.io</generator>
 		<language>en-us</language>
 		<copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright>
-		<lastBuildDate>Sat, 18 Jul 2020 22:15:35 +0800</lastBuildDate>
+		<lastBuildDate>Mon, 20 Jul 2020 19:42:00 +0800</lastBuildDate>
 		<atom:link href="/posts/index.xml" rel="self" type="application/rss+xml" />
+		
+		<item>
+			<title>OCI容器运行时实现（二）</title>
+			<link>/posts/oci-ns-network/</link>
+			<pubDate>Mon, 20 Jul 2020 19:42:00 +0800</pubDate>
+			
+			<guid>/posts/oci-ns-network/</guid>
+			<description>&lt;p&gt;本篇文章在之前基础上实现容器的网络互通。&lt;/p&gt;
+&lt;p&gt;实现思路：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;在宿主机上创建网桥设备&lt;/li&gt;
+&lt;li&gt;当子进程命名空间创建后，父进程获取子进程的命名空间&lt;/li&gt;
+&lt;li&gt;利用管道实现父子进程同步&lt;/li&gt;
+&lt;li&gt;创建虚拟设备对&lt;/li&gt;
+&lt;li&gt;分别将虚拟设备对添加进子进程网络命名空间和连接到网桥&lt;/li&gt;
+&lt;li&gt;分配虚拟设备ip并启动&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;NOTE:&lt;/strong&gt; 由于很多系统调用没有封装，这里将使用宿主机上的命令代替实现。&lt;/p&gt;</description>
+			<content type="html"><![CDATA[<p>本篇文章在之前基础上实现容器的网络互通。</p>
+<p>实现思路：</p>
+<ol>
+<li>在宿主机上创建网桥设备</li>
+<li>当子进程命名空间创建后，父进程获取子进程的命名空间</li>
+<li>利用管道实现父子进程同步</li>
+<li>创建虚拟设备对</li>
+<li>分别将虚拟设备对添加进子进程网络命名空间和连接到网桥</li>
+<li>分配虚拟设备ip并启动</li>
+</ol>
+<p><strong>NOTE:</strong> 由于很多系统调用没有封装，这里将使用宿主机上的命令代替实现。</p>
+<h3 id="ip参数解析">IP参数解析</h3>
+<pre><code class="language-rust">mod network;
+
+let ip = args.next().unwrap(); // 容器ip
+</code></pre>
+<h3 id="初始化网桥">初始化网桥</h3>
+<pre><code class="language-rust">pub type Result&lt;T&gt; = std::result::Result&lt;T, Box&lt;dyn std::error::Error + 'static&gt;&gt;;
+</code></pre>
+<pre><code class="language-rust">// 初始化网桥
+network::init_bridge()?;
+</code></pre>
+<pre><code class="language-rust">const BRIDGE_NAME: &amp;str = &quot;runc-rs&quot;;
+
+// 启动设备
+fn up_dev(dev: &amp;str) -&gt; Result&lt;()&gt; {
+    let output = Command::new(&quot;ip&quot;)
+        .args(&amp;[&quot;link&quot;, &quot;set&quot;, &quot;dev&quot;, dev, &quot;up&quot;])
+        .output()?;
+    if !output.status.success() {
+        let msg = String::from_utf8_lossy(output.stderr.as_slice()).to_string();
+        panic!(msg);
+    }
+    Ok(())
+}
+
+// 启动设备
+fn up_dev_ns(dev: &amp;str, ns_id: &amp;str) -&gt; Result&lt;()&gt; {
+    let output = Command::new(&quot;ip&quot;)
+        .args(&amp;[
+            &quot;netns&quot;, &quot;exec&quot;, ns_id, &quot;ip&quot;, &quot;link&quot;, &quot;set&quot;, &quot;dev&quot;, dev, &quot;up&quot;,
+        ])
+        .output()?;
+    if !output.status.success() {
+        let msg = String::from_utf8_lossy(output.stderr.as_slice()).to_string();
+        panic!(msg);
+    }
+    Ok(())
+}
+
+// 初始化网桥
+pub fn init_bridge() -&gt; Result&lt;()&gt; {
+    let output = Command::new(&quot;ip&quot;)
+        .args(&amp;[&quot;-j&quot;, &quot;link&quot;, &quot;show&quot;, BRIDGE_NAME])
+        .output()?;
+    if output.status.success() {
+        up_dev(BRIDGE_NAME)?;
+        return Ok(());
+    }
+    // 创建网桥接口
+    let output = Command::new(&quot;ip&quot;)
+        .args(&amp;[&quot;link&quot;, &quot;add&quot;, BRIDGE_NAME, &quot;type&quot;, &quot;bridge&quot;])
+        .output()?;
+    if !output.status.success() {
+        let msg = String::from_utf8_lossy(output.stderr.as_slice()).to_string();
+        panic!(msg);
+    }
+    up_dev(BRIDGE_NAME)?;
+    Ok(())
+}
+</code></pre>
+<h3 id="获取子进程命名空间">获取子进程命名空间</h3>
+<p>当子进程命名空间创建后发送同步信号</p>
+<pre><code class="language-rust">// 创建管道通信
+let mut pipes: [libc::c_int; 2] = [0; 2];
+let r = libc::pipe(pipes.as_mut_ptr());
+assert_eq!(r, 0);
+let (pipe_r, pipe_w) = (pipes[0], pipes[1]);
+
+// ...
+
+// unshare新命名空间
+let r = libc::unshare(libc::CLONE_NEWNS | libc::CLONE_NEWNET);
+assert_eq!(r, 0);
+
+// 发送同步信号
+libc::close(pipe_r);
+let r = libc::write(pipe_w, [0u8].as_ptr() as *const _, 1);
+assert_eq!(r, 1);
+</code></pre>
+<p>父进程等待同步信号，并获取子进程的命名空间</p>
+<pre><code class="language-rust">// 接收同步信号
+let r = libc::read(pipe_r, [0u8].as_mut_ptr() as *mut _, 1);
+assert_eq!(r, 1);
+
+// 获取子进程网络命名空间
+let sub_net_ns = network::find_ns_net(pid)?;
+</code></pre>
+<pre><code class="language-rust">// 获取某个进程的网络命名空间
+pub fn find_ns_net(pid: libc::pid_t) -&gt; Result&lt;String&gt; {
+    let output = Command::new(&quot;lsns&quot;)
+        .args(&amp;[
+            &quot;-t&quot;,
+            &quot;net&quot;,
+            &quot;-o&quot;,
+            &quot;NS&quot;,
+            &quot;-n&quot;,
+            &quot;-p&quot;,
+            pid.to_string().as_str(),
+        ])
+        .output()?;
+    if !output.status.success() {
+        let msg = String::from_utf8_lossy(output.stderr.as_slice()).to_string();
+        panic!(msg);
+    }
+
+    let ns_id = String::from_utf8_lossy(output.stdout.as_slice())
+        .trim()
+        .to_string();
+    Ok(ns_id)
+}
+</code></pre>
+<h3 id="创建虚拟设备对">创建虚拟设备对</h3>
+<p>添加进 <code>netns</code> 是为了方便后续操作使用 <code>ip netns exec</code>。</p>
+<pre><code class="language-rust">// 添加进netns
+network::put_netns(pid, sub_net_ns.as_str())?;
+// 创建虚拟设备对
+let (veth0, veth1) = network::create_veth()?;
+
+// ...
+
+// 释放netns
+network::release_netns(sub_net_ns.as_str())?;
+</code></pre>
+<pre><code class="language-rust">// 添加进netns
+pub fn put_netns(pid: libc::pid_t, ns_id: &amp;str) -&gt; Result&lt;()&gt; {
+    let output = Command::new(&quot;ln&quot;)
+        .args(&amp;[
+            &quot;-s&quot;,
+            format!(&quot;/proc/{}/ns/net&quot;, pid).as_str(),
+            format!(&quot;/var/run/netns/{}&quot;, ns_id).as_str(),
+        ])
+        .output()?;
+    if !output.status.success() {
+        let msg = String::from_utf8_lossy(output.stderr.as_slice()).to_string();
+        panic!(msg);
+    }
+    Ok(())
+}
+
+// 释放netns
+pub fn release_netns(ns_id: &amp;str) -&gt; Result&lt;()&gt; {
+    let output = Command::new(&quot;rm&quot;)
+        .args(&amp;[format!(&quot;/var/run/netns/{}&quot;, ns_id).as_str()])
+        .output()?;
+    if !output.status.success() {
+        let msg = String::from_utf8_lossy(output.stderr.as_slice()).to_string();
+        panic!(msg);
+    }
+    Ok(())
+}
+
+// 创建虚拟设备对
+pub fn create_veth() -&gt; Result&lt;(String, String)&gt; {
+    // 生成随机虚拟设备名
+    let veth0 = rand::thread_rng()
+        .sample_iter(&amp;Alphanumeric)
+        .take(6)
+        .collect::&lt;String&gt;();
+    let veth0 = format!(&quot;{}-{}&quot;, BRIDGE_NAME, veth0.to_lowercase());
+    let veth1 = rand::thread_rng()
+        .sample_iter(&amp;Alphanumeric)
+        .take(6)
+        .collect::&lt;String&gt;();
+    let veth1 = format!(&quot;{}-{}&quot;, BRIDGE_NAME, veth1.to_lowercase());
+
+    let output = Command::new(&quot;ip&quot;)
+        .args(&amp;[
+            &quot;link&quot;,
+            &quot;add&quot;,
+            veth0.as_str(),
+            &quot;type&quot;,
+            &quot;veth&quot;,
+            &quot;peer&quot;,
+            &quot;name&quot;,
+            veth1.as_str(),
+        ])
+        .output()?;
+    if !output.status.success() {
+        let msg = String::from_utf8_lossy(output.stderr.as_slice()).to_string();
+        panic!(msg);
+    }
+    Ok((veth0, veth1))
+}
+</code></pre>
+<h3 id="虚拟设备对初始化">虚拟设备对初始化</h3>
+<p>将虚拟设备一端添加进子进程网络命名空间并配置IP，另一端连接到网桥</p>
+<pre><code class="language-rust">// 添加进子进程网络命名空间
+network::link_veth_to_ns(veth1.as_str(), sub_net_ns.as_str(), ip.as_str())?;
+// 连接网桥
+network::link_veth_to_bridge(veth0.as_str())?;
+</code></pre>
+<pre><code class="language-rust">// 将虚拟设备连接到网桥
+pub fn link_veth_to_bridge(veth: &amp;str) -&gt; Result&lt;()&gt; {
+    let output = Command::new(&quot;ip&quot;)
+        .args(&amp;[&quot;link&quot;, &quot;set&quot;, &quot;dev&quot;, veth, &quot;master&quot;, BRIDGE_NAME])
+        .output()?;
+    if !output.status.success() {
+        let msg = String::from_utf8_lossy(output.stderr.as_slice()).to_string();
+        panic!(msg);
+    }
+    up_dev(veth)?;
+    Ok(())
+}
+
+// 将虚拟设备放入命名空间
+pub fn link_veth_to_ns(veth: &amp;str, ns_id: &amp;str, ip: &amp;str) -&gt; Result&lt;()&gt; {
+    let output = Command::new(&quot;ip&quot;)
+        .args(&amp;[&quot;link&quot;, &quot;set&quot;, &quot;dev&quot;, veth, &quot;netns&quot;, ns_id])
+        .output()?;
+    if !output.status.success() {
+        let msg = String::from_utf8_lossy(output.stderr.as_slice()).to_string();
+        panic!(msg);
+    }
+    // 重命名
+    let output = Command::new(&quot;ip&quot;)
+        .args(&amp;[
+            &quot;netns&quot;, &quot;exec&quot;, ns_id, &quot;ip&quot;, &quot;link&quot;, &quot;set&quot;, &quot;dev&quot;, veth, &quot;name&quot;, &quot;eth0&quot;,
+        ])
+        .output()?;
+    if !output.status.success() {
+        let msg = String::from_utf8_lossy(output.stderr.as_slice()).to_string();
+        panic!(msg);
+    }
+    // 配置ip
+    let output = Command::new(&quot;ip&quot;)
+        .args(&amp;[
+            &quot;netns&quot;, &quot;exec&quot;, ns_id, &quot;ip&quot;, &quot;addr&quot;, &quot;add&quot;, ip, &quot;dev&quot;, &quot;eth0&quot;,
+        ])
+        .output()?;
+    if !output.status.success() {
+        let msg = String::from_utf8_lossy(output.stderr.as_slice()).to_string();
+        panic!(msg);
+    }
+    // 启动设备
+    up_dev_ns(&quot;eth0&quot;, ns_id)?;
+    up_dev_ns(&quot;lo&quot;, ns_id)?;
+    Ok(())
+}
+</code></pre>
+<h3 id="测试2个容器的网络互通">测试2个容器的网络互通</h3>
+<p><strong>NOTE:</strong> 如果宿主机上安装了 <code>docker</code>，<code>FORWARD</code> 链默认策略会被设置成 <code>DROP</code>，测试时需要将其修改为 <code>ACCEPT</code>：</p>
+<pre><code class="language-bash">$ iptables -P FORWARD ACCEPT
+</code></pre>
+<p>由于目前还未实现文件系统的联合挂载，因此需要2个独立的镜像文件系统拷贝：</p>
+<pre><code class="language-bash">$ cd workspace
+$ cp -r alpine alpine2
+</code></pre>
+<p>编译后运行2个容器</p>
+<pre><code class="language-bash">$ cargo build
+$ ./target/debug/$(program) $(workspace)/alpine 10.0.1.2/24 /bin/sh
+</code></pre>
+<p>新开一个 <code>shell</code> 会话</p>
+<pre><code class="language-bash">$ ./target/debug/$(program) $(workspace)/alpine2 10.0.1.3/24 /bin/sh
+</code></pre>
+<p>查看2个容器的网络接口</p>
+<pre><code class="language-none">/ # ip addr
+1: lo: &lt;LOOPBACK,UP,LOWER_UP&gt; mtu 65536 qdisc noqueue state UNKNOWN qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host
+       valid_lft forever preferred_lft forever
+45: eth0@if46: &lt;BROADCAST,MULTICAST,UP,LOWER_UP,M-DOWN&gt; mtu 1500 qdisc noqueue state UP qlen 1000
+    link/ether 86:33:f9:cf:74:6a brd ff:ff:ff:ff:ff:ff
+    inet 10.0.1.2/24 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::8433:f9ff:fecf:746a/64 scope link
+       valid_lft forever preferred_lft forever
+/ #
+</code></pre>
+<pre><code class="language-none">/ # ip addr
+1: lo: &lt;LOOPBACK,UP,LOWER_UP&gt; mtu 65536 qdisc noqueue state UNKNOWN qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host
+       valid_lft forever preferred_lft forever
+47: eth0@if48: &lt;BROADCAST,MULTICAST,UP,LOWER_UP,M-DOWN&gt; mtu 1500 qdisc noqueue state UP qlen 1000
+    link/ether fe:75:c9:12:df:12 brd ff:ff:ff:ff:ff:ff
+    inet 10.0.1.3/24 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::fc75:c9ff:fe12:df12/64 scope link
+       valid_lft forever preferred_lft forever
+/ #
+</code></pre>
+<p>测试2个容器网络能否互通</p>
+<pre><code class="language-none">/ # ping -c 3 10.0.1.3
+PING 10.0.1.3 (10.0.1.3): 56 data bytes
+64 bytes from 10.0.1.3: seq=0 ttl=64 time=0.269 ms
+64 bytes from 10.0.1.3: seq=1 ttl=64 time=0.072 ms
+64 bytes from 10.0.1.3: seq=2 ttl=64 time=0.073 ms
+
+--- 10.0.1.3 ping statistics ---
+3 packets transmitted, 3 packets received, 0% packet loss
+round-trip min/avg/max = 0.072/0.138/0.269 ms
+/ #
+</code></pre>
+<pre><code class="language-none">/ # ping -c 3 10.0.1.2
+PING 10.0.1.2 (10.0.1.2): 56 data bytes
+64 bytes from 10.0.1.2: seq=0 ttl=64 time=0.089 ms
+64 bytes from 10.0.1.2: seq=1 ttl=64 time=0.107 ms
+64 bytes from 10.0.1.2: seq=2 ttl=64 time=0.107 ms
+
+--- 10.0.1.2 ping statistics ---
+3 packets transmitted, 3 packets received, 0% packet loss
+round-trip min/avg/max = 0.089/0.101/0.107 ms
+/ #
+</code></pre>
+<p>完整代码见：<a href="https://github.com/xiaopengli89/runc-rs">runc-rs</a></p>]]></content>
+		</item>
 		
 		<item>
 			<title>OCI容器运行时实现（一）</title>

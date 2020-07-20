@@ -7,10 +7,29 @@
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright>
-    <lastBuildDate>Sat, 18 Jul 2020 22:15:35 +0800</lastBuildDate>
+    <lastBuildDate>Mon, 20 Jul 2020 19:42:00 +0800</lastBuildDate>
     
 	<atom:link href="/tags/rust/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>OCI容器运行时实现（二）</title>
+      <link>/posts/oci-ns-network/</link>
+      <pubDate>Mon, 20 Jul 2020 19:42:00 +0800</pubDate>
+      
+      <guid>/posts/oci-ns-network/</guid>
+      <description>&lt;p&gt;本篇文章在之前基础上实现容器的网络互通。&lt;/p&gt;
+&lt;p&gt;实现思路：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;在宿主机上创建网桥设备&lt;/li&gt;
+&lt;li&gt;当子进程命名空间创建后，父进程获取子进程的命名空间&lt;/li&gt;
+&lt;li&gt;利用管道实现父子进程同步&lt;/li&gt;
+&lt;li&gt;创建虚拟设备对&lt;/li&gt;
+&lt;li&gt;分别将虚拟设备对添加进子进程网络命名空间和连接到网桥&lt;/li&gt;
+&lt;li&gt;分配虚拟设备ip并启动&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;NOTE:&lt;/strong&gt; 由于很多系统调用没有封装，这里将使用宿主机上的命令代替实现。&lt;/p&gt;</description>
+    </item>
     
     <item>
       <title>OCI容器运行时实现（一）</title>

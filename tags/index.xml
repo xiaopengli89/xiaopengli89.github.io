@@ -7,7 +7,7 @@
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright>
-    <lastBuildDate>Sat, 18 Jul 2020 22:15:35 +0800</lastBuildDate>
+    <lastBuildDate>Mon, 20 Jul 2020 19:42:00 +0800</lastBuildDate>
     
 	<atom:link href="/tags/index.xml" rel="self" type="application/rss+xml" />
     
@@ -15,7 +15,7 @@
     <item>
       <title>container</title>
       <link>/tags/container/</link>
-      <pubDate>Sat, 18 Jul 2020 22:15:35 +0800</pubDate>
+      <pubDate>Mon, 20 Jul 2020 19:42:00 +0800</pubDate>
       
       <guid>/tags/container/</guid>
       <description></description>
@@ -24,18 +24,36 @@
     <item>
       <title>namespace</title>
       <link>/tags/namespace/</link>
-      <pubDate>Sat, 18 Jul 2020 22:15:35 +0800</pubDate>
+      <pubDate>Mon, 20 Jul 2020 19:42:00 +0800</pubDate>
       
       <guid>/tags/namespace/</guid>
       <description></description>
     </item>
     
     <item>
+      <title>network</title>
+      <link>/tags/network/</link>
+      <pubDate>Mon, 20 Jul 2020 19:42:00 +0800</pubDate>
+      
+      <guid>/tags/network/</guid>
+      <description></description>
+    </item>
+    
+    <item>
       <title>oci</title>
       <link>/tags/oci/</link>
-      <pubDate>Sat, 18 Jul 2020 22:15:35 +0800</pubDate>
+      <pubDate>Mon, 20 Jul 2020 19:42:00 +0800</pubDate>
       
       <guid>/tags/oci/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>rust</title>
+      <link>/tags/rust/</link>
+      <pubDate>Mon, 20 Jul 2020 19:42:00 +0800</pubDate>
+      
+      <guid>/tags/rust/</guid>
       <description></description>
     </item>
     
@@ -45,15 +63,6 @@
       <pubDate>Sat, 18 Jul 2020 22:15:35 +0800</pubDate>
       
       <guid>/tags/pivot_root/</guid>
-      <description></description>
-    </item>
-    
-    <item>
-      <title>rust</title>
-      <link>/tags/rust/</link>
-      <pubDate>Sat, 18 Jul 2020 22:15:35 +0800</pubDate>
-      
-      <guid>/tags/rust/</guid>
       <description></description>
     </item>
     
@@ -90,15 +99,6 @@
       <pubDate>Wed, 01 Jul 2020 16:57:56 +0800</pubDate>
       
       <guid>/tags/alloc/</guid>
-      <description></description>
-    </item>
-    
-    <item>
-      <title>heap</title>
-      <link>/tags/heap/</link>
-      <pubDate>Wed, 01 Jul 2020 16:57:56 +0800</pubDate>
-      
-      <guid>/tags/heap/</guid>
       <description></description>
     </item>
     
