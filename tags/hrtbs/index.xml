@@ -2,22 +2,22 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>hrtbs on Torigoth</title>
-    <link>/tags/hrtbs/</link>
+    <link>https://xiaopengli89.github.io/tags/hrtbs/</link>
     <description>Recent content in hrtbs on Torigoth</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright>
     <lastBuildDate>Fri, 03 Jul 2020 23:40:45 +0800</lastBuildDate>
     
-	<atom:link href="/tags/hrtbs/index.xml" rel="self" type="application/rss+xml" />
+	<atom:link href="https://xiaopengli89.github.io/tags/hrtbs/index.xml" rel="self" type="application/rss+xml" />
     
     
     <item>
       <title>Rust高阶生命周期绑定</title>
-      <link>/posts/rust-hrtbs/</link>
+      <link>https://xiaopengli89.github.io/posts/rust-hrtbs/</link>
       <pubDate>Fri, 03 Jul 2020 23:40:45 +0800</pubDate>
       
-      <guid>/posts/rust-hrtbs/</guid>
+      <guid>https://xiaopengli89.github.io/posts/rust-hrtbs/</guid>
       <description>&lt;p&gt;Rust中，&lt;code&gt;lifetime&lt;/code&gt; 其实也是一种类型参数，可以看成范型的一种特殊形式。编译时需要将所有类型（包括 &lt;code&gt;lifetime&lt;/code&gt; ）确定下来，比如：&lt;/p&gt;
 &lt;pre&gt;&lt;code class=&#34;language-rust&#34;&gt;fn foo&amp;lt;&#39;a&amp;gt;(x: &amp;amp;&#39;a i32) {
 	// ...

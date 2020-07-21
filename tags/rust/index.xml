@@ -2,22 +2,22 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>rust on Torigoth</title>
-    <link>/tags/rust/</link>
+    <link>https://xiaopengli89.github.io/tags/rust/</link>
     <description>Recent content in rust on Torigoth</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright>
     <lastBuildDate>Mon, 20 Jul 2020 19:42:00 +0800</lastBuildDate>
     
-	<atom:link href="/tags/rust/index.xml" rel="self" type="application/rss+xml" />
+	<atom:link href="https://xiaopengli89.github.io/tags/rust/index.xml" rel="self" type="application/rss+xml" />
     
     
     <item>
       <title>OCI容器运行时实现（二）</title>
-      <link>/posts/oci-ns-network/</link>
+      <link>https://xiaopengli89.github.io/posts/oci-ns-network/</link>
       <pubDate>Mon, 20 Jul 2020 19:42:00 +0800</pubDate>
       
-      <guid>/posts/oci-ns-network/</guid>
+      <guid>https://xiaopengli89.github.io/posts/oci-ns-network/</guid>
       <description>&lt;p&gt;本篇文章在之前基础上实现容器的网络互通。&lt;/p&gt;
 &lt;p&gt;实现思路：&lt;/p&gt;
 &lt;ol&gt;
@@ -33,10 +33,10 @@
     
     <item>
       <title>OCI容器运行时实现（一）</title>
-      <link>/posts/oci-ns-pid-mount-net/</link>
+      <link>https://xiaopengli89.github.io/posts/oci-ns-pid-mount-net/</link>
       <pubDate>Sat, 18 Jul 2020 22:15:35 +0800</pubDate>
       
-      <guid>/posts/oci-ns-pid-mount-net/</guid>
+      <guid>https://xiaopengli89.github.io/posts/oci-ns-pid-mount-net/</guid>
       <description>&lt;p&gt;一个OCI容器运行时有3个组成部分：&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;a href=&#34;https://man7.org/linux/man-pages/man7/namespaces.7.html&#34;&gt;NAMESPACES&lt;/a&gt; - 实现资源的隔离&lt;/li&gt;
@@ -48,10 +48,10 @@
     
     <item>
       <title>实现一个无依赖的Rust异步运行时</title>
-      <link>/posts/plain-rt/</link>
+      <link>https://xiaopengli89.github.io/posts/plain-rt/</link>
       <pubDate>Fri, 10 Jul 2020 19:23:16 +0800</pubDate>
       
-      <guid>/posts/plain-rt/</guid>
+      <guid>https://xiaopengli89.github.io/posts/plain-rt/</guid>
       <description>&lt;p&gt;这篇文章将非常直观、易懂地解释Rust异步运行时的实现。代码不超过300行，只依赖标准库，支持 &lt;code&gt;spawn&lt;/code&gt; 多个 &lt;code&gt;Task&lt;/code&gt; 并发执行。&lt;/p&gt;
 &lt;p&gt;首先，Rust标准库对异步的抽象主要集中于几个类型，分别是：&lt;/p&gt;
 &lt;ul&gt;
@@ -63,10 +63,10 @@
     
     <item>
       <title>Rust高阶生命周期绑定</title>
-      <link>/posts/rust-hrtbs/</link>
+      <link>https://xiaopengli89.github.io/posts/rust-hrtbs/</link>
       <pubDate>Fri, 03 Jul 2020 23:40:45 +0800</pubDate>
       
-      <guid>/posts/rust-hrtbs/</guid>
+      <guid>https://xiaopengli89.github.io/posts/rust-hrtbs/</guid>
       <description>&lt;p&gt;Rust中，&lt;code&gt;lifetime&lt;/code&gt; 其实也是一种类型参数，可以看成范型的一种特殊形式。编译时需要将所有类型（包括 &lt;code&gt;lifetime&lt;/code&gt; ）确定下来，比如：&lt;/p&gt;
 &lt;pre&gt;&lt;code class=&#34;language-rust&#34;&gt;fn foo&amp;lt;&#39;a&amp;gt;(x: &amp;amp;&#39;a i32) {
 	// ...
@@ -82,29 +82,29 @@
     
     <item>
       <title>Rust动态内存分配</title>
-      <link>/posts/rust-box-heap/</link>
+      <link>https://xiaopengli89.github.io/posts/rust-box-heap/</link>
       <pubDate>Wed, 01 Jul 2020 16:57:56 +0800</pubDate>
       
-      <guid>/posts/rust-box-heap/</guid>
+      <guid>https://xiaopengli89.github.io/posts/rust-box-heap/</guid>
       <description>&lt;p&gt;&lt;a href=&#34;https://doc.rust-lang.org/std/boxed/index.html&#34;&gt;Box&lt;/a&gt; 是一个在Rust中经常被用到的智能指针，它的作用是实现堆内存分配，并且管理该块内存的生命周期。尤其在实现递归数据结构时，通过 &lt;a href=&#34;https://doc.rust-lang.org/std/boxed/index.html&#34;&gt;Box&lt;/a&gt; 才能让一个类型大小不会无限膨胀。同时 &lt;a href=&#34;https://doc.rust-lang.org/std/boxed/index.html&#34;&gt;Box&lt;/a&gt; 的内存布局同 &lt;code&gt;C&lt;/code&gt; 二进制兼容，也就是说在使用 &lt;code&gt;FFI&lt;/code&gt; 时，可以直接在参数或返回值中使用 &lt;a href=&#34;https://doc.rust-lang.org/std/boxed/index.html&#34;&gt;Box&lt;/a&gt;。&lt;/p&gt;
 &lt;p&gt;这篇文章将介绍利用Rust的动态内存分配实现一个简单的自定义 &lt;code&gt;Box&lt;/code&gt; 。&lt;/p&gt;</description>
     </item>
     
     <item>
       <title>不使用Rust标准库编写一个可运行的程序</title>
-      <link>/posts/rust-no-std/</link>
+      <link>https://xiaopengli89.github.io/posts/rust-no-std/</link>
       <pubDate>Wed, 01 Jul 2020 00:02:35 +0800</pubDate>
       
-      <guid>/posts/rust-no-std/</guid>
+      <guid>https://xiaopengli89.github.io/posts/rust-no-std/</guid>
       <description>&lt;p&gt;Rust是一门系统编程语言，比如使得编写操作系统内核变得可能。而在编写内核时，是不能有任何和操作系统相关的依赖的，因为操作系统内核是运行于裸机之上的，这就像鸡和鸡蛋的关系。而标准库的实现是基于操作系统的，诸如线程、文件、网络等等。因此在编写内核代码时不能使用标准库。这篇文章将介绍如何不使用Rust标准库编写一个可运行的程序。&lt;/p&gt;</description>
     </item>
     
     <item>
       <title>Rust过程宏（一）</title>
-      <link>/posts/rust-procedural-macro-1/</link>
+      <link>https://xiaopengli89.github.io/posts/rust-procedural-macro-1/</link>
       <pubDate>Sat, 27 Jun 2020 17:22:04 +0800</pubDate>
       
-      <guid>/posts/rust-procedural-macro-1/</guid>
+      <guid>https://xiaopengli89.github.io/posts/rust-procedural-macro-1/</guid>
       <description>&lt;h3 id=&#34;rust宏&#34;&gt;Rust宏&lt;/h3&gt;
 &lt;p&gt;宏属于元编程，用于生成代码，减少重复代码的编写，同时不同于运行时反射，宏会在编译时被展开，没有运行时开销。在Rust中，宏大体分为2类：声明宏和过程宏。&lt;/p&gt;
 &lt;p&gt;声明宏较为简单，类似模式匹配，利用递归和替换把重复的代码片段隐藏起来，典型的实现是标准库中 &lt;code&gt;vec!&lt;/code&gt;，&lt;code&gt;println!&lt;/code&gt;。&lt;/p&gt;
@@ -118,10 +118,10 @@
     
     <item>
       <title>Rust闭包</title>
-      <link>/posts/rust-closure/</link>
+      <link>https://xiaopengli89.github.io/posts/rust-closure/</link>
       <pubDate>Tue, 23 Jun 2020 22:59:21 +0800</pubDate>
       
-      <guid>/posts/rust-closure/</guid>
+      <guid>https://xiaopengli89.github.io/posts/rust-closure/</guid>
       <description>&lt;h3 id=&#34;闭包closure的实现原理&#34;&gt;闭包(Closure)的实现原理&lt;/h3&gt;
 &lt;p&gt;闭包在调用形式上和函数非常相似：&lt;/p&gt;
 &lt;ol&gt;
@@ -144,19 +144,19 @@ assert_eq!(result2, 4);
     
     <item>
       <title>关于Socket应用的性能优化</title>
-      <link>/posts/socket-optimize/</link>
+      <link>https://xiaopengli89.github.io/posts/socket-optimize/</link>
       <pubDate>Thu, 21 May 2020 21:58:01 +0800</pubDate>
       
-      <guid>/posts/socket-optimize/</guid>
+      <guid>https://xiaopengli89.github.io/posts/socket-optimize/</guid>
       <description>&lt;p&gt;TCP/IP协议栈是计算机网络的基础通信架构，其中IP协议完成了跨链路的路由、寻址，TCP协议完成了面向连接的可靠字节流抽象，提供数据的分段、重传、重组，流量控制和拥塞控制，使得建立在TCP/IP协议之上的应用协议不用再关心各种硬件、网络环境，TCP/IP协议是今天的互联网的基石。&lt;/p&gt;</description>
     </item>
     
     <item>
       <title>2Q(双链)缓存淘汰策略</title>
-      <link>/posts/two-queue/</link>
+      <link>https://xiaopengli89.github.io/posts/two-queue/</link>
       <pubDate>Tue, 19 May 2020 00:00:00 +0000</pubDate>
       
-      <guid>/posts/two-queue/</guid>
+      <guid>https://xiaopengli89.github.io/posts/two-queue/</guid>
       <description>&lt;p&gt;LRU(最近使用)算法经常用于缓存应用中，最简单的实现是通过一个链表实现：&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;插入数据时向头节点插入&lt;/li&gt;

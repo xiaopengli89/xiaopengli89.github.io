@@ -2,22 +2,22 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>zero copy on Torigoth</title>
-    <link>/tags/zero-copy/</link>
+    <link>https://xiaopengli89.github.io/tags/zero-copy/</link>
     <description>Recent content in zero copy on Torigoth</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright>
     <lastBuildDate>Sat, 16 May 2020 18:02:00 +0800</lastBuildDate>
     
-	<atom:link href="/tags/zero-copy/index.xml" rel="self" type="application/rss+xml" />
+	<atom:link href="https://xiaopengli89.github.io/tags/zero-copy/index.xml" rel="self" type="application/rss+xml" />
     
     
     <item>
       <title>DMA(直接内存访问)和零拷贝</title>
-      <link>/posts/dma/</link>
+      <link>https://xiaopengli89.github.io/posts/dma/</link>
       <pubDate>Sat, 16 May 2020 18:02:00 +0800</pubDate>
       
-      <guid>/posts/dma/</guid>
+      <guid>https://xiaopengli89.github.io/posts/dma/</guid>
       <description>&lt;blockquote&gt;
 &lt;p&gt;许多设备都可以临时控制总线。这些设备可以执行涉及主内存和其他设备的数据传送。由于设备执行这些操作的过程中无需借助于 CPU，因此该类型的数据传送称为直接内存访问 (direct memory access, DMA)。&lt;sup id=&#34;fnref:1&#34;&gt;&lt;a href=&#34;#fn:1&#34; class=&#34;footnote-ref&#34; role=&#34;doc-noteref&#34;&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 &lt;/blockquote&gt;

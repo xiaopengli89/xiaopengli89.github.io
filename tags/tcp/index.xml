@@ -2,22 +2,22 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>tcp on Torigoth</title>
-    <link>/tags/tcp/</link>
+    <link>https://xiaopengli89.github.io/tags/tcp/</link>
     <description>Recent content in tcp on Torigoth</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright>
     <lastBuildDate>Sat, 23 May 2020 11:55:30 +0800</lastBuildDate>
     
-	<atom:link href="/tags/tcp/index.xml" rel="self" type="application/rss+xml" />
+	<atom:link href="https://xiaopengli89.github.io/tags/tcp/index.xml" rel="self" type="application/rss+xml" />
     
     
     <item>
       <title>关于Go Mysql Driver的unexpected EOF错误</title>
-      <link>/posts/go-mysql-driver-eof/</link>
+      <link>https://xiaopengli89.github.io/posts/go-mysql-driver-eof/</link>
       <pubDate>Sat, 23 May 2020 11:55:30 +0800</pubDate>
       
-      <guid>/posts/go-mysql-driver-eof/</guid>
+      <guid>https://xiaopengli89.github.io/posts/go-mysql-driver-eof/</guid>
       <description>&lt;p&gt;在使用 &lt;a href=&#34;https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc&#34;&gt;github.com/go-sql-driver/mysql&lt;/a&gt; 作为客户端连接Mysql时，日志中偶然会出现下面的错误：&lt;/p&gt;
 &lt;pre&gt;&lt;code class=&#34;language-none&#34;&gt;[mysql] 2019/08/26 16:07:00 packets.go:36: unexpected EOF
 &lt;/code&gt;&lt;/pre&gt;
@@ -26,10 +26,10 @@
     
     <item>
       <title>关于Socket应用的性能优化</title>
-      <link>/posts/socket-optimize/</link>
+      <link>https://xiaopengli89.github.io/posts/socket-optimize/</link>
       <pubDate>Thu, 21 May 2020 21:58:01 +0800</pubDate>
       
-      <guid>/posts/socket-optimize/</guid>
+      <guid>https://xiaopengli89.github.io/posts/socket-optimize/</guid>
       <description>&lt;p&gt;TCP/IP协议栈是计算机网络的基础通信架构，其中IP协议完成了跨链路的路由、寻址，TCP协议完成了面向连接的可靠字节流抽象，提供数据的分段、重传、重组，流量控制和拥塞控制，使得建立在TCP/IP协议之上的应用协议不用再关心各种硬件、网络环境，TCP/IP协议是今天的互联网的基石。&lt;/p&gt;</description>
     </item>
     

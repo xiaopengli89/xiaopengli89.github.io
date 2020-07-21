@@ -2,22 +2,22 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>kernel on Torigoth</title>
-    <link>/tags/kernel/</link>
+    <link>https://xiaopengli89.github.io/tags/kernel/</link>
     <description>Recent content in kernel on Torigoth</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright>
     <lastBuildDate>Sun, 17 May 2020 20:14:50 +0800</lastBuildDate>
     
-	<atom:link href="/tags/kernel/index.xml" rel="self" type="application/rss+xml" />
+	<atom:link href="https://xiaopengli89.github.io/tags/kernel/index.xml" rel="self" type="application/rss+xml" />
     
     
     <item>
       <title>Linux进程调度与定时器</title>
-      <link>/posts/sched-and-timer/</link>
+      <link>https://xiaopengli89.github.io/posts/sched-and-timer/</link>
       <pubDate>Sun, 17 May 2020 20:14:50 +0800</pubDate>
       
-      <guid>/posts/sched-and-timer/</guid>
+      <guid>https://xiaopengli89.github.io/posts/sched-and-timer/</guid>
       <description>&lt;p&gt;由于Linux是属于抢占式(preemptoin)多任务(multitasking)分时操作系统，因此进程的调度同定时器必然存在联系，本篇日志是记录Linux进程调度与定时器的关系。&lt;/p&gt;
 &lt;blockquote&gt;
 &lt;p&gt;Linux与Microsoft Windows等操作系统不同，并没有单独的线程机制，一组线程仅仅是共享了虚拟内存地址空间、打开的文件等资源的进程。&lt;/p&gt;
@@ -26,10 +26,10 @@
     
     <item>
       <title>DMA(直接内存访问)和零拷贝</title>
-      <link>/posts/dma/</link>
+      <link>https://xiaopengli89.github.io/posts/dma/</link>
       <pubDate>Sat, 16 May 2020 18:02:00 +0800</pubDate>
       
-      <guid>/posts/dma/</guid>
+      <guid>https://xiaopengli89.github.io/posts/dma/</guid>
       <description>&lt;blockquote&gt;
 &lt;p&gt;许多设备都可以临时控制总线。这些设备可以执行涉及主内存和其他设备的数据传送。由于设备执行这些操作的过程中无需借助于 CPU，因此该类型的数据传送称为直接内存访问 (direct memory access, DMA)。&lt;sup id=&#34;fnref:1&#34;&gt;&lt;a href=&#34;#fn:1&#34; class=&#34;footnote-ref&#34; role=&#34;doc-noteref&#34;&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 &lt;/blockquote&gt;

@@ -2,23 +2,23 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>race on Torigoth</title>
-    <link>/tags/race/</link>
+    <link>https://xiaopengli89.github.io/tags/race/</link>
     <description>Recent content in race on Torigoth</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright>
     <lastBuildDate>Sun, 24 May 2020 14:50:06 +0800</lastBuildDate>
     
-	<atom:link href="/tags/race/index.xml" rel="self" type="application/rss+xml" />
+	<atom:link href="https://xiaopengli89.github.io/tags/race/index.xml" rel="self" type="application/rss+xml" />
     
     
     <item>
       <title>关于Go Mysql Driver引入QueryContext带来的数据竞争</title>
-      <link>/posts/go-mysql-driver-race/</link>
+      <link>https://xiaopengli89.github.io/posts/go-mysql-driver-race/</link>
       <pubDate>Sun, 24 May 2020 14:50:06 +0800</pubDate>
       
-      <guid>/posts/go-mysql-driver-race/</guid>
-      <description>&lt;p&gt;在&lt;a href=&#34;/posts/go-mysql-driver-eof/&#34;&gt;关于Go Mysql Driver的unexpected EOF错误&lt;/a&gt;里提到了连接池，当连接&lt;strong&gt;使用完毕&lt;/strong&gt;后会放回连接池以便其他的操作可以复用这条连接。这里的&lt;strong&gt;使用完毕&lt;/strong&gt;有非常明确的定义：发送缓冲区中不再有未发送的指令，接收缓冲区不再有未接收的数据，下次能读取的数据必须是下一次发送的指令的响应。&lt;/p&gt;
+      <guid>https://xiaopengli89.github.io/posts/go-mysql-driver-race/</guid>
+      <description>&lt;p&gt;在&lt;a href=&#34;https://xiaopengli89.github.io/posts/go-mysql-driver-eof/&#34;&gt;关于Go Mysql Driver的unexpected EOF错误&lt;/a&gt;里提到了连接池，当连接&lt;strong&gt;使用完毕&lt;/strong&gt;后会放回连接池以便其他的操作可以复用这条连接。这里的&lt;strong&gt;使用完毕&lt;/strong&gt;有非常明确的定义：发送缓冲区中不再有未发送的指令，接收缓冲区不再有未接收的数据，下次能读取的数据必须是下一次发送的指令的响应。&lt;/p&gt;
 &lt;p&gt;通常情况下的SQL操作如下：&lt;/p&gt;
 &lt;pre&gt;&lt;code class=&#34;language-go&#34;&gt;rows, err := db.Query(&amp;quot;SELECT a, b FROM some_table&amp;quot;)
 if err != nil {

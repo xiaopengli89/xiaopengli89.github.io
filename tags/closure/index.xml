@@ -2,22 +2,22 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>closure on Torigoth</title>
-    <link>/tags/closure/</link>
+    <link>https://xiaopengli89.github.io/tags/closure/</link>
     <description>Recent content in closure on Torigoth</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright>
     <lastBuildDate>Tue, 23 Jun 2020 22:59:21 +0800</lastBuildDate>
     
-	<atom:link href="/tags/closure/index.xml" rel="self" type="application/rss+xml" />
+	<atom:link href="https://xiaopengli89.github.io/tags/closure/index.xml" rel="self" type="application/rss+xml" />
     
     
     <item>
       <title>Rust闭包</title>
-      <link>/posts/rust-closure/</link>
+      <link>https://xiaopengli89.github.io/posts/rust-closure/</link>
       <pubDate>Tue, 23 Jun 2020 22:59:21 +0800</pubDate>
       
-      <guid>/posts/rust-closure/</guid>
+      <guid>https://xiaopengli89.github.io/posts/rust-closure/</guid>
       <description>&lt;h3 id=&#34;闭包closure的实现原理&#34;&gt;闭包(Closure)的实现原理&lt;/h3&gt;
 &lt;p&gt;闭包在调用形式上和函数非常相似：&lt;/p&gt;
 &lt;ol&gt;

@@ -2,22 +2,22 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>namespace on Torigoth</title>
-    <link>/tags/namespace/</link>
+    <link>https://xiaopengli89.github.io/tags/namespace/</link>
     <description>Recent content in namespace on Torigoth</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright>
     <lastBuildDate>Mon, 20 Jul 2020 19:42:00 +0800</lastBuildDate>
     
-	<atom:link href="/tags/namespace/index.xml" rel="self" type="application/rss+xml" />
+	<atom:link href="https://xiaopengli89.github.io/tags/namespace/index.xml" rel="self" type="application/rss+xml" />
     
     
     <item>
       <title>OCI容器运行时实现（二）</title>
-      <link>/posts/oci-ns-network/</link>
+      <link>https://xiaopengli89.github.io/posts/oci-ns-network/</link>
       <pubDate>Mon, 20 Jul 2020 19:42:00 +0800</pubDate>
       
-      <guid>/posts/oci-ns-network/</guid>
+      <guid>https://xiaopengli89.github.io/posts/oci-ns-network/</guid>
       <description>&lt;p&gt;本篇文章在之前基础上实现容器的网络互通。&lt;/p&gt;
 &lt;p&gt;实现思路：&lt;/p&gt;
 &lt;ol&gt;
@@ -33,10 +33,10 @@
     
     <item>
       <title>OCI容器运行时实现（一）</title>
-      <link>/posts/oci-ns-pid-mount-net/</link>
+      <link>https://xiaopengli89.github.io/posts/oci-ns-pid-mount-net/</link>
       <pubDate>Sat, 18 Jul 2020 22:15:35 +0800</pubDate>
       
-      <guid>/posts/oci-ns-pid-mount-net/</guid>
+      <guid>https://xiaopengli89.github.io/posts/oci-ns-pid-mount-net/</guid>
       <description>&lt;p&gt;一个OCI容器运行时有3个组成部分：&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;a href=&#34;https://man7.org/linux/man-pages/man7/namespaces.7.html&#34;&gt;NAMESPACES&lt;/a&gt; - 实现资源的隔离&lt;/li&gt;

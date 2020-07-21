@@ -2,22 +2,22 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>timer on Torigoth</title>
-    <link>/tags/timer/</link>
+    <link>https://xiaopengli89.github.io/tags/timer/</link>
     <description>Recent content in timer on Torigoth</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright>
     <lastBuildDate>Sun, 17 May 2020 20:14:50 +0800</lastBuildDate>
     
-	<atom:link href="/tags/timer/index.xml" rel="self" type="application/rss+xml" />
+	<atom:link href="https://xiaopengli89.github.io/tags/timer/index.xml" rel="self" type="application/rss+xml" />
     
     
     <item>
       <title>Linux进程调度与定时器</title>
-      <link>/posts/sched-and-timer/</link>
+      <link>https://xiaopengli89.github.io/posts/sched-and-timer/</link>
       <pubDate>Sun, 17 May 2020 20:14:50 +0800</pubDate>
       
-      <guid>/posts/sched-and-timer/</guid>
+      <guid>https://xiaopengli89.github.io/posts/sched-and-timer/</guid>
       <description>&lt;p&gt;由于Linux是属于抢占式(preemptoin)多任务(multitasking)分时操作系统，因此进程的调度同定时器必然存在联系，本篇日志是记录Linux进程调度与定时器的关系。&lt;/p&gt;
 &lt;blockquote&gt;
 &lt;p&gt;Linux与Microsoft Windows等操作系统不同，并没有单独的线程机制，一组线程仅仅是共享了虚拟内存地址空间、打开的文件等资源的进程。&lt;/p&gt;

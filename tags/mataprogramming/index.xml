@@ -2,22 +2,22 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>mataprogramming on Torigoth</title>
-    <link>/tags/mataprogramming/</link>
+    <link>https://xiaopengli89.github.io/tags/mataprogramming/</link>
     <description>Recent content in mataprogramming on Torigoth</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright>
     <lastBuildDate>Sat, 27 Jun 2020 17:22:04 +0800</lastBuildDate>
     
-	<atom:link href="/tags/mataprogramming/index.xml" rel="self" type="application/rss+xml" />
+	<atom:link href="https://xiaopengli89.github.io/tags/mataprogramming/index.xml" rel="self" type="application/rss+xml" />
     
     
     <item>
       <title>Rust过程宏（一）</title>
-      <link>/posts/rust-procedural-macro-1/</link>
+      <link>https://xiaopengli89.github.io/posts/rust-procedural-macro-1/</link>
       <pubDate>Sat, 27 Jun 2020 17:22:04 +0800</pubDate>
       
-      <guid>/posts/rust-procedural-macro-1/</guid>
+      <guid>https://xiaopengli89.github.io/posts/rust-procedural-macro-1/</guid>
       <description>&lt;h3 id=&#34;rust宏&#34;&gt;Rust宏&lt;/h3&gt;
 &lt;p&gt;宏属于元编程，用于生成代码，减少重复代码的编写，同时不同于运行时反射，宏会在编译时被展开，没有运行时开销。在Rust中，宏大体分为2类：声明宏和过程宏。&lt;/p&gt;
 &lt;p&gt;声明宏较为简单，类似模式匹配，利用递归和替换把重复的代码片段隐藏起来，典型的实现是标准库中 &lt;code&gt;vec!&lt;/code&gt;，&lt;code&gt;println!&lt;/code&gt;。&lt;/p&gt;

@@ -2,22 +2,22 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>socket on Torigoth</title>
-    <link>/tags/socket/</link>
+    <link>https://xiaopengli89.github.io/tags/socket/</link>
     <description>Recent content in socket on Torigoth</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright>
     <lastBuildDate>Thu, 21 May 2020 21:58:01 +0800</lastBuildDate>
     
-	<atom:link href="/tags/socket/index.xml" rel="self" type="application/rss+xml" />
+	<atom:link href="https://xiaopengli89.github.io/tags/socket/index.xml" rel="self" type="application/rss+xml" />
     
     
     <item>
       <title>关于Socket应用的性能优化</title>
-      <link>/posts/socket-optimize/</link>
+      <link>https://xiaopengli89.github.io/posts/socket-optimize/</link>
       <pubDate>Thu, 21 May 2020 21:58:01 +0800</pubDate>
       
-      <guid>/posts/socket-optimize/</guid>
+      <guid>https://xiaopengli89.github.io/posts/socket-optimize/</guid>
       <description>&lt;p&gt;TCP/IP协议栈是计算机网络的基础通信架构，其中IP协议完成了跨链路的路由、寻址，TCP协议完成了面向连接的可靠字节流抽象，提供数据的分段、重传、重组，流量控制和拥塞控制，使得建立在TCP/IP协议之上的应用协议不用再关心各种硬件、网络环境，TCP/IP协议是今天的互联网的基石。&lt;/p&gt;</description>
     </item>
     
