@@ -6,8 +6,261 @@
 		<generator>Hugo -- gohugo.io</generator>
 		<language>en-us</language>
 		<copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright>
-		<lastBuildDate>Mon, 20 Jul 2020 19:42:00 +0800</lastBuildDate>
+		<lastBuildDate>Wed, 22 Jul 2020 12:58:16 +0800</lastBuildDate>
 		<atom:link href="https://xiaopengli89.github.io/posts/index.xml" rel="self" type="application/rss+xml" />
+		
+		<item>
+			<title>Rust新的内联汇编语法</title>
+			<link>https://xiaopengli89.github.io/posts/rust-asm-macro/</link>
+			<pubDate>Wed, 22 Jul 2020 12:58:16 +0800</pubDate>
+			
+			<guid>https://xiaopengli89.github.io/posts/rust-asm-macro/</guid>
+			<description>&lt;p&gt;昨天Rust新的内联汇编语法被合并进主分支 &lt;a href=&#34;https://github.com/rust-lang/rfcs/pull/2873&#34;&gt;Inline assembly #2873&lt;/a&gt; ，旧的内联汇编宏被重新命名为了 &lt;code&gt;llvm_asm!&lt;/code&gt; ,如果使用了旧的内联汇编宏的项目需要做下修改以保持兼容。&lt;/p&gt;</description>
+			<content type="html"><![CDATA[<p>昨天Rust新的内联汇编语法被合并进主分支 <a href="https://github.com/rust-lang/rfcs/pull/2873">Inline assembly #2873</a> ，旧的内联汇编宏被重新命名为了 <code>llvm_asm!</code> ,如果使用了旧的内联汇编宏的项目需要做下修改以保持兼容。</p>
+<p>旧的内联汇编语法仅仅是简单地对 <code>LLVM IR</code> 中的内联汇编做了下包装，新的语法更加友好，并且将 <code>Intel</code> 汇编语法作为默认语法取代之前的 <code>AT&amp;T</code> 汇编语法。</p>
+<h2 id="基本用法">基本用法</h2>
+<p>目前可以在最新的 <code>nightly</code> 构建版Rust中使用新的内联汇编语法，同时需要开启 <code>#![feature(asm)]</code> ，当然 <code>asm!</code> 宏只能在 <code>unsafe</code> 块中使用：</p>
+<pre><code class="language-rust">#![feature(asm)]
+
+unsafe {
+	asm!(&quot;nop&quot;);
+}
+</code></pre>
+<p>上面执行了一个空操作（<code>NOP</code>），<code>asm!</code> 宏的第一个参数是要被插入的汇编代码模版，可以像Rust中其他模版一样绑定变量，不过有稍许不同：</p>
+<pre><code class="language-rust">let a: i64 = 1;
+let b: i64;
+unsafe {
+	asm!(&quot;mov {0}, {1}&quot;, out(reg) b, in(reg) a);
+}
+dbg!(b);
+</code></pre>
+<pre><code class="language-none">[src/main.rs:9] b = 1
+</code></pre>
+<p>上面的 <code>out</code> 操作数表示输出，<code>b</code> 为目标变量, <code>reg</code> 寄存器类则是让Rust编译器自动分配一个寄存器，当寄存器的值被更新后会再读取其中的值到变量 <code>b</code> 中（也就是写到变量 <code>b</code> 所在的栈地址）。</p>
+<p>可以查看生成的汇编代码：</p>
+<pre><code class="language-nasm"># %bb.0:
+	push	rbx							# 保存寄存器rbx的值到栈上
+	sub	rsp, 320						# 分配栈空间
+	mov	qword ptr [rsp + 280], 1		# 初始化变量 a = 1
+	mov	eax, 1							# 把变量a的值写入寄存器eax
+	#APP
+	mov	rcx, rax						# 把寄存器rax的值写入寄存器rcx
+	#NO_APP
+	mov	qword ptr [rsp + 112], rcx		# 把寄存器rcx的值写入变量 b
+</code></pre>
+<p>也支持多条汇编模版指令：</p>
+<pre><code class="language-rust">let a: i64 = 1;
+let b: i64;
+unsafe {
+	asm!(
+		&quot;mov {0}, {1}&quot;,
+		&quot;add {0}, {2}&quot;,
+		out(reg) b,
+		in(reg) a,
+		const 5,
+	);
+}
+dbg!(b);
+</code></pre>
+<pre><code class="language-none">[src/main.rs:15] b = 6
+</code></pre>
+<p><code>in</code> 和 <code>out</code> 操作数也可以同时使用，记作 <code>inout</code> ，它的作用就是读取变量的值到寄存器，操作完后再写回变量中：</p>
+<pre><code class="language-rust">let a: i64 = 1;
+let mut b: i64 = 2;
+unsafe {
+	asm!(
+		&quot;add {0}, {1}&quot;,
+		&quot;add {0}, {2}&quot;,
+		inout(reg) b,
+		in(reg) a,
+		const 5,
+	);
+}
+dbg!(b);
+</code></pre>
+<pre><code class="language-none">[src/main.rs:15] b = 8
+</code></pre>
+<pre><code class="language-nasm"># %bb.0:
+	push	rbx
+	sub	rsp, 320
+	mov	qword ptr [rsp + 280], 1		
+	mov	qword ptr [rsp + 112], 2		# 初始化变量 b = 2
+	mov	rax, qword ptr [rsp + 112]		# 读取变量b的值到寄存器rax
+	mov	ecx, 1
+	#APP
+	add	rax, rcx
+	add	rax, 5
+	#NO_APP
+	mov	qword ptr [rsp + 112], rax
+</code></pre>
+<p><code>inout</code> 操作数也可以将输入和输出指定不同的变量：</p>
+<pre><code class="language-rust">let a: i64 = 1;
+let b: i64 = 2;
+let c: i64;
+unsafe {
+	asm!(
+		&quot;add {0}, {1}&quot;,
+		&quot;add {0}, {2}&quot;,
+		inout(reg) b =&gt; c,
+		in(reg) a,
+		const 5,
+	);
+}
+dbg!(b);
+dbg!(c);
+</code></pre>
+<pre><code class="language-none">[src/main.rs:16] b = 2
+[src/main.rs:17] c = 8
+</code></pre>
+<p><code>inout(reg) b =&gt; c</code> 表示输入变量 <code>b</code> 的值，输出到变量 <code>c</code> ，可以看到变量 <code>b</code> 的值还是2，而变量 <code>c</code> 的值为8。</p>
+<h2 id="延迟输出-lateout">延迟输出 <code>lateout</code></h2>
+<p>默认情况下，<code>rustc</code> 对寄存器的分配采取保守策略，即每次输出都会写回到栈上变量或分配独立的寄存器，因为用于输出的寄存器可能会被随时覆盖并得到错误的结果。但是这样会导致寄存器的过多占用，从性能优化考虑，能占用的寄存器越少越好，这样可以为更多的变量分配寄存器，而不用在寄存器和内存两端来回拷贝数据。</p>
+<p><code>lateout</code> 操作数则表示延迟输出，不用立即写回到栈上变量，也可能会和其他变量复用同一个寄存器。所以 <code>lateout</code> 只能用在所有的输入都已消费的情况下，防止还未写回的寄存器值被覆盖，或影响其他使用了同一个寄存器的其他变量，比如错误用法：</p>
+<pre><code class="language-rust">let mut a: u64 = 4;
+let b: u64 = 4;
+let c: u64 = 4;
+unsafe {
+	asm!(
+		&quot;add {0}, {1}&quot;,
+		&quot;add {0}, {2}&quot;,
+		inlateout(reg) a,
+		in(reg) b,
+		in(reg) c,
+	);
+}
+assert_eq!(a, 12);
+</code></pre>
+<p>由于变量 <code>a</code>, <code>b</code>, <code>c</code> 具有相同的值，rustc <strong>可能</strong> 会为它们分配同一个寄存器。执行完第一条指令后，变量 <code>c</code> 还没有被消费，但是寄存器已经被第一条指令覆盖了其中的值，此时变量 <code>c</code> 会直接使用寄存器内的值，不是预期的 <code>4</code> ，而是 <code>8</code>，最后也会得到错误的结果 <code>16</code>。</p>
+<p><strong>NOTE:</strong> 不过当前的编译器还是为三个变量分配了不同的寄存器，所以以上的结果依然是正确的，但不保证以后也正确。</p>
+<p>正确用法：</p>
+<pre><code class="language-rust">let mut a: u64 = 4;
+let b: u64 = 4;
+unsafe {
+	asm!(
+		&quot;add {0}, {1}&quot;,
+		&quot;add {0}, 2&quot;,
+		inlateout(reg) a,
+		in(reg) b,
+	);
+}
+assert_eq!(a, 10);
+</code></pre>
+<p><code>lateout</code> 操作数后没有其他输入了，因此这样使用是正确的。</p>
+<h2 id="手动指定寄存器">手动指定寄存器</h2>
+<p>某些指令只能操作某些/某个寄存器，比如 <code>out</code> 指令，它只能读取 <code>eax</code> 或其子寄存器。</p>
+<p>比如读取变量 <code>cmd</code> 的值到寄存器 <code>eax</code>，然后写入 <code>0x64</code> 端口：</p>
+<pre><code class="language-rust">let cmd = 0xd1;
+unsafe {
+    asm!(&quot;out 0x64, eax&quot;, in(&quot;eax&quot;) cmd);
+}
+</code></pre>
+<p>手动指定的寄存器不能使用模版绑定，同时也必须位于其他自动绑定的操作数末尾。</p>
+<p>比如 <code>mul</code> 指令接收一个寄存器的值，然后同 <code>rax</code> 寄存器的值相乘，结果高位写入 <code>rdx</code>，低位写入 <code>rax</code> ：</p>
+<pre><code class="language-rust">fn mul(a: u64, b: u64) -&gt; u128 {
+    let lo: u64;
+    let hi: u64;
+
+    unsafe {
+        asm!(
+            // The x86 mul instruction takes rax as an implicit input and writes
+            // the 128-bit result of the multiplication to rax:rdx.
+            &quot;mul {}&quot;,
+            in(reg) a,
+            inlateout(&quot;rax&quot;) b =&gt; lo,
+            lateout(&quot;rdx&quot;) hi,
+        );
+    }
+
+    ((hi as u128) &lt;&lt; 64) + lo as u128
+}
+</code></pre>
+<h2 id="忽略寄存器的值">忽略寄存器的值</h2>
+<p>某些情况下，修改了寄存器的值，但是我们不关心它的值，或者只临时存在于寄存器中，可以用 <code>_</code> 来忽略它。</p>
+<p>比如计算 <code>x</code> 乘以 <code>6</code> ：</p>
+<pre><code class="language-rust">// Multiply x by 6 using shifts and adds
+let mut x: u64 = 4;
+unsafe {
+    asm!(
+        &quot;mov {tmp}, {x}&quot;,
+        &quot;shl {tmp}, 1&quot;,
+        &quot;shl {x}, 2&quot;,
+        &quot;add {x}, {tmp}&quot;,
+        x = inout(reg) x,
+        tmp = out(reg) _,
+    );
+}
+assert_eq!(x, 4 * 6);
+</code></pre>
+<p>我们将 <code>x</code> 绑定的寄存器的值复制一份到一个临时寄存器中，然后将2个寄存器的值分别左移1位和2位，然后相加结果保存到 <code>x</code> 。这里我们不需要一个栈上变量来保存那个临时的寄存器值，因为它只需要临时存在于寄存器中。</p>
+<h2 id="符号操作数">符号操作数</h2>
+<p><code>sym</code> 操作数可以绑定一个符号，可以是一个函数或静态变量，可以实现函数调用或访问静态变量：</p>
+<pre><code class="language-rust">extern &quot;C&quot; fn foo(arg: i32) {
+    println!(&quot;arg = {}&quot;, arg);
+}
+
+fn call_foo(arg: i32) {
+    unsafe {
+        asm!(
+            &quot;call {}&quot;,
+            sym foo,
+            // 1st argument in rdi, which is caller-saved
+            inout(&quot;rdi&quot;) arg =&gt; _,
+            // All caller-saved registers must be marked as clobberred
+            out(&quot;rax&quot;) _, out(&quot;rcx&quot;) _, out(&quot;rdx&quot;) _, out(&quot;rsi&quot;) _,
+            out(&quot;r8&quot;) _, out(&quot;r9&quot;) _, out(&quot;r10&quot;) _, out(&quot;r11&quot;) _,
+            out(&quot;xmm0&quot;) _, out(&quot;xmm1&quot;) _, out(&quot;xmm2&quot;) _, out(&quot;xmm3&quot;) _,
+            out(&quot;xmm4&quot;) _, out(&quot;xmm5&quot;) _, out(&quot;xmm6&quot;) _, out(&quot;xmm7&quot;) _,
+            out(&quot;xmm8&quot;) _, out(&quot;xmm9&quot;) _, out(&quot;xmm10&quot;) _, out(&quot;xmm11&quot;) _,
+            out(&quot;xmm12&quot;) _, out(&quot;xmm13&quot;) _, out(&quot;xmm14&quot;) _, out(&quot;xmm15&quot;) _,
+        )
+    }
+}
+</code></pre>
+<p><code>extern &quot;C&quot;</code> 修饰是为了让函数 <code>foo</code> 符合 <code>C</code> 的调用约定，<code>sym foo</code> 会自动绑定 <code>foo</code> 生成的符号，不需要使用 <code>#[no_mangle]</code> 或 <code>pub</code>。</p>
+<h2 id="寄存器模版标识">寄存器模版标识</h2>
+<p><code>reg</code> 寄存器类会为变量分配完整的寄存器尺寸，比如在 <code>x86-64</code> 体系结构的 <code>rax</code>，<code>x86</code> 体系结构的 <code>eax</code>。<code>reg_abcd</code> 寄存器类可以分配16bit的 <code>ax</code>，<code>bx</code>, <code>cx</code>, <code>dx</code> 寄存器。</p>
+<p>而寄存器模版标识可以在模板中再指定子寄存器：</p>
+<pre><code class="language-rust">let mut a: u16 = 0x02;
+unsafe {
+	asm!(&quot;mov {0:h}, {0:l}&quot;, inout(reg_abcd) a);
+}
+assert_eq!(a, 0x0202);
+</code></pre>
+<p>生成的汇编代码如下：</p>
+<pre><code class="language-nasm"># %bb.0:
+	sub	rsp, 248
+	mov	word ptr [rsp + 86], 2
+	mov	ax, word ptr [rsp + 86]
+	#APP
+	mov	ah, al
+	#NO_APP
+	mov	word ptr [rsp + 86], ax
+</code></pre>
+<p>可以看到 <code>{0:h}</code> 和 <code>{0:l}</code> 分别被替换成了 <code>ah</code> 和 <code>al</code> 2个8bit寄存器。</p>
+<h2 id="附加选项">附加选项</h2>
+<p>默认情况下，<code>asm!</code> 的代码块会被编译器当作正常的 <code>FFI</code> 函数调用约定，比如会读写内存，可能产生副作用等。不过附加选项可以告诉编译器你的代码在做些什么，方便编译器进行优化。</p>
+<p><strong>NOTE:</strong> 附加选项只能作为 <code>asm!</code> 宏的最后一个参数。</p>
+<p><code>pure</code> 选项告诉编译器代码块不会产生副作用，它的结果只依赖于输入，比如你不会去读写内存，这样编译器可以优化执行的次数，如果代码块没有输出或只有 <code>_</code> 将导致编译错误。</p>
+<p><code>nomem</code> 选项告诉编译器代码块不会读写内存，这样编译器就可以缓存跨 <code>asm!</code> 代码块的寄存器中的值。</p>
+<p><code>readonly</code> 选项告诉编译器代码块不会写内存，这样编译器就可以缓存跨 <code>asm!</code> 代码块的未修改过的寄存器中的值。</p>
+<p><strong>NOTE:</strong> <code>nomem</code> 和 <code>readonly</code> 不能同时使用，并且 <code>pure</code> 必须同其一一起使用。</p>
+<p><code>preserves_flags</code> 选项告诉编译器代码块不会修改标识寄存器，这样 <code>asm!</code> 代码块结束后不需要重新计算标识寄存器的值。</p>
+<p><code>noreturn</code> 选项告诉编译器该 <code>asm!</code> 宏永不返回，如果代码中有输出将导致编译错误。</p>
+<p><code>nostack</code> 选项告诉编译器代码块不会往栈上push数据或者操作栈的 <code>red zone</code> <sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup>。</p>
+<p><code>att_syntax</code> 选项告诉编译器代码块使用 <code>AT&amp;T</code> 汇编语法。</p>
+<h2 id="参考资料">参考资料</h2>
+<ol>
+<li><a href="https://github.com/rust-lang/rfcs/blob/master/text/2873-inline-asm.md">Rust RFC2873 Inline Assembly</a></li>
+</ol>
+<section class="footnotes" role="doc-endnotes">
+<hr>
+<ol>
+<li id="fn:1" role="doc-endnote">
+<p><code>red zone</code> 指的是栈顶指针下方一段内存区域，它不会被中断、异常或信号占用，一般被叶子函数优化使用，减少两次栈顶指针操作。- <a href="https://en.wikipedia.org/wiki/Red_zone_(computing)">维基百科</a> <a href="#fnref:1" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+</ol>
+</section>]]></content>
+		</item>
 		
 		<item>
 			<title>OCI容器运行时实现（二）</title>
