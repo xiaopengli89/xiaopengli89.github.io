@@ -78,21 +78,20 @@
 			<div class="content">
 				<p>在<a href="/posts/go-mysql-driver-eof/">关于Go Mysql Driver的unexpected EOF错误</a>里提到了连接池，当连接<strong>使用完毕</strong>后会放回连接池以便其他的操作可以复用这条连接。这里的<strong>使用完毕</strong>有非常明确的定义：发送缓冲区中不再有未发送的指令，接收缓冲区不再有未接收的数据，下次能读取的数据必须是下一次发送的指令的响应。</p>
 <p>通常情况下的SQL操作如下：</p>
-<pre><code class="language-go">rows, err := db.Query(&quot;SELECT a, b FROM some_table&quot;)
-if err != nil {
-    return err
-}
-defer rows.Close()
+<div class="highlight"><pre class="chroma"><code class="language-go" data-lang="go"><span class="nx">rows</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">db</span><span class="p">.</span><span class="nf">Query</span><span class="p">(</span><span class="s">&#34;SELECT a, b FROM some_table&#34;</span><span class="p">)</span>
+<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="nx">err</span>
+<span class="p">}</span>
+<span class="k">defer</span> <span class="nx">rows</span><span class="p">.</span><span class="nf">Close</span><span class="p">()</span>
 
-for rows.Next() {
-    var a, b string
-    if err := rows.Scan(&amp;a, &amp;b); err != nil {
-        return err
-    }
-    // ...
-}
-</code></pre>
-<ol>
+<span class="k">for</span> <span class="nx">rows</span><span class="p">.</span><span class="nf">Next</span><span class="p">()</span> <span class="p">{</span>
+    <span class="kd">var</span> <span class="nx">a</span><span class="p">,</span> <span class="nx">b</span> <span class="kt">string</span>
+    <span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">rows</span><span class="p">.</span><span class="nf">Scan</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">a</span><span class="p">,</span> <span class="o">&amp;</span><span class="nx">b</span><span class="p">);</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="nx">err</span>
+    <span class="p">}</span>
+    <span class="c1">// ...
+</span><span class="c1"></span><span class="p">}</span>
+</code></pre></div><ol>
 <li><code>db.Query</code> 返回一个 <code>Rows</code> 游标对象</li>
 <li>注册一个 <code>rows.Close</code> 延迟函数用于关闭 <code>Rows</code> 对象</li>
 <li>通过 <code>rows.Next</code> 迭代器读取每一行数据</li>
@@ -106,207 +105,203 @@ for rows.Next() {
 <p>第一种情况由于读取了所有数据，满足<strong>使用完毕</strong>的条件，可以放回连接池；第二种情况，由于发生了错误，连接失效，后续会重新打开新连接，新连接自然是满足<strong>使用完毕</strong>条件的。</p>
 <p>如果在 <code>rows.Next</code> 迭代器中，中途退出（未发生错误的情况下），那接收缓冲区中还有未读取的数据，因此对应的SQL驱动需要在 <code>rows.Close</code> 方法中冲刷掉还未读取的数据，直至缓冲区中读取至EOF为止。如果 <code>rows.Close</code> 不被调用，不但接收缓冲区中有残留的数据，同时连接也不会被放回连接池，切记不可遗忘 <code>rows.Close</code> 调用。</p>
 <p>在 <a href="https://golang.org/pkg/database/sql/">database/sql</a> 引入 <code>QueryContext</code> 后，执行SQL操作时，会单独创建一个新的Goroutine用于超时取消：</p>
-<pre><code class="language-go">func (rs *Rows) initContextClose(ctx, txctx context.Context) {
-	if ctx.Done() == nil &amp;&amp; (txctx == nil || txctx.Done() == nil) {
-		return
-	}
-	if bypassRowsAwaitDone {
-		return
-	}
-	ctx, rs.cancel = context.WithCancel(ctx)
-	go rs.awaitDone(ctx, txctx)
-}
+<div class="highlight"><pre class="chroma"><code class="language-go" data-lang="go"><span class="kd">func</span> <span class="p">(</span><span class="nx">rs</span> <span class="o">*</span><span class="nx">Rows</span><span class="p">)</span> <span class="nf">initContextClose</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span> <span class="nx">txctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">)</span> <span class="p">{</span>
+	<span class="k">if</span> <span class="nx">ctx</span><span class="p">.</span><span class="nf">Done</span><span class="p">()</span> <span class="o">==</span> <span class="kc">nil</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="nx">txctx</span> <span class="o">==</span> <span class="kc">nil</span> <span class="o">||</span> <span class="nx">txctx</span><span class="p">.</span><span class="nf">Done</span><span class="p">()</span> <span class="o">==</span> <span class="kc">nil</span><span class="p">)</span> <span class="p">{</span>
+		<span class="k">return</span>
+	<span class="p">}</span>
+	<span class="k">if</span> <span class="nx">bypassRowsAwaitDone</span> <span class="p">{</span>
+		<span class="k">return</span>
+	<span class="p">}</span>
+	<span class="nx">ctx</span><span class="p">,</span> <span class="nx">rs</span><span class="p">.</span><span class="nx">cancel</span> <span class="p">=</span> <span class="nx">context</span><span class="p">.</span><span class="nf">WithCancel</span><span class="p">(</span><span class="nx">ctx</span><span class="p">)</span>
+	<span class="k">go</span> <span class="nx">rs</span><span class="p">.</span><span class="nf">awaitDone</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span> <span class="nx">txctx</span><span class="p">)</span>
+<span class="p">}</span>
 
-// awaitDone blocks until either ctx or txctx is canceled. The ctx is provided
-// from the query context and is canceled when the query Rows is closed.
-// If the query was issued in a transaction, the transaction's context
-// is also provided in txctx to ensure Rows is closed if the Tx is closed.
-func (rs *Rows) awaitDone(ctx, txctx context.Context) {
-	var txctxDone &lt;-chan struct{}
-	if txctx != nil {
-		txctxDone = txctx.Done()
-	}
-	select {
-	case &lt;-ctx.Done():
-	case &lt;-txctxDone:
-	}
-	rs.close(ctx.Err())
-}
-</code></pre>
-<p>这样在 <code>Context</code> 超时取消后，这个单独的Goroutine会马上执行 <code>rows.Close</code> ，冲刷缓冲区后把连接放回连接池，防止因业务Goroutine长期阻塞导致连接无法放回连接池。</p>
-<pre><code class="language-go">func (rs *Rows) close(err error) error {
-	rs.closemu.Lock()
-	defer rs.closemu.Unlock()
+<span class="c1">// awaitDone blocks until either ctx or txctx is canceled. The ctx is provided
+</span><span class="c1">// from the query context and is canceled when the query Rows is closed.
+</span><span class="c1">// If the query was issued in a transaction, the transaction&#39;s context
+</span><span class="c1">// is also provided in txctx to ensure Rows is closed if the Tx is closed.
+</span><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">rs</span> <span class="o">*</span><span class="nx">Rows</span><span class="p">)</span> <span class="nf">awaitDone</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span> <span class="nx">txctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">)</span> <span class="p">{</span>
+	<span class="kd">var</span> <span class="nx">txctxDone</span> <span class="o">&lt;-</span><span class="kd">chan</span> <span class="kd">struct</span><span class="p">{}</span>
+	<span class="k">if</span> <span class="nx">txctx</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nx">txctxDone</span> <span class="p">=</span> <span class="nx">txctx</span><span class="p">.</span><span class="nf">Done</span><span class="p">()</span>
+	<span class="p">}</span>
+	<span class="k">select</span> <span class="p">{</span>
+	<span class="k">case</span> <span class="o">&lt;-</span><span class="nx">ctx</span><span class="p">.</span><span class="nf">Done</span><span class="p">():</span>
+	<span class="k">case</span> <span class="o">&lt;-</span><span class="nx">txctxDone</span><span class="p">:</span>
+	<span class="p">}</span>
+	<span class="nx">rs</span><span class="p">.</span><span class="nb">close</span><span class="p">(</span><span class="nx">ctx</span><span class="p">.</span><span class="nf">Err</span><span class="p">())</span>
+<span class="p">}</span>
+</code></pre></div><p>这样在 <code>Context</code> 超时取消后，这个单独的Goroutine会马上执行 <code>rows.Close</code> ，冲刷缓冲区后把连接放回连接池，防止因业务Goroutine长期阻塞导致连接无法放回连接池。</p>
+<div class="highlight"><pre class="chroma"><code class="language-go" data-lang="go"><span class="kd">func</span> <span class="p">(</span><span class="nx">rs</span> <span class="o">*</span><span class="nx">Rows</span><span class="p">)</span> <span class="nb">close</span><span class="p">(</span><span class="nx">err</span> <span class="kt">error</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+	<span class="nx">rs</span><span class="p">.</span><span class="nx">closemu</span><span class="p">.</span><span class="nf">Lock</span><span class="p">()</span>
+	<span class="k">defer</span> <span class="nx">rs</span><span class="p">.</span><span class="nx">closemu</span><span class="p">.</span><span class="nf">Unlock</span><span class="p">()</span>
 
-	if rs.closed {
-		return nil
-	}
-	rs.closed = true
+	<span class="k">if</span> <span class="nx">rs</span><span class="p">.</span><span class="nx">closed</span> <span class="p">{</span>
+		<span class="k">return</span> <span class="kc">nil</span>
+	<span class="p">}</span>
+	<span class="nx">rs</span><span class="p">.</span><span class="nx">closed</span> <span class="p">=</span> <span class="kc">true</span>
 
-	if rs.lasterr == nil {
-		rs.lasterr = err
-	}
+	<span class="k">if</span> <span class="nx">rs</span><span class="p">.</span><span class="nx">lasterr</span> <span class="o">==</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nx">rs</span><span class="p">.</span><span class="nx">lasterr</span> <span class="p">=</span> <span class="nx">err</span>
+	<span class="p">}</span>
 
-	withLock(rs.dc, func() {
-		err = rs.rowsi.Close()
-	})
-	if fn := rowsCloseHook(); fn != nil {
-		fn(rs, &amp;err)
-	}
-	if rs.cancel != nil {
-		rs.cancel()
-	}
+	<span class="nf">withLock</span><span class="p">(</span><span class="nx">rs</span><span class="p">.</span><span class="nx">dc</span><span class="p">,</span> <span class="kd">func</span><span class="p">()</span> <span class="p">{</span>
+		<span class="nx">err</span> <span class="p">=</span> <span class="nx">rs</span><span class="p">.</span><span class="nx">rowsi</span><span class="p">.</span><span class="nf">Close</span><span class="p">()</span>
+	<span class="p">})</span>
+	<span class="k">if</span> <span class="nx">fn</span> <span class="o">:=</span> <span class="nf">rowsCloseHook</span><span class="p">();</span> <span class="nx">fn</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nf">fn</span><span class="p">(</span><span class="nx">rs</span><span class="p">,</span> <span class="o">&amp;</span><span class="nx">err</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="k">if</span> <span class="nx">rs</span><span class="p">.</span><span class="nx">cancel</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nx">rs</span><span class="p">.</span><span class="nf">cancel</span><span class="p">()</span>
+	<span class="p">}</span>
 
-	if rs.closeStmt != nil {
-		rs.closeStmt.Close()
-	}
-	rs.releaseConn(err)
-	return err
-}
-</code></pre>
-<p>但是当这个Goroutine正在冲刷缓冲区的同时，业务Goroutine正在执行 <code>rows.Scan</code> 方法，这个方法会读取缓冲区中的数据，这里就发生了2个Goroutine的数据竞争。但是和 <code>rows.Next</code> 方法却不会导致数据竞争，是因为 <code>rows.Next</code> 和 <code>rows.Close</code> 使用了互斥锁保护临界区。<code>rows.Scan</code> 并没有保护 <code>convertAssignRows</code> 方法，同时 <a href="https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc">github.com/go-sql-driver/mysql</a> 为了性能，共享了缓冲区和 <code>lastcols</code> 的内存。</p>
-<pre><code class="language-go">func (rs *Rows) close(err error) error {
-	rs.closemu.Lock()
-	defer rs.closemu.Unlock()
+	<span class="k">if</span> <span class="nx">rs</span><span class="p">.</span><span class="nx">closeStmt</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nx">rs</span><span class="p">.</span><span class="nx">closeStmt</span><span class="p">.</span><span class="nf">Close</span><span class="p">()</span>
+	<span class="p">}</span>
+	<span class="nx">rs</span><span class="p">.</span><span class="nf">releaseConn</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+	<span class="k">return</span> <span class="nx">err</span>
+<span class="p">}</span>
+</code></pre></div><p>但是当这个Goroutine正在冲刷缓冲区的同时，业务Goroutine正在执行 <code>rows.Scan</code> 方法，这个方法会读取缓冲区中的数据，这里就发生了2个Goroutine的数据竞争。但是和 <code>rows.Next</code> 方法却不会导致数据竞争，是因为 <code>rows.Next</code> 和 <code>rows.Close</code> 使用了互斥锁保护临界区。<code>rows.Scan</code> 并没有保护 <code>convertAssignRows</code> 方法，同时 <a href="https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc">github.com/go-sql-driver/mysql</a> 为了性能，共享了缓冲区和 <code>lastcols</code> 的内存。</p>
+<div class="highlight"><pre class="chroma"><code class="language-go" data-lang="go"><span class="kd">func</span> <span class="p">(</span><span class="nx">rs</span> <span class="o">*</span><span class="nx">Rows</span><span class="p">)</span> <span class="nb">close</span><span class="p">(</span><span class="nx">err</span> <span class="kt">error</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+	<span class="nx">rs</span><span class="p">.</span><span class="nx">closemu</span><span class="p">.</span><span class="nf">Lock</span><span class="p">()</span>
+	<span class="k">defer</span> <span class="nx">rs</span><span class="p">.</span><span class="nx">closemu</span><span class="p">.</span><span class="nf">Unlock</span><span class="p">()</span>
 
-	if rs.closed {
-		return nil
-	}
-	rs.closed = true
+	<span class="k">if</span> <span class="nx">rs</span><span class="p">.</span><span class="nx">closed</span> <span class="p">{</span>
+		<span class="k">return</span> <span class="kc">nil</span>
+	<span class="p">}</span>
+	<span class="nx">rs</span><span class="p">.</span><span class="nx">closed</span> <span class="p">=</span> <span class="kc">true</span>
 
-	if rs.lasterr == nil {
-		rs.lasterr = err
-	}
+	<span class="k">if</span> <span class="nx">rs</span><span class="p">.</span><span class="nx">lasterr</span> <span class="o">==</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nx">rs</span><span class="p">.</span><span class="nx">lasterr</span> <span class="p">=</span> <span class="nx">err</span>
+	<span class="p">}</span>
 
-	withLock(rs.dc, func() {
-		err = rs.rowsi.Close()
-	})
-	if fn := rowsCloseHook(); fn != nil {
-		fn(rs, &amp;err)
-	}
-	if rs.cancel != nil {
-		rs.cancel()
-	}
+	<span class="nf">withLock</span><span class="p">(</span><span class="nx">rs</span><span class="p">.</span><span class="nx">dc</span><span class="p">,</span> <span class="kd">func</span><span class="p">()</span> <span class="p">{</span>
+		<span class="nx">err</span> <span class="p">=</span> <span class="nx">rs</span><span class="p">.</span><span class="nx">rowsi</span><span class="p">.</span><span class="nf">Close</span><span class="p">()</span>
+	<span class="p">})</span>
+	<span class="k">if</span> <span class="nx">fn</span> <span class="o">:=</span> <span class="nf">rowsCloseHook</span><span class="p">();</span> <span class="nx">fn</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nf">fn</span><span class="p">(</span><span class="nx">rs</span><span class="p">,</span> <span class="o">&amp;</span><span class="nx">err</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="k">if</span> <span class="nx">rs</span><span class="p">.</span><span class="nx">cancel</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nx">rs</span><span class="p">.</span><span class="nf">cancel</span><span class="p">()</span>
+	<span class="p">}</span>
 
-	if rs.closeStmt != nil {
-		rs.closeStmt.Close()
-	}
-	rs.releaseConn(err)
-	return err
-}
+	<span class="k">if</span> <span class="nx">rs</span><span class="p">.</span><span class="nx">closeStmt</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nx">rs</span><span class="p">.</span><span class="nx">closeStmt</span><span class="p">.</span><span class="nf">Close</span><span class="p">()</span>
+	<span class="p">}</span>
+	<span class="nx">rs</span><span class="p">.</span><span class="nf">releaseConn</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+	<span class="k">return</span> <span class="nx">err</span>
+<span class="p">}</span>
 
-func (rs *Rows) Next() bool {
-	var doClose, ok bool
-	withLock(rs.closemu.RLocker(), func() {
-		doClose, ok = rs.nextLocked()
-	})
-	if doClose {
-		rs.Close()
-	}
-	return ok
-}
+<span class="kd">func</span> <span class="p">(</span><span class="nx">rs</span> <span class="o">*</span><span class="nx">Rows</span><span class="p">)</span> <span class="nf">Next</span><span class="p">()</span> <span class="kt">bool</span> <span class="p">{</span>
+	<span class="kd">var</span> <span class="nx">doClose</span><span class="p">,</span> <span class="nx">ok</span> <span class="kt">bool</span>
+	<span class="nf">withLock</span><span class="p">(</span><span class="nx">rs</span><span class="p">.</span><span class="nx">closemu</span><span class="p">.</span><span class="nf">RLocker</span><span class="p">(),</span> <span class="kd">func</span><span class="p">()</span> <span class="p">{</span>
+		<span class="nx">doClose</span><span class="p">,</span> <span class="nx">ok</span> <span class="p">=</span> <span class="nx">rs</span><span class="p">.</span><span class="nf">nextLocked</span><span class="p">()</span>
+	<span class="p">})</span>
+	<span class="k">if</span> <span class="nx">doClose</span> <span class="p">{</span>
+		<span class="nx">rs</span><span class="p">.</span><span class="nf">Close</span><span class="p">()</span>
+	<span class="p">}</span>
+	<span class="k">return</span> <span class="nx">ok</span>
+<span class="p">}</span>
 
-func (rs *Rows) Scan(dest ...interface{}) error {
-	rs.closemu.RLock()
+<span class="kd">func</span> <span class="p">(</span><span class="nx">rs</span> <span class="o">*</span><span class="nx">Rows</span><span class="p">)</span> <span class="nf">Scan</span><span class="p">(</span><span class="nx">dest</span> <span class="o">...</span><span class="kd">interface</span><span class="p">{})</span> <span class="kt">error</span> <span class="p">{</span>
+	<span class="nx">rs</span><span class="p">.</span><span class="nx">closemu</span><span class="p">.</span><span class="nf">RLock</span><span class="p">()</span>
 
-	if rs.lasterr != nil &amp;&amp; rs.lasterr != io.EOF {
-		rs.closemu.RUnlock()
-		return rs.lasterr
-	}
-	if rs.closed {
-		err := rs.lasterrOrErrLocked(errRowsClosed)
-		rs.closemu.RUnlock()
-		return err
-	}
-	rs.closemu.RUnlock()
+	<span class="k">if</span> <span class="nx">rs</span><span class="p">.</span><span class="nx">lasterr</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="o">&amp;&amp;</span> <span class="nx">rs</span><span class="p">.</span><span class="nx">lasterr</span> <span class="o">!=</span> <span class="nx">io</span><span class="p">.</span><span class="nx">EOF</span> <span class="p">{</span>
+		<span class="nx">rs</span><span class="p">.</span><span class="nx">closemu</span><span class="p">.</span><span class="nf">RUnlock</span><span class="p">()</span>
+		<span class="k">return</span> <span class="nx">rs</span><span class="p">.</span><span class="nx">lasterr</span>
+	<span class="p">}</span>
+	<span class="k">if</span> <span class="nx">rs</span><span class="p">.</span><span class="nx">closed</span> <span class="p">{</span>
+		<span class="nx">err</span> <span class="o">:=</span> <span class="nx">rs</span><span class="p">.</span><span class="nf">lasterrOrErrLocked</span><span class="p">(</span><span class="nx">errRowsClosed</span><span class="p">)</span>
+		<span class="nx">rs</span><span class="p">.</span><span class="nx">closemu</span><span class="p">.</span><span class="nf">RUnlock</span><span class="p">()</span>
+		<span class="k">return</span> <span class="nx">err</span>
+	<span class="p">}</span>
+	<span class="nx">rs</span><span class="p">.</span><span class="nx">closemu</span><span class="p">.</span><span class="nf">RUnlock</span><span class="p">()</span>
 
-	if rs.lastcols == nil {
-		return errors.New(&quot;sql: Scan called without calling Next&quot;)
-	}
-	if len(dest) != len(rs.lastcols) {
-		return fmt.Errorf(&quot;sql: expected %d destination arguments in Scan, not %d&quot;, len(rs.lastcols), len(dest))
-	}
-	for i, sv := range rs.lastcols {
-		err := convertAssignRows(dest[i], sv, rs)
-		if err != nil {
-			return fmt.Errorf(`sql: Scan error on column index %d, name %q: %v`, i, rs.rowsi.Columns()[i], err)
-		}
-	}
-	return nil
-}
-</code></pre>
-<p>为此在 <a href="https://golang.org/doc/go1.10#database/sql/driver">Go 1.10 Release Notes</a> 中专门提到，驱动勿在 <code>rows.Close</code> 方法中修改缓冲区：</p>
+	<span class="k">if</span> <span class="nx">rs</span><span class="p">.</span><span class="nx">lastcols</span> <span class="o">==</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="k">return</span> <span class="nx">errors</span><span class="p">.</span><span class="nf">New</span><span class="p">(</span><span class="s">&#34;sql: Scan called without calling Next&#34;</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nx">dest</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="nx">rs</span><span class="p">.</span><span class="nx">lastcols</span><span class="p">)</span> <span class="p">{</span>
+		<span class="k">return</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Errorf</span><span class="p">(</span><span class="s">&#34;sql: expected %d destination arguments in Scan, not %d&#34;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="nx">rs</span><span class="p">.</span><span class="nx">lastcols</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="nx">dest</span><span class="p">))</span>
+	<span class="p">}</span>
+	<span class="k">for</span> <span class="nx">i</span><span class="p">,</span> <span class="nx">sv</span> <span class="o">:=</span> <span class="k">range</span> <span class="nx">rs</span><span class="p">.</span><span class="nx">lastcols</span> <span class="p">{</span>
+		<span class="nx">err</span> <span class="o">:=</span> <span class="nf">convertAssignRows</span><span class="p">(</span><span class="nx">dest</span><span class="p">[</span><span class="nx">i</span><span class="p">],</span> <span class="nx">sv</span><span class="p">,</span> <span class="nx">rs</span><span class="p">)</span>
+		<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+			<span class="k">return</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Errorf</span><span class="p">(</span><span class="s">`sql: Scan error on column index %d, name %q: %v`</span><span class="p">,</span> <span class="nx">i</span><span class="p">,</span> <span class="nx">rs</span><span class="p">.</span><span class="nx">rowsi</span><span class="p">.</span><span class="nf">Columns</span><span class="p">()[</span><span class="nx">i</span><span class="p">],</span> <span class="nx">err</span><span class="p">)</span>
+		<span class="p">}</span>
+	<span class="p">}</span>
+	<span class="k">return</span> <span class="kc">nil</span>
+<span class="p">}</span>
+</code></pre></div><p>为此在 <a href="https://golang.org/doc/go1.10#database/sql/driver">Go 1.10 Release Notes</a> 中专门提到，驱动勿在 <code>rows.Close</code> 方法中修改缓冲区：</p>
 <blockquote>
 <p>Drivers that currently hold on to the destination buffer provided by driver.Rows.Next should ensure they no longer write to a buffer assigned to the destination array outside of that call. Drivers must be careful that underlying buffers are not modified when closing driver.Rows.</p>
 </blockquote>
 <p>为了避免在这种情况下发生数据竞争，<a href="https://github.com/go-sql-driver/mysql/pull/943">PR#943</a> 使用了双缓冲来冲刷缓冲区。</p>
-<pre><code class="language-go">// A buffer which is used for both reading and writing.
-// This is possible since communication on each connection is synchronous.
-// In other words, we can't write and read simultaneously on the same connection.
-// The buffer is similar to bufio.Reader / Writer but zero-copy-ish
-// Also highly optimized for this particular use case.
-// This buffer is backed by two byte slices in a double-buffering scheme
-type buffer struct {
-	buf     []byte // buf is a byte buffer who's length and capacity are equal.
-	nc      net.Conn
-	idx     int
-	length  int
-	timeout time.Duration
-	dbuf    [2][]byte // dbuf is an array with the two byte slices that back this buffer
-	flipcnt uint      // flipccnt is the current buffer counter for double-buffering
-}
+<div class="highlight"><pre class="chroma"><code class="language-go" data-lang="go"><span class="c1">// A buffer which is used for both reading and writing.
+</span><span class="c1">// This is possible since communication on each connection is synchronous.
+</span><span class="c1">// In other words, we can&#39;t write and read simultaneously on the same connection.
+</span><span class="c1">// The buffer is similar to bufio.Reader / Writer but zero-copy-ish
+</span><span class="c1">// Also highly optimized for this particular use case.
+</span><span class="c1">// This buffer is backed by two byte slices in a double-buffering scheme
+</span><span class="c1"></span><span class="kd">type</span> <span class="nx">buffer</span> <span class="kd">struct</span> <span class="p">{</span>
+	<span class="nx">buf</span>     <span class="p">[]</span><span class="kt">byte</span> <span class="c1">// buf is a byte buffer who&#39;s length and capacity are equal.
+</span><span class="c1"></span>	<span class="nx">nc</span>      <span class="nx">net</span><span class="p">.</span><span class="nx">Conn</span>
+	<span class="nx">idx</span>     <span class="kt">int</span>
+	<span class="nx">length</span>  <span class="kt">int</span>
+	<span class="nx">timeout</span> <span class="nx">time</span><span class="p">.</span><span class="nx">Duration</span>
+	<span class="nx">dbuf</span>    <span class="p">[</span><span class="mi">2</span><span class="p">][]</span><span class="kt">byte</span> <span class="c1">// dbuf is an array with the two byte slices that back this buffer
+</span><span class="c1"></span>	<span class="nx">flipcnt</span> <span class="kt">uint</span>      <span class="c1">// flipccnt is the current buffer counter for double-buffering
+</span><span class="c1"></span><span class="p">}</span>
 
-// flip replaces the active buffer with the background buffer
-// this is a delayed flip that simply increases the buffer counter;
-// the actual flip will be performed the next time we call `buffer.fill`
-func (b *buffer) flip() {
-	b.flipcnt += 1
-}
+<span class="c1">// flip replaces the active buffer with the background buffer
+</span><span class="c1">// this is a delayed flip that simply increases the buffer counter;
+</span><span class="c1">// the actual flip will be performed the next time we call `buffer.fill`
+</span><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">b</span> <span class="o">*</span><span class="nx">buffer</span><span class="p">)</span> <span class="nf">flip</span><span class="p">()</span> <span class="p">{</span>
+	<span class="nx">b</span><span class="p">.</span><span class="nx">flipcnt</span> <span class="o">+=</span> <span class="mi">1</span>
+<span class="p">}</span>
 
-// fill reads into the buffer until at least _need_ bytes are in it
-func (b *buffer) fill(need int) error {
-    // ...
-    // fill data into its double-buffering target: if we've called
-	// flip on this buffer, we'll be copying to the background buffer,
-	// and then filling it with network data; otherwise we'll just move
-	// the contents of the current buffer to the front before filling it
-	dest := b.dbuf[b.flipcnt&amp;1]
+<span class="c1">// fill reads into the buffer until at least _need_ bytes are in it
+</span><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">b</span> <span class="o">*</span><span class="nx">buffer</span><span class="p">)</span> <span class="nf">fill</span><span class="p">(</span><span class="nx">need</span> <span class="kt">int</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+    <span class="c1">// ...
+</span><span class="c1"></span>    <span class="c1">// fill data into its double-buffering target: if we&#39;ve called
+</span><span class="c1"></span>	<span class="c1">// flip on this buffer, we&#39;ll be copying to the background buffer,
+</span><span class="c1"></span>	<span class="c1">// and then filling it with network data; otherwise we&#39;ll just move
+</span><span class="c1"></span>	<span class="c1">// the contents of the current buffer to the front before filling it
+</span><span class="c1"></span>	<span class="nx">dest</span> <span class="o">:=</span> <span class="nx">b</span><span class="p">.</span><span class="nx">dbuf</span><span class="p">[</span><span class="nx">b</span><span class="p">.</span><span class="nx">flipcnt</span><span class="o">&amp;</span><span class="mi">1</span><span class="p">]</span>
 
-	// grow buffer if necessary to fit the whole packet.
-	if need &gt; len(dest) {
-		// Round up to the next multiple of the default size
-		dest = make([]byte, ((need/defaultBufSize)+1)*defaultBufSize)
+	<span class="c1">// grow buffer if necessary to fit the whole packet.
+</span><span class="c1"></span>	<span class="k">if</span> <span class="nx">need</span> <span class="p">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="nx">dest</span><span class="p">)</span> <span class="p">{</span>
+		<span class="c1">// Round up to the next multiple of the default size
+</span><span class="c1"></span>		<span class="nx">dest</span> <span class="p">=</span> <span class="nb">make</span><span class="p">([]</span><span class="kt">byte</span><span class="p">,</span> <span class="p">((</span><span class="nx">need</span><span class="o">/</span><span class="nx">defaultBufSize</span><span class="p">)</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">*</span><span class="nx">defaultBufSize</span><span class="p">)</span>
 
-		// if the allocated buffer is not too large, move it to backing storage
-		// to prevent extra allocations on applications that perform large reads
-		if len(dest) &lt;= maxCachedBufSize {
-			b.dbuf[b.flipcnt&amp;1] = dest
-		}
-	}
+		<span class="c1">// if the allocated buffer is not too large, move it to backing storage
+</span><span class="c1"></span>		<span class="c1">// to prevent extra allocations on applications that perform large reads
+</span><span class="c1"></span>		<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nx">dest</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="nx">maxCachedBufSize</span> <span class="p">{</span>
+			<span class="nx">b</span><span class="p">.</span><span class="nx">dbuf</span><span class="p">[</span><span class="nx">b</span><span class="p">.</span><span class="nx">flipcnt</span><span class="o">&amp;</span><span class="mi">1</span><span class="p">]</span> <span class="p">=</span> <span class="nx">dest</span>
+		<span class="p">}</span>
+	<span class="p">}</span>
 
-	// if we're filling the fg buffer, move the existing data to the start of it.
-	// if we're filling the bg buffer, copy over the data
-	if n &gt; 0 {
-		copy(dest[:n], b.buf[b.idx:])
-	}
+	<span class="c1">// if we&#39;re filling the fg buffer, move the existing data to the start of it.
+</span><span class="c1"></span>	<span class="c1">// if we&#39;re filling the bg buffer, copy over the data
+</span><span class="c1"></span>	<span class="k">if</span> <span class="nx">n</span> <span class="p">&gt;</span> <span class="mi">0</span> <span class="p">{</span>
+		<span class="nb">copy</span><span class="p">(</span><span class="nx">dest</span><span class="p">[:</span><span class="nx">n</span><span class="p">],</span> <span class="nx">b</span><span class="p">.</span><span class="nx">buf</span><span class="p">[</span><span class="nx">b</span><span class="p">.</span><span class="nx">idx</span><span class="p">:])</span>
+	<span class="p">}</span>
 
-	b.buf = dest
-    b.idx = 0
-    // ...
-}
+	<span class="nx">b</span><span class="p">.</span><span class="nx">buf</span> <span class="p">=</span> <span class="nx">dest</span>
+    <span class="nx">b</span><span class="p">.</span><span class="nx">idx</span> <span class="p">=</span> <span class="mi">0</span>
+    <span class="c1">// ...
+</span><span class="c1"></span><span class="p">}</span>
 
-func (rows *mysqlRows) Close() (err error) {
-    // ...
-    // flip the buffer for this connection if we need to drain it.
-	// note that for a successful query (i.e. one where rows.next()
-	// has been called until it returns false), `rows.mc` will be nil
-	// by the time the user calls `(*Rows).Close`, so we won't reach this
-	// see: https://github.com/golang/go/commit/651ddbdb5056ded455f47f9c494c67b389622a47
-    mc.buf.flip()
-    // ...
-}
-</code></pre>
-<p>当调用 <code>rows.Close</code> 时，交换 <code>fg buffer</code> 和 <code>bg buffer</code> 2个缓冲区，这样在冲刷缓冲区时用到的就是 <code>bg buffer</code> ，而 <code>rows.Scan</code> 读取的是旧的 <code>fg buffer</code>，从而避免了数据竞争。</p>
+<span class="kd">func</span> <span class="p">(</span><span class="nx">rows</span> <span class="o">*</span><span class="nx">mysqlRows</span><span class="p">)</span> <span class="nf">Close</span><span class="p">()</span> <span class="p">(</span><span class="nx">err</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="c1">// ...
+</span><span class="c1"></span>    <span class="c1">// flip the buffer for this connection if we need to drain it.
+</span><span class="c1"></span>	<span class="c1">// note that for a successful query (i.e. one where rows.next()
+</span><span class="c1"></span>	<span class="c1">// has been called until it returns false), `rows.mc` will be nil
+</span><span class="c1"></span>	<span class="c1">// by the time the user calls `(*Rows).Close`, so we won&#39;t reach this
+</span><span class="c1"></span>	<span class="c1">// see: https://github.com/golang/go/commit/651ddbdb5056ded455f47f9c494c67b389622a47
+</span><span class="c1"></span>    <span class="nx">mc</span><span class="p">.</span><span class="nx">buf</span><span class="p">.</span><span class="nf">flip</span><span class="p">()</span>
+    <span class="c1">// ...
+</span><span class="c1"></span><span class="p">}</span>
+</code></pre></div><p>当调用 <code>rows.Close</code> 时，交换 <code>fg buffer</code> 和 <code>bg buffer</code> 2个缓冲区，这样在冲刷缓冲区时用到的就是 <code>bg buffer</code> ，而 <code>rows.Scan</code> 读取的是旧的 <code>fg buffer</code>，从而避免了数据竞争。</p>
 			</div>
 			<hr class="post-end">
 			<footer class="post-info">

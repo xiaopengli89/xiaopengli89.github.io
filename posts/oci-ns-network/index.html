@@ -21,7 +21,7 @@
 NOTE: 由于很多系统调用没有封装，这里将使用宿主机上的命令代替实现。">
 <meta itemprop="datePublished" content="2020-07-20T19:42:00&#43;08:00" />
 <meta itemprop="dateModified" content="2020-07-20T19:42:00&#43;08:00" />
-<meta itemprop="wordCount" content="1391">
+<meta itemprop="wordCount" content="2398">
 
 
 
@@ -118,261 +118,246 @@ NOTE: 由于很多系统调用没有封装，这里将使用宿主机上的命�
 </ol>
 <p><strong>NOTE:</strong> 由于很多系统调用没有封装，这里将使用宿主机上的命令代替实现。</p>
 <h3 id="ip参数解析">IP参数解析<a href="#ip参数解析" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
-<pre><code class="language-rust">mod network;
-
-let ip = args.next().unwrap(); // 容器ip
-</code></pre>
-<h3 id="初始化网桥">初始化网桥<a href="#初始化网桥" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
-<pre><code class="language-rust">pub type Result&lt;T&gt; = std::result::Result&lt;T, Box&lt;dyn std::error::Error + 'static&gt;&gt;;
-</code></pre>
-<pre><code class="language-rust">// 初始化网桥
-network::init_bridge()?;
-</code></pre>
-<pre><code class="language-rust">const BRIDGE_NAME: &amp;str = &quot;runc-rs&quot;;
-
-// 启动设备
-fn up_dev(dev: &amp;str) -&gt; Result&lt;()&gt; {
-    let output = Command::new(&quot;ip&quot;)
-        .args(&amp;[&quot;link&quot;, &quot;set&quot;, &quot;dev&quot;, dev, &quot;up&quot;])
-        .output()?;
-    if !output.status.success() {
-        let msg = String::from_utf8_lossy(output.stderr.as_slice()).to_string();
-        panic!(msg);
-    }
-    Ok(())
-}
-
-// 启动设备
-fn up_dev_ns(dev: &amp;str, ns_id: &amp;str) -&gt; Result&lt;()&gt; {
-    let output = Command::new(&quot;ip&quot;)
-        .args(&amp;[
-            &quot;netns&quot;, &quot;exec&quot;, ns_id, &quot;ip&quot;, &quot;link&quot;, &quot;set&quot;, &quot;dev&quot;, dev, &quot;up&quot;,
-        ])
-        .output()?;
-    if !output.status.success() {
-        let msg = String::from_utf8_lossy(output.stderr.as_slice()).to_string();
-        panic!(msg);
-    }
-    Ok(())
-}
-
-// 初始化网桥
-pub fn init_bridge() -&gt; Result&lt;()&gt; {
-    let output = Command::new(&quot;ip&quot;)
-        .args(&amp;[&quot;-j&quot;, &quot;link&quot;, &quot;show&quot;, BRIDGE_NAME])
-        .output()?;
-    if output.status.success() {
-        up_dev(BRIDGE_NAME)?;
-        return Ok(());
-    }
-    // 创建网桥接口
-    let output = Command::new(&quot;ip&quot;)
-        .args(&amp;[&quot;link&quot;, &quot;add&quot;, BRIDGE_NAME, &quot;type&quot;, &quot;bridge&quot;])
-        .output()?;
-    if !output.status.success() {
-        let msg = String::from_utf8_lossy(output.stderr.as_slice()).to_string();
-        panic!(msg);
-    }
-    up_dev(BRIDGE_NAME)?;
-    Ok(())
-}
-</code></pre>
-<h3 id="获取子进程命名空间">获取子进程命名空间<a href="#获取子进程命名空间" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">mod</span> <span class="nn">network</span><span class="p">;</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">ip</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">args</span><span class="p">.</span><span class="n">next</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span><span class="w"> </span><span class="c1">// 容器ip
+</span></code></pre></div><h3 id="初始化网桥">初始化网桥<a href="#初始化网桥" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">pub</span><span class="w"> </span><span class="k">type</span> <span class="nb">Result</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span>::<span class="n">result</span>::<span class="nb">Result</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">dyn</span><span class="w"> </span><span class="n">std</span>::<span class="n">error</span>::<span class="n">Error</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nb">&#39;static</span><span class="o">&gt;&gt;</span><span class="p">;</span><span class="w">
+</span></code></pre></div><div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// 初始化网桥
+</span><span class="c1"></span><span class="n">network</span>::<span class="n">init_bridge</span><span class="p">()</span><span class="o">?</span><span class="p">;</span><span class="w">
+</span></code></pre></div><div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">const</span><span class="w"> </span><span class="n">BRIDGE_NAME</span>: <span class="kp">&amp;</span><span class="kt">str</span> <span class="o">=</span><span class="w"> </span><span class="s">&#34;runc-rs&#34;</span><span class="p">;</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="c1">// 启动设备
+</span><span class="c1"></span><span class="k">fn</span> <span class="nf">up_dev</span><span class="p">(</span><span class="n">dev</span>: <span class="kp">&amp;</span><span class="kt">str</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nb">Result</span><span class="o">&lt;</span><span class="p">()</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">output</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Command</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;ip&#34;</span><span class="p">)</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">args</span><span class="p">(</span><span class="o">&amp;</span><span class="p">[</span><span class="s">&#34;link&#34;</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;set&#34;</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;dev&#34;</span><span class="p">,</span><span class="w"> </span><span class="n">dev</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;up&#34;</span><span class="p">])</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">output</span><span class="p">()</span><span class="o">?</span><span class="p">;</span><span class="w">
+</span><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="o">!</span><span class="n">output</span><span class="p">.</span><span class="n">status</span><span class="p">.</span><span class="n">success</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">msg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">String</span>::<span class="n">from_utf8_lossy</span><span class="p">(</span><span class="n">output</span><span class="p">.</span><span class="n">stderr</span><span class="p">.</span><span class="n">as_slice</span><span class="p">()).</span><span class="n">to_string</span><span class="p">();</span><span class="w">
+</span><span class="w">        </span><span class="n">panic</span><span class="o">!</span><span class="p">(</span><span class="n">msg</span><span class="p">);</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w">    </span><span class="nb">Ok</span><span class="p">(())</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="c1">// 启动设备
+</span><span class="c1"></span><span class="k">fn</span> <span class="nf">up_dev_ns</span><span class="p">(</span><span class="n">dev</span>: <span class="kp">&amp;</span><span class="kt">str</span><span class="p">,</span><span class="w"> </span><span class="n">ns_id</span>: <span class="kp">&amp;</span><span class="kt">str</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nb">Result</span><span class="o">&lt;</span><span class="p">()</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">output</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Command</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;ip&#34;</span><span class="p">)</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">args</span><span class="p">(</span><span class="o">&amp;</span><span class="p">[</span><span class="w">
+</span><span class="w">            </span><span class="s">&#34;netns&#34;</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;exec&#34;</span><span class="p">,</span><span class="w"> </span><span class="n">ns_id</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;ip&#34;</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;link&#34;</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;set&#34;</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;dev&#34;</span><span class="p">,</span><span class="w"> </span><span class="n">dev</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;up&#34;</span><span class="p">,</span><span class="w">
+</span><span class="w">        </span><span class="p">])</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">output</span><span class="p">()</span><span class="o">?</span><span class="p">;</span><span class="w">
+</span><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="o">!</span><span class="n">output</span><span class="p">.</span><span class="n">status</span><span class="p">.</span><span class="n">success</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">msg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">String</span>::<span class="n">from_utf8_lossy</span><span class="p">(</span><span class="n">output</span><span class="p">.</span><span class="n">stderr</span><span class="p">.</span><span class="n">as_slice</span><span class="p">()).</span><span class="n">to_string</span><span class="p">();</span><span class="w">
+</span><span class="w">        </span><span class="n">panic</span><span class="o">!</span><span class="p">(</span><span class="n">msg</span><span class="p">);</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w">    </span><span class="nb">Ok</span><span class="p">(())</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="c1">// 初始化网桥
+</span><span class="c1"></span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">init_bridge</span><span class="p">()</span><span class="w"> </span>-&gt; <span class="nb">Result</span><span class="o">&lt;</span><span class="p">()</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">output</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Command</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;ip&#34;</span><span class="p">)</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">args</span><span class="p">(</span><span class="o">&amp;</span><span class="p">[</span><span class="s">&#34;-j&#34;</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;link&#34;</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;show&#34;</span><span class="p">,</span><span class="w"> </span><span class="n">BRIDGE_NAME</span><span class="p">])</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">output</span><span class="p">()</span><span class="o">?</span><span class="p">;</span><span class="w">
+</span><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="n">output</span><span class="p">.</span><span class="n">status</span><span class="p">.</span><span class="n">success</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="n">up_dev</span><span class="p">(</span><span class="n">BRIDGE_NAME</span><span class="p">)</span><span class="o">?</span><span class="p">;</span><span class="w">
+</span><span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nb">Ok</span><span class="p">(());</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w">    </span><span class="c1">// 创建网桥接口
+</span><span class="c1"></span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">output</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Command</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;ip&#34;</span><span class="p">)</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">args</span><span class="p">(</span><span class="o">&amp;</span><span class="p">[</span><span class="s">&#34;link&#34;</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;add&#34;</span><span class="p">,</span><span class="w"> </span><span class="n">BRIDGE_NAME</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;type&#34;</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;bridge&#34;</span><span class="p">])</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">output</span><span class="p">()</span><span class="o">?</span><span class="p">;</span><span class="w">
+</span><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="o">!</span><span class="n">output</span><span class="p">.</span><span class="n">status</span><span class="p">.</span><span class="n">success</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">msg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">String</span>::<span class="n">from_utf8_lossy</span><span class="p">(</span><span class="n">output</span><span class="p">.</span><span class="n">stderr</span><span class="p">.</span><span class="n">as_slice</span><span class="p">()).</span><span class="n">to_string</span><span class="p">();</span><span class="w">
+</span><span class="w">        </span><span class="n">panic</span><span class="o">!</span><span class="p">(</span><span class="n">msg</span><span class="p">);</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w">    </span><span class="n">up_dev</span><span class="p">(</span><span class="n">BRIDGE_NAME</span><span class="p">)</span><span class="o">?</span><span class="p">;</span><span class="w">
+</span><span class="w">    </span><span class="nb">Ok</span><span class="p">(())</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><h3 id="获取子进程命名空间">获取子进程命名空间<a href="#获取子进程命名空间" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
 <p>当子进程命名空间创建后发送同步信号</p>
-<pre><code class="language-rust">// 创建管道通信
-let mut pipes: [libc::c_int; 2] = [0; 2];
-let r = libc::pipe(pipes.as_mut_ptr());
-assert_eq!(r, 0);
-let (pipe_r, pipe_w) = (pipes[0], pipes[1]);
-
-// ...
-
-// unshare新命名空间
-let r = libc::unshare(libc::CLONE_NEWNS | libc::CLONE_NEWNET);
-assert_eq!(r, 0);
-
-// 发送同步信号
-libc::close(pipe_r);
-let r = libc::write(pipe_w, [0u8].as_ptr() as *const _, 1);
-assert_eq!(r, 1);
-</code></pre>
-<p>父进程等待同步信号，并获取子进程的命名空间</p>
-<pre><code class="language-rust">// 接收同步信号
-let r = libc::read(pipe_r, [0u8].as_mut_ptr() as *mut _, 1);
-assert_eq!(r, 1);
-
-// 获取子进程网络命名空间
-let sub_net_ns = network::find_ns_net(pid)?;
-</code></pre>
-<pre><code class="language-rust">// 获取某个进程的网络命名空间
-pub fn find_ns_net(pid: libc::pid_t) -&gt; Result&lt;String&gt; {
-    let output = Command::new(&quot;lsns&quot;)
-        .args(&amp;[
-            &quot;-t&quot;,
-            &quot;net&quot;,
-            &quot;-o&quot;,
-            &quot;NS&quot;,
-            &quot;-n&quot;,
-            &quot;-p&quot;,
-            pid.to_string().as_str(),
-        ])
-        .output()?;
-    if !output.status.success() {
-        let msg = String::from_utf8_lossy(output.stderr.as_slice()).to_string();
-        panic!(msg);
-    }
-
-    let ns_id = String::from_utf8_lossy(output.stdout.as_slice())
-        .trim()
-        .to_string();
-    Ok(ns_id)
-}
-</code></pre>
-<h3 id="创建虚拟设备对">创建虚拟设备对<a href="#创建虚拟设备对" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// 创建管道通信
+</span><span class="c1"></span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">pipes</span>: <span class="p">[</span><span class="n">libc</span>::<span class="n">c_int</span><span class="p">;</span><span class="w"> </span><span class="mi">2</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="mi">2</span><span class="p">];</span><span class="w">
+</span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">libc</span>::<span class="n">pipe</span><span class="p">(</span><span class="n">pipes</span><span class="p">.</span><span class="n">as_mut_ptr</span><span class="p">());</span><span class="w">
+</span><span class="w"></span><span class="n">assert_eq</span><span class="o">!</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span><span class="w">
+</span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">pipe_r</span><span class="p">,</span><span class="w"> </span><span class="n">pipe_w</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">pipes</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="n">pipes</span><span class="p">[</span><span class="mi">1</span><span class="p">]);</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="c1">// ...
+</span><span class="c1"></span><span class="w">
+</span><span class="w"></span><span class="c1">// unshare新命名空间
+</span><span class="c1"></span><span class="kd">let</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">libc</span>::<span class="n">unshare</span><span class="p">(</span><span class="n">libc</span>::<span class="n">CLONE_NEWNS</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">libc</span>::<span class="n">CLONE_NEWNET</span><span class="p">);</span><span class="w">
+</span><span class="w"></span><span class="n">assert_eq</span><span class="o">!</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="c1">// 发送同步信号
+</span><span class="c1"></span><span class="n">libc</span>::<span class="n">close</span><span class="p">(</span><span class="n">pipe_r</span><span class="p">);</span><span class="w">
+</span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">libc</span>::<span class="n">write</span><span class="p">(</span><span class="n">pipe_w</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="k">u8</span><span class="p">].</span><span class="n">as_ptr</span><span class="p">()</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">_</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span><span class="w">
+</span><span class="w"></span><span class="n">assert_eq</span><span class="o">!</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span><span class="w">
+</span></code></pre></div><p>父进程等待同步信号，并获取子进程的命名空间</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// 接收同步信号
+</span><span class="c1"></span><span class="kd">let</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">libc</span>::<span class="n">read</span><span class="p">(</span><span class="n">pipe_r</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="k">u8</span><span class="p">].</span><span class="n">as_mut_ptr</span><span class="p">()</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">mut</span><span class="w"> </span><span class="n">_</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span><span class="w">
+</span><span class="w"></span><span class="n">assert_eq</span><span class="o">!</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="c1">// 获取子进程网络命名空间
+</span><span class="c1"></span><span class="kd">let</span><span class="w"> </span><span class="n">sub_net_ns</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">network</span>::<span class="n">find_ns_net</span><span class="p">(</span><span class="n">pid</span><span class="p">)</span><span class="o">?</span><span class="p">;</span><span class="w">
+</span></code></pre></div><div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// 获取某个进程的网络命名空间
+</span><span class="c1"></span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">find_ns_net</span><span class="p">(</span><span class="n">pid</span>: <span class="nc">libc</span>::<span class="n">pid_t</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nb">Result</span><span class="o">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">output</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Command</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;lsns&#34;</span><span class="p">)</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">args</span><span class="p">(</span><span class="o">&amp;</span><span class="p">[</span><span class="w">
+</span><span class="w">            </span><span class="s">&#34;-t&#34;</span><span class="p">,</span><span class="w">
+</span><span class="w">            </span><span class="s">&#34;net&#34;</span><span class="p">,</span><span class="w">
+</span><span class="w">            </span><span class="s">&#34;-o&#34;</span><span class="p">,</span><span class="w">
+</span><span class="w">            </span><span class="s">&#34;NS&#34;</span><span class="p">,</span><span class="w">
+</span><span class="w">            </span><span class="s">&#34;-n&#34;</span><span class="p">,</span><span class="w">
+</span><span class="w">            </span><span class="s">&#34;-p&#34;</span><span class="p">,</span><span class="w">
+</span><span class="w">            </span><span class="n">pid</span><span class="p">.</span><span class="n">to_string</span><span class="p">().</span><span class="n">as_str</span><span class="p">(),</span><span class="w">
+</span><span class="w">        </span><span class="p">])</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">output</span><span class="p">()</span><span class="o">?</span><span class="p">;</span><span class="w">
+</span><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="o">!</span><span class="n">output</span><span class="p">.</span><span class="n">status</span><span class="p">.</span><span class="n">success</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">msg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">String</span>::<span class="n">from_utf8_lossy</span><span class="p">(</span><span class="n">output</span><span class="p">.</span><span class="n">stderr</span><span class="p">.</span><span class="n">as_slice</span><span class="p">()).</span><span class="n">to_string</span><span class="p">();</span><span class="w">
+</span><span class="w">        </span><span class="n">panic</span><span class="o">!</span><span class="p">(</span><span class="n">msg</span><span class="p">);</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">ns_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">String</span>::<span class="n">from_utf8_lossy</span><span class="p">(</span><span class="n">output</span><span class="p">.</span><span class="n">stdout</span><span class="p">.</span><span class="n">as_slice</span><span class="p">())</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">trim</span><span class="p">()</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">to_string</span><span class="p">();</span><span class="w">
+</span><span class="w">    </span><span class="nb">Ok</span><span class="p">(</span><span class="n">ns_id</span><span class="p">)</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><h3 id="创建虚拟设备对">创建虚拟设备对<a href="#创建虚拟设备对" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
 <p>添加进 <code>netns</code> 是为了方便后续操作使用 <code>ip netns exec</code>。</p>
-<pre><code class="language-rust">// 添加进netns
-network::put_netns(pid, sub_net_ns.as_str())?;
-// 创建虚拟设备对
-let (veth0, veth1) = network::create_veth()?;
-
-// ...
-
-// 释放netns
-network::release_netns(sub_net_ns.as_str())?;
-</code></pre>
-<pre><code class="language-rust">// 添加进netns
-pub fn put_netns(pid: libc::pid_t, ns_id: &amp;str) -&gt; Result&lt;()&gt; {
-    let output = Command::new(&quot;ln&quot;)
-        .args(&amp;[
-            &quot;-s&quot;,
-            format!(&quot;/proc/{}/ns/net&quot;, pid).as_str(),
-            format!(&quot;/var/run/netns/{}&quot;, ns_id).as_str(),
-        ])
-        .output()?;
-    if !output.status.success() {
-        let msg = String::from_utf8_lossy(output.stderr.as_slice()).to_string();
-        panic!(msg);
-    }
-    Ok(())
-}
-
-// 释放netns
-pub fn release_netns(ns_id: &amp;str) -&gt; Result&lt;()&gt; {
-    let output = Command::new(&quot;rm&quot;)
-        .args(&amp;[format!(&quot;/var/run/netns/{}&quot;, ns_id).as_str()])
-        .output()?;
-    if !output.status.success() {
-        let msg = String::from_utf8_lossy(output.stderr.as_slice()).to_string();
-        panic!(msg);
-    }
-    Ok(())
-}
-
-// 创建虚拟设备对
-pub fn create_veth() -&gt; Result&lt;(String, String)&gt; {
-    // 生成随机虚拟设备名
-    let veth0 = rand::thread_rng()
-        .sample_iter(&amp;Alphanumeric)
-        .take(6)
-        .collect::&lt;String&gt;();
-    let veth0 = format!(&quot;{}-{}&quot;, BRIDGE_NAME, veth0.to_lowercase());
-    let veth1 = rand::thread_rng()
-        .sample_iter(&amp;Alphanumeric)
-        .take(6)
-        .collect::&lt;String&gt;();
-    let veth1 = format!(&quot;{}-{}&quot;, BRIDGE_NAME, veth1.to_lowercase());
-
-    let output = Command::new(&quot;ip&quot;)
-        .args(&amp;[
-            &quot;link&quot;,
-            &quot;add&quot;,
-            veth0.as_str(),
-            &quot;type&quot;,
-            &quot;veth&quot;,
-            &quot;peer&quot;,
-            &quot;name&quot;,
-            veth1.as_str(),
-        ])
-        .output()?;
-    if !output.status.success() {
-        let msg = String::from_utf8_lossy(output.stderr.as_slice()).to_string();
-        panic!(msg);
-    }
-    Ok((veth0, veth1))
-}
-</code></pre>
-<h3 id="虚拟设备对初始化">虚拟设备对初始化<a href="#虚拟设备对初始化" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// 添加进netns
+</span><span class="c1"></span><span class="n">network</span>::<span class="n">put_netns</span><span class="p">(</span><span class="n">pid</span><span class="p">,</span><span class="w"> </span><span class="n">sub_net_ns</span><span class="p">.</span><span class="n">as_str</span><span class="p">())</span><span class="o">?</span><span class="p">;</span><span class="w">
+</span><span class="w"></span><span class="c1">// 创建虚拟设备对
+</span><span class="c1"></span><span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">veth0</span><span class="p">,</span><span class="w"> </span><span class="n">veth1</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">network</span>::<span class="n">create_veth</span><span class="p">()</span><span class="o">?</span><span class="p">;</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="c1">// ...
+</span><span class="c1"></span><span class="w">
+</span><span class="w"></span><span class="c1">// 释放netns
+</span><span class="c1"></span><span class="n">network</span>::<span class="n">release_netns</span><span class="p">(</span><span class="n">sub_net_ns</span><span class="p">.</span><span class="n">as_str</span><span class="p">())</span><span class="o">?</span><span class="p">;</span><span class="w">
+</span></code></pre></div><div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// 添加进netns
+</span><span class="c1"></span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">put_netns</span><span class="p">(</span><span class="n">pid</span>: <span class="nc">libc</span>::<span class="n">pid_t</span><span class="p">,</span><span class="w"> </span><span class="n">ns_id</span>: <span class="kp">&amp;</span><span class="kt">str</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nb">Result</span><span class="o">&lt;</span><span class="p">()</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">output</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Command</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;ln&#34;</span><span class="p">)</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">args</span><span class="p">(</span><span class="o">&amp;</span><span class="p">[</span><span class="w">
+</span><span class="w">            </span><span class="s">&#34;-s&#34;</span><span class="p">,</span><span class="w">
+</span><span class="w">            </span><span class="n">format</span><span class="o">!</span><span class="p">(</span><span class="s">&#34;/proc/{}/ns/net&#34;</span><span class="p">,</span><span class="w"> </span><span class="n">pid</span><span class="p">).</span><span class="n">as_str</span><span class="p">(),</span><span class="w">
+</span><span class="w">            </span><span class="n">format</span><span class="o">!</span><span class="p">(</span><span class="s">&#34;/var/run/netns/{}&#34;</span><span class="p">,</span><span class="w"> </span><span class="n">ns_id</span><span class="p">).</span><span class="n">as_str</span><span class="p">(),</span><span class="w">
+</span><span class="w">        </span><span class="p">])</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">output</span><span class="p">()</span><span class="o">?</span><span class="p">;</span><span class="w">
+</span><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="o">!</span><span class="n">output</span><span class="p">.</span><span class="n">status</span><span class="p">.</span><span class="n">success</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">msg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">String</span>::<span class="n">from_utf8_lossy</span><span class="p">(</span><span class="n">output</span><span class="p">.</span><span class="n">stderr</span><span class="p">.</span><span class="n">as_slice</span><span class="p">()).</span><span class="n">to_string</span><span class="p">();</span><span class="w">
+</span><span class="w">        </span><span class="n">panic</span><span class="o">!</span><span class="p">(</span><span class="n">msg</span><span class="p">);</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w">    </span><span class="nb">Ok</span><span class="p">(())</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="c1">// 释放netns
+</span><span class="c1"></span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">release_netns</span><span class="p">(</span><span class="n">ns_id</span>: <span class="kp">&amp;</span><span class="kt">str</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nb">Result</span><span class="o">&lt;</span><span class="p">()</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">output</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Command</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;rm&#34;</span><span class="p">)</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">args</span><span class="p">(</span><span class="o">&amp;</span><span class="p">[</span><span class="n">format</span><span class="o">!</span><span class="p">(</span><span class="s">&#34;/var/run/netns/{}&#34;</span><span class="p">,</span><span class="w"> </span><span class="n">ns_id</span><span class="p">).</span><span class="n">as_str</span><span class="p">()])</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">output</span><span class="p">()</span><span class="o">?</span><span class="p">;</span><span class="w">
+</span><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="o">!</span><span class="n">output</span><span class="p">.</span><span class="n">status</span><span class="p">.</span><span class="n">success</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">msg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">String</span>::<span class="n">from_utf8_lossy</span><span class="p">(</span><span class="n">output</span><span class="p">.</span><span class="n">stderr</span><span class="p">.</span><span class="n">as_slice</span><span class="p">()).</span><span class="n">to_string</span><span class="p">();</span><span class="w">
+</span><span class="w">        </span><span class="n">panic</span><span class="o">!</span><span class="p">(</span><span class="n">msg</span><span class="p">);</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w">    </span><span class="nb">Ok</span><span class="p">(())</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="c1">// 创建虚拟设备对
+</span><span class="c1"></span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">create_veth</span><span class="p">()</span><span class="w"> </span>-&gt; <span class="nb">Result</span><span class="o">&lt;</span><span class="p">(</span><span class="nb">String</span><span class="p">,</span><span class="w"> </span><span class="nb">String</span><span class="p">)</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="c1">// 生成随机虚拟设备名
+</span><span class="c1"></span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">veth0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rand</span>::<span class="n">thread_rng</span><span class="p">()</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">sample_iter</span><span class="p">(</span><span class="o">&amp;</span><span class="n">Alphanumeric</span><span class="p">)</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">take</span><span class="p">(</span><span class="mi">6</span><span class="p">)</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">collect</span>::<span class="o">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="p">();</span><span class="w">
+</span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">veth0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">format</span><span class="o">!</span><span class="p">(</span><span class="s">&#34;{}-{}&#34;</span><span class="p">,</span><span class="w"> </span><span class="n">BRIDGE_NAME</span><span class="p">,</span><span class="w"> </span><span class="n">veth0</span><span class="p">.</span><span class="n">to_lowercase</span><span class="p">());</span><span class="w">
+</span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">veth1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rand</span>::<span class="n">thread_rng</span><span class="p">()</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">sample_iter</span><span class="p">(</span><span class="o">&amp;</span><span class="n">Alphanumeric</span><span class="p">)</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">take</span><span class="p">(</span><span class="mi">6</span><span class="p">)</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">collect</span>::<span class="o">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="p">();</span><span class="w">
+</span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">veth1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">format</span><span class="o">!</span><span class="p">(</span><span class="s">&#34;{}-{}&#34;</span><span class="p">,</span><span class="w"> </span><span class="n">BRIDGE_NAME</span><span class="p">,</span><span class="w"> </span><span class="n">veth1</span><span class="p">.</span><span class="n">to_lowercase</span><span class="p">());</span><span class="w">
+</span><span class="w">
+</span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">output</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Command</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;ip&#34;</span><span class="p">)</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">args</span><span class="p">(</span><span class="o">&amp;</span><span class="p">[</span><span class="w">
+</span><span class="w">            </span><span class="s">&#34;link&#34;</span><span class="p">,</span><span class="w">
+</span><span class="w">            </span><span class="s">&#34;add&#34;</span><span class="p">,</span><span class="w">
+</span><span class="w">            </span><span class="n">veth0</span><span class="p">.</span><span class="n">as_str</span><span class="p">(),</span><span class="w">
+</span><span class="w">            </span><span class="s">&#34;type&#34;</span><span class="p">,</span><span class="w">
+</span><span class="w">            </span><span class="s">&#34;veth&#34;</span><span class="p">,</span><span class="w">
+</span><span class="w">            </span><span class="s">&#34;peer&#34;</span><span class="p">,</span><span class="w">
+</span><span class="w">            </span><span class="s">&#34;name&#34;</span><span class="p">,</span><span class="w">
+</span><span class="w">            </span><span class="n">veth1</span><span class="p">.</span><span class="n">as_str</span><span class="p">(),</span><span class="w">
+</span><span class="w">        </span><span class="p">])</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">output</span><span class="p">()</span><span class="o">?</span><span class="p">;</span><span class="w">
+</span><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="o">!</span><span class="n">output</span><span class="p">.</span><span class="n">status</span><span class="p">.</span><span class="n">success</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">msg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">String</span>::<span class="n">from_utf8_lossy</span><span class="p">(</span><span class="n">output</span><span class="p">.</span><span class="n">stderr</span><span class="p">.</span><span class="n">as_slice</span><span class="p">()).</span><span class="n">to_string</span><span class="p">();</span><span class="w">
+</span><span class="w">        </span><span class="n">panic</span><span class="o">!</span><span class="p">(</span><span class="n">msg</span><span class="p">);</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w">    </span><span class="nb">Ok</span><span class="p">((</span><span class="n">veth0</span><span class="p">,</span><span class="w"> </span><span class="n">veth1</span><span class="p">))</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><h3 id="虚拟设备对初始化">虚拟设备对初始化<a href="#虚拟设备对初始化" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
 <p>将虚拟设备一端添加进子进程网络命名空间并配置IP，另一端连接到网桥</p>
-<pre><code class="language-rust">// 添加进子进程网络命名空间
-network::link_veth_to_ns(veth1.as_str(), sub_net_ns.as_str(), ip.as_str())?;
-// 连接网桥
-network::link_veth_to_bridge(veth0.as_str())?;
-</code></pre>
-<pre><code class="language-rust">// 将虚拟设备连接到网桥
-pub fn link_veth_to_bridge(veth: &amp;str) -&gt; Result&lt;()&gt; {
-    let output = Command::new(&quot;ip&quot;)
-        .args(&amp;[&quot;link&quot;, &quot;set&quot;, &quot;dev&quot;, veth, &quot;master&quot;, BRIDGE_NAME])
-        .output()?;
-    if !output.status.success() {
-        let msg = String::from_utf8_lossy(output.stderr.as_slice()).to_string();
-        panic!(msg);
-    }
-    up_dev(veth)?;
-    Ok(())
-}
-
-// 将虚拟设备放入命名空间
-pub fn link_veth_to_ns(veth: &amp;str, ns_id: &amp;str, ip: &amp;str) -&gt; Result&lt;()&gt; {
-    let output = Command::new(&quot;ip&quot;)
-        .args(&amp;[&quot;link&quot;, &quot;set&quot;, &quot;dev&quot;, veth, &quot;netns&quot;, ns_id])
-        .output()?;
-    if !output.status.success() {
-        let msg = String::from_utf8_lossy(output.stderr.as_slice()).to_string();
-        panic!(msg);
-    }
-    // 重命名
-    let output = Command::new(&quot;ip&quot;)
-        .args(&amp;[
-            &quot;netns&quot;, &quot;exec&quot;, ns_id, &quot;ip&quot;, &quot;link&quot;, &quot;set&quot;, &quot;dev&quot;, veth, &quot;name&quot;, &quot;eth0&quot;,
-        ])
-        .output()?;
-    if !output.status.success() {
-        let msg = String::from_utf8_lossy(output.stderr.as_slice()).to_string();
-        panic!(msg);
-    }
-    // 配置ip
-    let output = Command::new(&quot;ip&quot;)
-        .args(&amp;[
-            &quot;netns&quot;, &quot;exec&quot;, ns_id, &quot;ip&quot;, &quot;addr&quot;, &quot;add&quot;, ip, &quot;dev&quot;, &quot;eth0&quot;,
-        ])
-        .output()?;
-    if !output.status.success() {
-        let msg = String::from_utf8_lossy(output.stderr.as_slice()).to_string();
-        panic!(msg);
-    }
-    // 启动设备
-    up_dev_ns(&quot;eth0&quot;, ns_id)?;
-    up_dev_ns(&quot;lo&quot;, ns_id)?;
-    Ok(())
-}
-</code></pre>
-<h3 id="测试2个容器的网络互通">测试2个容器的网络互通<a href="#测试2个容器的网络互通" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// 添加进子进程网络命名空间
+</span><span class="c1"></span><span class="n">network</span>::<span class="n">link_veth_to_ns</span><span class="p">(</span><span class="n">veth1</span><span class="p">.</span><span class="n">as_str</span><span class="p">(),</span><span class="w"> </span><span class="n">sub_net_ns</span><span class="p">.</span><span class="n">as_str</span><span class="p">(),</span><span class="w"> </span><span class="n">ip</span><span class="p">.</span><span class="n">as_str</span><span class="p">())</span><span class="o">?</span><span class="p">;</span><span class="w">
+</span><span class="w"></span><span class="c1">// 连接网桥
+</span><span class="c1"></span><span class="n">network</span>::<span class="n">link_veth_to_bridge</span><span class="p">(</span><span class="n">veth0</span><span class="p">.</span><span class="n">as_str</span><span class="p">())</span><span class="o">?</span><span class="p">;</span><span class="w">
+</span></code></pre></div><div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// 将虚拟设备连接到网桥
+</span><span class="c1"></span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">link_veth_to_bridge</span><span class="p">(</span><span class="n">veth</span>: <span class="kp">&amp;</span><span class="kt">str</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nb">Result</span><span class="o">&lt;</span><span class="p">()</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">output</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Command</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;ip&#34;</span><span class="p">)</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">args</span><span class="p">(</span><span class="o">&amp;</span><span class="p">[</span><span class="s">&#34;link&#34;</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;set&#34;</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;dev&#34;</span><span class="p">,</span><span class="w"> </span><span class="n">veth</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;master&#34;</span><span class="p">,</span><span class="w"> </span><span class="n">BRIDGE_NAME</span><span class="p">])</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">output</span><span class="p">()</span><span class="o">?</span><span class="p">;</span><span class="w">
+</span><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="o">!</span><span class="n">output</span><span class="p">.</span><span class="n">status</span><span class="p">.</span><span class="n">success</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">msg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">String</span>::<span class="n">from_utf8_lossy</span><span class="p">(</span><span class="n">output</span><span class="p">.</span><span class="n">stderr</span><span class="p">.</span><span class="n">as_slice</span><span class="p">()).</span><span class="n">to_string</span><span class="p">();</span><span class="w">
+</span><span class="w">        </span><span class="n">panic</span><span class="o">!</span><span class="p">(</span><span class="n">msg</span><span class="p">);</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w">    </span><span class="n">up_dev</span><span class="p">(</span><span class="n">veth</span><span class="p">)</span><span class="o">?</span><span class="p">;</span><span class="w">
+</span><span class="w">    </span><span class="nb">Ok</span><span class="p">(())</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="c1">// 将虚拟设备放入命名空间
+</span><span class="c1"></span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">link_veth_to_ns</span><span class="p">(</span><span class="n">veth</span>: <span class="kp">&amp;</span><span class="kt">str</span><span class="p">,</span><span class="w"> </span><span class="n">ns_id</span>: <span class="kp">&amp;</span><span class="kt">str</span><span class="p">,</span><span class="w"> </span><span class="n">ip</span>: <span class="kp">&amp;</span><span class="kt">str</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nb">Result</span><span class="o">&lt;</span><span class="p">()</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">output</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Command</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;ip&#34;</span><span class="p">)</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">args</span><span class="p">(</span><span class="o">&amp;</span><span class="p">[</span><span class="s">&#34;link&#34;</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;set&#34;</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;dev&#34;</span><span class="p">,</span><span class="w"> </span><span class="n">veth</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;netns&#34;</span><span class="p">,</span><span class="w"> </span><span class="n">ns_id</span><span class="p">])</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">output</span><span class="p">()</span><span class="o">?</span><span class="p">;</span><span class="w">
+</span><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="o">!</span><span class="n">output</span><span class="p">.</span><span class="n">status</span><span class="p">.</span><span class="n">success</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">msg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">String</span>::<span class="n">from_utf8_lossy</span><span class="p">(</span><span class="n">output</span><span class="p">.</span><span class="n">stderr</span><span class="p">.</span><span class="n">as_slice</span><span class="p">()).</span><span class="n">to_string</span><span class="p">();</span><span class="w">
+</span><span class="w">        </span><span class="n">panic</span><span class="o">!</span><span class="p">(</span><span class="n">msg</span><span class="p">);</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w">    </span><span class="c1">// 重命名
+</span><span class="c1"></span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">output</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Command</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;ip&#34;</span><span class="p">)</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">args</span><span class="p">(</span><span class="o">&amp;</span><span class="p">[</span><span class="w">
+</span><span class="w">            </span><span class="s">&#34;netns&#34;</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;exec&#34;</span><span class="p">,</span><span class="w"> </span><span class="n">ns_id</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;ip&#34;</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;link&#34;</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;set&#34;</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;dev&#34;</span><span class="p">,</span><span class="w"> </span><span class="n">veth</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;name&#34;</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;eth0&#34;</span><span class="p">,</span><span class="w">
+</span><span class="w">        </span><span class="p">])</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">output</span><span class="p">()</span><span class="o">?</span><span class="p">;</span><span class="w">
+</span><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="o">!</span><span class="n">output</span><span class="p">.</span><span class="n">status</span><span class="p">.</span><span class="n">success</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">msg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">String</span>::<span class="n">from_utf8_lossy</span><span class="p">(</span><span class="n">output</span><span class="p">.</span><span class="n">stderr</span><span class="p">.</span><span class="n">as_slice</span><span class="p">()).</span><span class="n">to_string</span><span class="p">();</span><span class="w">
+</span><span class="w">        </span><span class="n">panic</span><span class="o">!</span><span class="p">(</span><span class="n">msg</span><span class="p">);</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w">    </span><span class="c1">// 配置ip
+</span><span class="c1"></span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">output</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Command</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;ip&#34;</span><span class="p">)</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">args</span><span class="p">(</span><span class="o">&amp;</span><span class="p">[</span><span class="w">
+</span><span class="w">            </span><span class="s">&#34;netns&#34;</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;exec&#34;</span><span class="p">,</span><span class="w"> </span><span class="n">ns_id</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;ip&#34;</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;addr&#34;</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;add&#34;</span><span class="p">,</span><span class="w"> </span><span class="n">ip</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;dev&#34;</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;eth0&#34;</span><span class="p">,</span><span class="w">
+</span><span class="w">        </span><span class="p">])</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">output</span><span class="p">()</span><span class="o">?</span><span class="p">;</span><span class="w">
+</span><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="o">!</span><span class="n">output</span><span class="p">.</span><span class="n">status</span><span class="p">.</span><span class="n">success</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">msg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">String</span>::<span class="n">from_utf8_lossy</span><span class="p">(</span><span class="n">output</span><span class="p">.</span><span class="n">stderr</span><span class="p">.</span><span class="n">as_slice</span><span class="p">()).</span><span class="n">to_string</span><span class="p">();</span><span class="w">
+</span><span class="w">        </span><span class="n">panic</span><span class="o">!</span><span class="p">(</span><span class="n">msg</span><span class="p">);</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w">    </span><span class="c1">// 启动设备
+</span><span class="c1"></span><span class="w">    </span><span class="n">up_dev_ns</span><span class="p">(</span><span class="s">&#34;eth0&#34;</span><span class="p">,</span><span class="w"> </span><span class="n">ns_id</span><span class="p">)</span><span class="o">?</span><span class="p">;</span><span class="w">
+</span><span class="w">    </span><span class="n">up_dev_ns</span><span class="p">(</span><span class="s">&#34;lo&#34;</span><span class="p">,</span><span class="w"> </span><span class="n">ns_id</span><span class="p">)</span><span class="o">?</span><span class="p">;</span><span class="w">
+</span><span class="w">    </span><span class="nb">Ok</span><span class="p">(())</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><h3 id="测试2个容器的网络互通">测试2个容器的网络互通<a href="#测试2个容器的网络互通" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
 <p><strong>NOTE:</strong> 如果宿主机上安装了 <code>docker</code>，<code>FORWARD</code> 链默认策略会被设置成 <code>DROP</code>，测试时需要将其修改为 <code>ACCEPT</code>：</p>
-<pre><code class="language-bash">$ iptables -P FORWARD ACCEPT
-</code></pre>
-<p>由于目前还未实现文件系统的联合挂载，因此需要2个独立的镜像文件系统拷贝：</p>
-<pre><code class="language-bash">$ cd workspace
+<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">$ iptables -P FORWARD ACCEPT
+</code></pre></div><p>由于目前还未实现文件系统的联合挂载，因此需要2个独立的镜像文件系统拷贝：</p>
+<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">$ <span class="nb">cd</span> workspace
 $ cp -r alpine alpine2
-</code></pre>
-<p>编译后运行2个容器</p>
-<pre><code class="language-bash">$ cargo build
-$ ./target/debug/$(program) $(workspace)/alpine 10.0.1.2/24 /bin/sh
-</code></pre>
-<p>新开一个 <code>shell</code> 会话</p>
-<pre><code class="language-bash">$ ./target/debug/$(program) $(workspace)/alpine2 10.0.1.3/24 /bin/sh
-</code></pre>
-<p>查看2个容器的网络接口</p>
-<pre><code class="language-none">/ # ip addr
+</code></pre></div><p>编译后运行2个容器</p>
+<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">$ cargo build
+$ ./target/debug/<span class="k">$(</span>program<span class="k">)</span> <span class="k">$(</span>workspace<span class="k">)</span>/alpine 10.0.1.2/24 /bin/sh
+</code></pre></div><p>新开一个 <code>shell</code> 会话</p>
+<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">$ ./target/debug/<span class="k">$(</span>program<span class="k">)</span> <span class="k">$(</span>workspace<span class="k">)</span>/alpine2 10.0.1.3/24 /bin/sh
+</code></pre></div><p>查看2个容器的网络接口</p>
+<pre><code class="language-none" data-lang="none">/ # ip addr
 1: lo: &lt;LOOPBACK,UP,LOWER_UP&gt; mtu 65536 qdisc noqueue state UNKNOWN qlen 1000
     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
     inet 127.0.0.1/8 scope host lo
@@ -386,8 +371,7 @@ $ ./target/debug/$(program) $(workspace)/alpine 10.0.1.2/24 /bin/sh
     inet6 fe80::8433:f9ff:fecf:746a/64 scope link
        valid_lft forever preferred_lft forever
 / #
-</code></pre>
-<pre><code class="language-none">/ # ip addr
+</code></pre><pre><code class="language-none" data-lang="none">/ # ip addr
 1: lo: &lt;LOOPBACK,UP,LOWER_UP&gt; mtu 65536 qdisc noqueue state UNKNOWN qlen 1000
     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
     inet 127.0.0.1/8 scope host lo
@@ -401,9 +385,8 @@ $ ./target/debug/$(program) $(workspace)/alpine 10.0.1.2/24 /bin/sh
     inet6 fe80::fc75:c9ff:fe12:df12/64 scope link
        valid_lft forever preferred_lft forever
 / #
-</code></pre>
-<p>测试2个容器网络能否互通</p>
-<pre><code class="language-none">/ # ping -c 3 10.0.1.3
+</code></pre><p>测试2个容器网络能否互通</p>
+<pre><code class="language-none" data-lang="none">/ # ping -c 3 10.0.1.3
 PING 10.0.1.3 (10.0.1.3): 56 data bytes
 64 bytes from 10.0.1.3: seq=0 ttl=64 time=0.269 ms
 64 bytes from 10.0.1.3: seq=1 ttl=64 time=0.072 ms
@@ -413,8 +396,7 @@ PING 10.0.1.3 (10.0.1.3): 56 data bytes
 3 packets transmitted, 3 packets received, 0% packet loss
 round-trip min/avg/max = 0.072/0.138/0.269 ms
 / #
-</code></pre>
-<pre><code class="language-none">/ # ping -c 3 10.0.1.2
+</code></pre><pre><code class="language-none" data-lang="none">/ # ping -c 3 10.0.1.2
 PING 10.0.1.2 (10.0.1.2): 56 data bytes
 64 bytes from 10.0.1.2: seq=0 ttl=64 time=0.089 ms
 64 bytes from 10.0.1.2: seq=1 ttl=64 time=0.107 ms
@@ -424,15 +406,14 @@ PING 10.0.1.2 (10.0.1.2): 56 data bytes
 3 packets transmitted, 3 packets received, 0% packet loss
 round-trip min/avg/max = 0.089/0.101/0.107 ms
 / #
-</code></pre>
-<p>完整代码见：<a href="https://github.com/xiaopengli89/runc-rs">runc-rs</a></p>
+</code></pre><p>完整代码见：<a href="https://github.com/xiaopengli89/runc-rs">runc-rs</a></p>
 			</div>
 			<hr class="post-end">
 			<footer class="post-info">
 				<p>
 					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-tag meta-icon"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7" y2="7"></line></svg><span class="tag"><a href="https://xiaopengli89.github.io/tags/rust">rust</a></span><span class="tag"><a href="https://xiaopengli89.github.io/tags/oci">oci</a></span><span class="tag"><a href="https://xiaopengli89.github.io/tags/container">container</a></span><span class="tag"><a href="https://xiaopengli89.github.io/tags/namespace">namespace</a></span><span class="tag"><a href="https://xiaopengli89.github.io/tags/network">network</a></span>
 				</p>
-				<p><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-file-text"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>1391 Words</p>
+				<p><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-file-text"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>2398 Words</p>
 				<p><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-calendar"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>2020-07-20 19:42 &#43;0800</p>
 			</footer>
 		</article>

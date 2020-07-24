@@ -11,7 +11,7 @@
 <meta itemprop="description" content="学习Rust的内存管理及实现一个简单的Box。">
 <meta itemprop="datePublished" content="2020-07-01T16:57:56&#43;08:00" />
 <meta itemprop="dateModified" content="2020-07-01T16:57:56&#43;08:00" />
-<meta itemprop="wordCount" content="1116">
+<meta itemprop="wordCount" content="1263">
 
 
 
@@ -81,172 +81,158 @@
 <h3 id="内存分配器">内存分配器<a href="#内存分配器" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
 <p>对于每一个程序，标准库中都会带有一个全局的内存分配器，并且内存分配器需要实现 <code>GlobalAlloc</code> 这个 <code>trait</code> ，在使用 <code>alloc</code> 和 <code>dealloc</code> 时会使用该内存分配器动态分配和释放内存。默认情况下，这个内存分配器是 <code>std::alloc::System</code> ，由具体的操作系统提供，比如 <code>Unix</code> 平台的 <code>malloc</code>，<code>Windows</code> 平台的 <code>HeapAlloc</code> 。</p>
 <p>我们也可以利用 <code>#[global_allocator]</code> 这个 <code>attribute</code> 替换默认的内存分配器。</p>
-<pre><code class="language-rust">use std::alloc::{GlobalAlloc, System, Layout};
-
-struct MyAllocator;
-
-unsafe impl GlobalAlloc for MyAllocator {
-    unsafe fn alloc(&amp;self, layout: Layout) -&gt; *mut u8 {
-        System.alloc(layout)
-    }
-
-    unsafe fn dealloc(&amp;self, ptr: *mut u8, layout: Layout) {
-        System.dealloc(ptr, layout)
-    }
-}
-
-#[global_allocator]
-static GLOBAL: MyAllocator = MyAllocator;
-</code></pre>
-<h3 id="实现-mybox-智能指针">实现 <code>MyBox</code> 智能指针<a href="#实现-mybox-智能指针" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">use</span><span class="w"> </span><span class="n">std</span>::<span class="n">alloc</span>::<span class="p">{</span><span class="n">GlobalAlloc</span><span class="p">,</span><span class="w"> </span><span class="n">System</span><span class="p">,</span><span class="w"> </span><span class="n">Layout</span><span class="p">};</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">struct</span> <span class="nc">MyAllocator</span><span class="p">;</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">unsafe</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">GlobalAlloc</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">MyAllocator</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">unsafe</span><span class="w"> </span><span class="k">fn</span> <span class="nf">alloc</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">layout</span>: <span class="nc">Layout</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="o">*</span><span class="k">mut</span><span class="w"> </span><span class="kt">u8</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="n">System</span><span class="p">.</span><span class="n">alloc</span><span class="p">(</span><span class="n">layout</span><span class="p">)</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w">    </span><span class="k">unsafe</span><span class="w"> </span><span class="k">fn</span> <span class="nf">dealloc</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">ptr</span>: <span class="o">*</span><span class="k">mut</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">layout</span>: <span class="nc">Layout</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="n">System</span><span class="p">.</span><span class="n">dealloc</span><span class="p">(</span><span class="n">ptr</span><span class="p">,</span><span class="w"> </span><span class="n">layout</span><span class="p">)</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="cp">#[global_allocator]</span><span class="w">
+</span><span class="w"></span><span class="k">static</span><span class="w"> </span><span class="n">GLOBAL</span>: <span class="nc">MyAllocator</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">MyAllocator</span><span class="p">;</span><span class="w">
+</span></code></pre></div><h3 id="实现-mybox-智能指针">实现 <code>MyBox</code> 智能指针<a href="#实现-mybox-智能指针" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
 <p>由 <code>alloc</code> 分配好内存，会返回指向该块内存的指针，因此首先 <code>MyBox</code> 内需要持有一个裸指针，来代表对该块内存的所有权。</p>
-<pre><code class="language-rust">pub struct MyBox&lt;T&gt; {
-    inner: *mut T,
-}
-</code></pre>
-<p>然后实现其构造方法，方法是先 <code>alloc</code> 内存，然后往内存地址内写入数据，比如仿标准库的 <code>Box</code> ：</p>
-<pre><code class="language-rust">impl&lt;T&gt; MyBox&lt;T&gt; {
-    pub fn new(t: T) -&gt; Self {
-        unsafe {
-            let layout = Layout::new::&lt;T&gt;();
-            let ptr = alloc(layout) as *mut T;
-            ptr.write(t);
-            Self { inner: ptr }
-        }
-    }
-}
-
-fn main() {
-	let _ = MyBox::new(1);
-}
-</code></pre>
-<p>这种方法首先需要在栈上创建一个变量 <code>T</code> ，然后再拷贝到堆上。也可以实现类似 <code>Java</code> 风格的构造方法，但是在构造方法内，必须初始化所有字段的值，否则后面使用时会 <code>UB</code>，因此我们将这种构造方式标记为 <code>unsafe</code> ：</p>
-<pre><code class="language-rust">impl&lt;T&gt; MyBox&lt;T&gt; {
-    pub unsafe fn init(f: impl FnOnce(&amp;mut T)) -&gt; Self {
-        let layout = Layout::new::&lt;T&gt;();
-        let ptr = alloc(layout) as *mut T;
-        f(&amp;mut *ptr);
-        Self { inner: ptr }
-    }
-}
-
-struct Foo {
-	name: String,
-}
-
-fn main() {
-	let _ = unsafe {
-		MyBox::&lt;Foo&gt;::init(|obj| {
-			obj.name = String::from(&quot;hello&quot;);
-		})
-	};
-}
-</code></pre>
-<p>内存分配了就需要释放，我们可以在析构方法内完成内存的释放，实现 <code>Drop</code>：</p>
-<pre><code class="language-rust">impl&lt;T&gt; Drop for MyBox&lt;T&gt; {
-    fn drop(&amp;mut self) {
-        let layout = Layout::new::&lt;T&gt;();
-        unsafe {
-            dealloc(self.inner as *mut u8, layout);
-        }
-    }
-}
-</code></pre>
-<p>为了方便地访问 <code>MyBox</code> 内的数据，利用Rust自动解引用的特性，我们可以实现 <code>Deref</code> 和 <code>DerefMut</code> 这2个 <code>trait</code> ：</p>
-<pre><code class="language-rust">use core::ops::{Deref, DerefMut};
-
-impl&lt;T&gt; Deref for MyBox&lt;T&gt; {
-    type Target = T;
-
-    fn deref(&amp;self) -&gt; &amp;Self::Target {
-        unsafe { &amp;*self.inner }
-    }
-}
-
-impl&lt;T&gt; DerefMut for MyBox&lt;T&gt; {
-    fn deref_mut(&amp;mut self) -&gt; &amp;mut Self::Target {
-        unsafe { &amp;mut *self.inner }
-    }
-}
-</code></pre>
-<p>然后便可以使用 <code>*</code> 解引用操作符实现对内部数据的访问：</p>
-<pre><code class="language-rust">fn main() {
-	let mut a = MyBox::new(1);
-	*a = 2;
-}
-</code></pre>
-<p>最后可以实现 <code>fmt::Debug</code> 和 <code>fmt::Display</code> 2个 <code>trait</code> 来打印内部的数据：</p>
-<pre><code class="language-rust">impl&lt;T: fmt::Debug&gt; fmt::Debug for MyBox&lt;T&gt; {
-    fn fmt(&amp;self, f: &amp;mut fmt::Formatter&lt;'_&gt;) -&gt; fmt::Result {
-        fmt::Debug::fmt(&amp;**self, f)
-    }
-}
-
-impl&lt;T: fmt::Display&gt; fmt::Display for MyBox&lt;T&gt; {
-    fn fmt(&amp;self, f: &amp;mut fmt::Formatter&lt;'_&gt;) -&gt; fmt::Result {
-        fmt::Display::fmt(&amp;**self, f)
-    }
-}
-
-fn main() {
-	let mut a = MyBox::new(1);
-	*a = 2;
-	println!(&quot;{}&quot;, a);
-}
-</code></pre>
-<h3 id="验证内存的回收">验证内存的回收<a href="#验证内存的回收" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">pub</span><span class="w"> </span><span class="k">struct</span> <span class="nc">MyBox</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="n">inner</span>: <span class="o">*</span><span class="k">mut</span><span class="w"> </span><span class="n">T</span><span class="p">,</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>然后实现其构造方法，方法是先 <code>alloc</code> 内存，然后往内存地址内写入数据，比如仿标准库的 <code>Box</code> ：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">impl</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="n">MyBox</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">new</span><span class="p">(</span><span class="n">t</span>: <span class="nc">T</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nc">Self</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="kd">let</span><span class="w"> </span><span class="n">layout</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Layout</span>::<span class="n">new</span>::<span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">();</span><span class="w">
+</span><span class="w">            </span><span class="kd">let</span><span class="w"> </span><span class="n">ptr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">alloc</span><span class="p">(</span><span class="n">layout</span><span class="p">)</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">mut</span><span class="w"> </span><span class="n">T</span><span class="p">;</span><span class="w">
+</span><span class="w">            </span><span class="n">ptr</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="n">t</span><span class="p">);</span><span class="w">
+</span><span class="w">            </span><span class="n">Self</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">inner</span>: <span class="nc">ptr</span><span class="w"> </span><span class="p">}</span><span class="w">
+</span><span class="w">        </span><span class="p">}</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">fn</span> <span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">	</span><span class="kd">let</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">MyBox</span>::<span class="n">new</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>这种方法首先需要在栈上创建一个变量 <code>T</code> ，然后再拷贝到堆上。也可以实现类似 <code>Java</code> 风格的构造方法，但是在构造方法内，必须初始化所有字段的值，否则后面使用时会 <code>UB</code>，因此我们将这种构造方式标记为 <code>unsafe</code> ：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">impl</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="n">MyBox</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">unsafe</span><span class="w"> </span><span class="k">fn</span> <span class="nf">init</span><span class="p">(</span><span class="n">f</span>: <span class="nc">impl</span><span class="w"> </span><span class="nb">FnOnce</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">T</span><span class="p">))</span><span class="w"> </span>-&gt; <span class="nc">Self</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">layout</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Layout</span>::<span class="n">new</span>::<span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">();</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">ptr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">alloc</span><span class="p">(</span><span class="n">layout</span><span class="p">)</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">mut</span><span class="w"> </span><span class="n">T</span><span class="p">;</span><span class="w">
+</span><span class="w">        </span><span class="n">f</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="o">*</span><span class="n">ptr</span><span class="p">);</span><span class="w">
+</span><span class="w">        </span><span class="n">Self</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">inner</span>: <span class="nc">ptr</span><span class="w"> </span><span class="p">}</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">struct</span> <span class="nc">Foo</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">	</span><span class="n">name</span>: <span class="nb">String</span><span class="p">,</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">fn</span> <span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">	</span><span class="kd">let</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">		</span><span class="n">MyBox</span>::<span class="o">&lt;</span><span class="n">Foo</span><span class="o">&gt;</span>::<span class="n">init</span><span class="p">(</span><span class="o">|</span><span class="n">obj</span><span class="o">|</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">			</span><span class="n">obj</span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">String</span>::<span class="n">from</span><span class="p">(</span><span class="s">&#34;hello&#34;</span><span class="p">);</span><span class="w">
+</span><span class="w">		</span><span class="p">})</span><span class="w">
+</span><span class="w">	</span><span class="p">};</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>内存分配了就需要释放，我们可以在析构方法内完成内存的释放，实现 <code>Drop</code>：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">impl</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="nb">Drop</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">MyBox</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">drop</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">layout</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Layout</span>::<span class="n">new</span>::<span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">();</span><span class="w">
+</span><span class="w">        </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="n">dealloc</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">inner</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">mut</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">layout</span><span class="p">);</span><span class="w">
+</span><span class="w">        </span><span class="p">}</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>为了方便地访问 <code>MyBox</code> 内的数据，利用Rust自动解引用的特性，我们可以实现 <code>Deref</code> 和 <code>DerefMut</code> 这2个 <code>trait</code> ：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">use</span><span class="w"> </span><span class="n">core</span>::<span class="n">ops</span>::<span class="p">{</span><span class="n">Deref</span><span class="p">,</span><span class="w"> </span><span class="n">DerefMut</span><span class="p">};</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="n">Deref</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">MyBox</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">type</span> <span class="nc">Target</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">T</span><span class="p">;</span><span class="w">
+</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">deref</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="kp">&amp;</span><span class="nc">Self</span>::<span class="n">Target</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">&amp;*</span><span class="bp">self</span><span class="p">.</span><span class="n">inner</span><span class="w"> </span><span class="p">}</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="n">DerefMut</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">MyBox</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">deref_mut</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Self</span>::<span class="n">Target</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="o">*</span><span class="bp">self</span><span class="p">.</span><span class="n">inner</span><span class="w"> </span><span class="p">}</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>然后便可以使用 <code>*</code> 解引用操作符实现对内部数据的访问：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">fn</span> <span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">	</span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">MyBox</span>::<span class="n">new</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span><span class="w">
+</span><span class="w">	</span><span class="o">*</span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>最后可以实现 <code>fmt::Debug</code> 和 <code>fmt::Display</code> 2个 <code>trait</code> 来打印内部的数据：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">impl</span><span class="o">&lt;</span><span class="n">T</span>: <span class="nc">fmt</span>::<span class="n">Debug</span><span class="o">&gt;</span><span class="w"> </span><span class="n">fmt</span>::<span class="n">Debug</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">MyBox</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">fmt</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">f</span>: <span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">fmt</span>::<span class="n">Formatter</span><span class="o">&lt;</span><span class="na">&#39;_</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nc">fmt</span>::<span class="nb">Result</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="n">fmt</span>::<span class="n">Debug</span>::<span class="n">fmt</span><span class="p">(</span><span class="o">&amp;**</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">f</span><span class="p">)</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="o">&lt;</span><span class="n">T</span>: <span class="nc">fmt</span>::<span class="n">Display</span><span class="o">&gt;</span><span class="w"> </span><span class="n">fmt</span>::<span class="n">Display</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">MyBox</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">fmt</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">f</span>: <span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">fmt</span>::<span class="n">Formatter</span><span class="o">&lt;</span><span class="na">&#39;_</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nc">fmt</span>::<span class="nb">Result</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="n">fmt</span>::<span class="n">Display</span>::<span class="n">fmt</span><span class="p">(</span><span class="o">&amp;**</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">f</span><span class="p">)</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">fn</span> <span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">	</span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">MyBox</span>::<span class="n">new</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span><span class="w">
+</span><span class="w">	</span><span class="o">*</span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w">
+</span><span class="w">	</span><span class="n">println</span><span class="o">!</span><span class="p">(</span><span class="s">&#34;{}&#34;</span><span class="p">,</span><span class="w"> </span><span class="n">a</span><span class="p">);</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><h3 id="验证内存的回收">验证内存的回收<a href="#验证内存的回收" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
 <p>我们可以在自定义内存分配器时，通过记录已分配的内存大小来追踪内存的分配和回收情况：</p>
-<pre><code class="language-rust">use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
-
-struct MyAllocator;
-
-static ALLOCATED: AtomicUsize = AtomicUsize::new(0);
-
-unsafe impl GlobalAlloc for MyAllocator {
-    unsafe fn alloc(&amp;self, layout: Layout) -&gt; *mut u8 {
-        let ret = System.alloc(layout);
-        if !ret.is_null() {
-            ALLOCATED.fetch_add(layout.size(), SeqCst);
-        }
-        ret
-    }
-
-    unsafe fn dealloc(&amp;self, ptr: *mut u8, layout: Layout) {
-        System.dealloc(ptr, layout);
-        ALLOCATED.fetch_sub(layout.size(), SeqCst);
-    }
-}
-
-#[global_allocator]
-static GLOBAL: MyAllocator = MyAllocator;
-</code></pre>
-<p>测试下循环创建 1_000_000 个 <code>MyBox</code> 实例：</p>
-<pre><code class="language-rust">fn main() {
-	let i in 0..1_000_000 {
-		let _ = MyBox::new(i);
-	}
-	println!(&quot;allocated bytes: {}&quot;, ALLOCATED.load(SeqCst));
-}
-</code></pre>
-<p>运行程序：</p>
-<pre><code class="language-bash">$ cargo run
-</code></pre>
-<pre><code class="language-none">allocated bytes: 285
-</code></pre>
-<p>如果我们注释掉析构方法的内存释放操作：</p>
-<pre><code class="language-rust">impl&lt;T&gt; Drop for MyBox&lt;T&gt; {
-    fn drop(&amp;mut self) {
-        //let layout = Layout::new::&lt;T&gt;();
-        //unsafe {
-        //    dealloc(self.inner as *mut u8, layout);
-        //}
-    }
-}
-</code></pre>
-<p>再次运行程序的结果：</p>
-<pre><code class="language-none">allocated bytes: 4000285
-</code></pre>
-<p>说明我们的实现确实实现了内存的动态分配和回收。</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">use</span><span class="w"> </span><span class="n">std</span>::<span class="n">sync</span>::<span class="n">atomic</span>::<span class="p">{</span><span class="n">AtomicUsize</span><span class="p">,</span><span class="w"> </span><span class="n">Ordering</span>::<span class="n">SeqCst</span><span class="p">};</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">struct</span> <span class="nc">MyAllocator</span><span class="p">;</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">static</span><span class="w"> </span><span class="n">ALLOCATED</span>: <span class="nc">AtomicUsize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">AtomicUsize</span>::<span class="n">new</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">unsafe</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">GlobalAlloc</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">MyAllocator</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">unsafe</span><span class="w"> </span><span class="k">fn</span> <span class="nf">alloc</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">layout</span>: <span class="nc">Layout</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="o">*</span><span class="k">mut</span><span class="w"> </span><span class="kt">u8</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">System</span><span class="p">.</span><span class="n">alloc</span><span class="p">(</span><span class="n">layout</span><span class="p">);</span><span class="w">
+</span><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="o">!</span><span class="n">ret</span><span class="p">.</span><span class="n">is_null</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="n">ALLOCATED</span><span class="p">.</span><span class="n">fetch_add</span><span class="p">(</span><span class="n">layout</span><span class="p">.</span><span class="n">size</span><span class="p">(),</span><span class="w"> </span><span class="n">SeqCst</span><span class="p">);</span><span class="w">
+</span><span class="w">        </span><span class="p">}</span><span class="w">
+</span><span class="w">        </span><span class="n">ret</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w">    </span><span class="k">unsafe</span><span class="w"> </span><span class="k">fn</span> <span class="nf">dealloc</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">ptr</span>: <span class="o">*</span><span class="k">mut</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">layout</span>: <span class="nc">Layout</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="n">System</span><span class="p">.</span><span class="n">dealloc</span><span class="p">(</span><span class="n">ptr</span><span class="p">,</span><span class="w"> </span><span class="n">layout</span><span class="p">);</span><span class="w">
+</span><span class="w">        </span><span class="n">ALLOCATED</span><span class="p">.</span><span class="n">fetch_sub</span><span class="p">(</span><span class="n">layout</span><span class="p">.</span><span class="n">size</span><span class="p">(),</span><span class="w"> </span><span class="n">SeqCst</span><span class="p">);</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="cp">#[global_allocator]</span><span class="w">
+</span><span class="w"></span><span class="k">static</span><span class="w"> </span><span class="n">GLOBAL</span>: <span class="nc">MyAllocator</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">MyAllocator</span><span class="p">;</span><span class="w">
+</span></code></pre></div><p>测试下循环创建 1_000_000 个 <code>MyBox</code> 实例：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">fn</span> <span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">	</span><span class="kd">let</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="mi">0</span><span class="p">..</span><span class="mi">1_000_000</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">		</span><span class="kd">let</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">MyBox</span>::<span class="n">new</span><span class="p">(</span><span class="n">i</span><span class="p">);</span><span class="w">
+</span><span class="w">	</span><span class="p">}</span><span class="w">
+</span><span class="w">	</span><span class="n">println</span><span class="o">!</span><span class="p">(</span><span class="s">&#34;allocated bytes: {}&#34;</span><span class="p">,</span><span class="w"> </span><span class="n">ALLOCATED</span><span class="p">.</span><span class="n">load</span><span class="p">(</span><span class="n">SeqCst</span><span class="p">));</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>运行程序：</p>
+<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">$ cargo run
+</code></pre></div><pre><code class="language-none" data-lang="none">allocated bytes: 285
+</code></pre><p>如果我们注释掉析构方法的内存释放操作：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">impl</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="nb">Drop</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">MyBox</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">drop</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="c1">//let layout = Layout::new::&lt;T&gt;();
+</span><span class="c1"></span><span class="w">        </span><span class="c1">//unsafe {
+</span><span class="c1"></span><span class="w">        </span><span class="c1">//    dealloc(self.inner as *mut u8, layout);
+</span><span class="c1"></span><span class="w">        </span><span class="c1">//}
+</span><span class="c1"></span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>再次运行程序的结果：</p>
+<pre><code class="language-none" data-lang="none">allocated bytes: 4000285
+</code></pre><p>说明我们的实现确实实现了内存的动态分配和回收。</p>
 			</div>
 			<hr class="post-end">
 			<footer class="post-info">
@@ -254,7 +240,7 @@ static GLOBAL: MyAllocator = MyAllocator;
 				<p>
 					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-tag meta-icon"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7" y2="7"></line></svg><span class="tag"><a href="https://xiaopengli89.github.io/tags/rust">rust</a></span><span class="tag"><a href="https://xiaopengli89.github.io/tags/heap">heap</a></span><span class="tag"><a href="https://xiaopengli89.github.io/tags/alloc">alloc</a></span><span class="tag"><a href="https://xiaopengli89.github.io/tags/memory">memory</a></span>
 				</p>
-				<p><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-file-text"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>1116 Words</p>
+				<p><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-file-text"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>1263 Words</p>
 				<p><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-calendar"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>2020-07-01 16:57 &#43;0800</p>
 			</footer>
 		</article>

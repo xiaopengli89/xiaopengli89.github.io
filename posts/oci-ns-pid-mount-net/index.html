@@ -17,7 +17,7 @@ PIVOT_ROOT - 实现独立的根文件系统
 本文将实现一个简易的 进程、根文件系统、网络 隔离的容器运行时。">
 <meta itemprop="datePublished" content="2020-07-18T22:15:35&#43;08:00" />
 <meta itemprop="dateModified" content="2020-07-18T22:15:35&#43;08:00" />
-<meta itemprop="wordCount" content="1129">
+<meta itemprop="wordCount" content="1634">
 
 
 
@@ -112,177 +112,166 @@ PIVOT_ROOT - 实现独立的根文件系统
 </ol>
 <h3 id="准备镜像文件系统">准备镜像文件系统<a href="#准备镜像文件系统" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
 <p>新建工作目录，需要注意的是，镜像文件系统的父目录挂载类型需要 <code>private</code>：</p>
-<pre><code class="language-bash">$ mkdir workspace
+<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">$ mkdir workspace
 $ mount --bind --make-private workspace workspace
-$ cd workspace
+$ <span class="nb">cd</span> workspace
 $ mkdir alpine
-</code></pre>
-<p>测试使用 <a href="http://dl-cdn.alpinelinux.org/alpine/v3.12/releases/x86_64/alpine-minirootfs-3.12.0-x86_64.tar.gz">alpine-minirootfs-3.12.0-x86_64.tar.gz</a> 镜像，下载后解压：</p>
-<pre><code class="language-bash">$ tar -C alpine -xf alpine-minirootfs-3.12.0-x86_64.tar.gz
-</code></pre>
-<h3 id="依赖">依赖<a href="#依赖" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
+</code></pre></div><p>测试使用 <a href="http://dl-cdn.alpinelinux.org/alpine/v3.12/releases/x86_64/alpine-minirootfs-3.12.0-x86_64.tar.gz">alpine-minirootfs-3.12.0-x86_64.tar.gz</a> 镜像，下载后解压：</p>
+<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">$ tar -C alpine -xf alpine-minirootfs-3.12.0-x86_64.tar.gz
+</code></pre></div><h3 id="依赖">依赖<a href="#依赖" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
 <p>添加 <a href="https://crates.io/crates/libc">libc</a> 依赖</p>
-<pre><code class="language-toml">[dependencies]
-libc = &quot;0.2.72&quot;
-</code></pre>
-<h3 id="参数解析">参数解析<a href="#参数解析" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
-<pre><code class="language-rust">use std::ffi::CString;
-use std::ptr;
-
-let mut args = std::env::args();
-
-let _ = args.next().unwrap();
-let image_fs = args.next().unwrap(); // 镜像文件系统，提前解压
-let command = args.next().unwrap(); // 要运行的容器命令
-
-// 运行容器命令的参数列表
-let mut command_args: Vec&lt;CString&gt; = args.map(|arg| CString::new(arg).unwrap()).collect();
-command_args.insert(0, CString::new(command.as_str()).unwrap());
-let mut command_args: Vec&lt;*const libc::c_char&gt; =
-	command_args.iter().map(|arg| arg.as_ptr()).collect();
-command_args.push(ptr::null());
-
-// 转换成绝对目录
-let image_fs = std::path::Path::new(&amp;image_fs).to_path_buf();
-let image_fs = if image_fs.is_relative() {
-	std::env::current_dir().unwrap().join(image_fs)
-} else {
-	image_fs
-};
-
-// 重要：image_fs的父目录挂载类型必须为private
-// 如果父目录不是挂载目录，执行sudo mount --bind --make-private $(parent) $(parent)
-
-let new_root = CString::new(image_fs.to_str().unwrap()).unwrap();
-let old_root = CString::new(image_fs.join(&quot;.old_root&quot;).to_str().unwrap()).unwrap();
-</code></pre>
-<h3 id="声明-pivot_root-系统调用">声明 <code>pivot_root</code> 系统调用<a href="#声明-pivot_root-系统调用" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
+<div class="highlight"><pre class="chroma"><code class="language-toml" data-lang="toml"><span class="p">[</span><span class="nx">dependencies</span><span class="p">]</span>
+<span class="nx">libc</span> <span class="p">=</span> <span class="s2">&#34;0.2.72&#34;</span>
+</code></pre></div><h3 id="参数解析">参数解析<a href="#参数解析" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">use</span><span class="w"> </span><span class="n">std</span>::<span class="n">ffi</span>::<span class="n">CString</span><span class="p">;</span><span class="w">
+</span><span class="w"></span><span class="k">use</span><span class="w"> </span><span class="n">std</span>::<span class="n">ptr</span><span class="p">;</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">args</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span>::<span class="n">env</span>::<span class="n">args</span><span class="p">();</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">args</span><span class="p">.</span><span class="n">next</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span><span class="w">
+</span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">image_fs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">args</span><span class="p">.</span><span class="n">next</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span><span class="w"> </span><span class="c1">// 镜像文件系统，提前解压
+</span><span class="c1"></span><span class="kd">let</span><span class="w"> </span><span class="n">command</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">args</span><span class="p">.</span><span class="n">next</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span><span class="w"> </span><span class="c1">// 要运行的容器命令
+</span><span class="c1"></span><span class="w">
+</span><span class="w"></span><span class="c1">// 运行容器命令的参数列表
+</span><span class="c1"></span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">command_args</span>: <span class="nb">Vec</span><span class="o">&lt;</span><span class="n">CString</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">args</span><span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="o">|</span><span class="n">arg</span><span class="o">|</span><span class="w"> </span><span class="n">CString</span>::<span class="n">new</span><span class="p">(</span><span class="n">arg</span><span class="p">).</span><span class="n">unwrap</span><span class="p">()).</span><span class="n">collect</span><span class="p">();</span><span class="w">
+</span><span class="w"></span><span class="n">command_args</span><span class="p">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">CString</span>::<span class="n">new</span><span class="p">(</span><span class="n">command</span><span class="p">.</span><span class="n">as_str</span><span class="p">()).</span><span class="n">unwrap</span><span class="p">());</span><span class="w">
+</span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">command_args</span>: <span class="nb">Vec</span><span class="o">&lt;*</span><span class="k">const</span><span class="w"> </span><span class="n">libc</span>::<span class="n">c_char</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w">
+</span><span class="w">	</span><span class="n">command_args</span><span class="p">.</span><span class="n">iter</span><span class="p">().</span><span class="n">map</span><span class="p">(</span><span class="o">|</span><span class="n">arg</span><span class="o">|</span><span class="w"> </span><span class="n">arg</span><span class="p">.</span><span class="n">as_ptr</span><span class="p">()).</span><span class="n">collect</span><span class="p">();</span><span class="w">
+</span><span class="w"></span><span class="n">command_args</span><span class="p">.</span><span class="n">push</span><span class="p">(</span><span class="n">ptr</span>::<span class="n">null</span><span class="p">());</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="c1">// 转换成绝对目录
+</span><span class="c1"></span><span class="kd">let</span><span class="w"> </span><span class="n">image_fs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span>::<span class="n">path</span>::<span class="n">Path</span>::<span class="n">new</span><span class="p">(</span><span class="o">&amp;</span><span class="n">image_fs</span><span class="p">).</span><span class="n">to_path_buf</span><span class="p">();</span><span class="w">
+</span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">image_fs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">image_fs</span><span class="p">.</span><span class="n">is_relative</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">	</span><span class="n">std</span>::<span class="n">env</span>::<span class="n">current_dir</span><span class="p">().</span><span class="n">unwrap</span><span class="p">().</span><span class="n">join</span><span class="p">(</span><span class="n">image_fs</span><span class="p">)</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">	</span><span class="n">image_fs</span><span class="w">
+</span><span class="w"></span><span class="p">};</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="c1">// 重要：image_fs的父目录挂载类型必须为private
+</span><span class="c1">// 如果父目录不是挂载目录，执行sudo mount --bind --make-private $(parent) $(parent)
+</span><span class="c1"></span><span class="w">
+</span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">new_root</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CString</span>::<span class="n">new</span><span class="p">(</span><span class="n">image_fs</span><span class="p">.</span><span class="n">to_str</span><span class="p">().</span><span class="n">unwrap</span><span class="p">()).</span><span class="n">unwrap</span><span class="p">();</span><span class="w">
+</span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">old_root</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CString</span>::<span class="n">new</span><span class="p">(</span><span class="n">image_fs</span><span class="p">.</span><span class="n">join</span><span class="p">(</span><span class="s">&#34;.old_root&#34;</span><span class="p">).</span><span class="n">to_str</span><span class="p">().</span><span class="n">unwrap</span><span class="p">()).</span><span class="n">unwrap</span><span class="p">();</span><span class="w">
+</span></code></pre></div><h3 id="声明-pivot_root-系统调用">声明 <code>pivot_root</code> 系统调用<a href="#声明-pivot_root-系统调用" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
 <p>由于 <a href="https://crates.io/crates/libc">libc</a> 没有封装 <code>pivot_root</code> 系统调用，可以手动声明FFI：</p>
-<pre><code class="language-rust">mod ffi {
-    extern &quot;C&quot; {
-        pub fn pivot_root(
-            new_root: *const libc::c_char,
-            put_old: *const libc::c_char,
-        ) -&gt; libc::c_int;
-    }
-}
-</code></pre>
-<h3 id="创建子进程">创建子进程<a href="#创建子进程" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
-<pre><code class="language-rust">unsafe {
-	let r = libc::unshare(libc::CLONE_NEWPID);
-	assert_eq!(r, 0);
-
-	let pid = libc::fork();
-	assert!(pid &gt;= 0);
-
-	if pid == 0 {
-		// child process
-		let r = libc::mount(
-			new_root.as_ptr(),
-			new_root.as_ptr(),
-			CString::new(&quot;&quot;).unwrap().as_ptr(),
-			libc::MS_BIND | libc::MS_REC | libc::MS_PRIVATE,
-			CString::new(&quot;&quot;).unwrap().as_ptr() as *const _,
-		);
-		assert_eq!(r, 0);
-
-		let r = libc::mkdir(old_root.as_ptr(), 0755);
-		assert_eq!(r, 0);
-
-		// ...
-
-	} else {
-		// parent process
-		let _ = libc::wait4(
-			pid,
-			ptr::null::&lt;i32&gt;() as *mut _,
-			0,
-			ptr::null::&lt;i32&gt;() as *mut _,
-		);
-
-		libc::rmdir(old_root.as_ptr());
-		libc::umount(new_root.as_ptr());
-	}
-}
-
-</code></pre>
-<p><code>new_root</code> 目录同样需要挂载成 <code>private</code>，以及在 <code>new_root</code> 目录下创建 <code>.old_root</code> 目录用于放旧的文件系统。</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">mod</span> <span class="nn">ffi</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">extern</span><span class="w"> </span><span class="s">&#34;C&#34;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">pivot_root</span><span class="p">(</span><span class="w">
+</span><span class="w">            </span><span class="n">new_root</span>: <span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">libc</span>::<span class="n">c_char</span><span class="p">,</span><span class="w">
+</span><span class="w">            </span><span class="n">put_old</span>: <span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">libc</span>::<span class="n">c_char</span><span class="p">,</span><span class="w">
+</span><span class="w">        </span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nc">libc</span>::<span class="n">c_int</span><span class="p">;</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><h3 id="创建子进程">创建子进程<a href="#创建子进程" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">	</span><span class="kd">let</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">libc</span>::<span class="n">unshare</span><span class="p">(</span><span class="n">libc</span>::<span class="n">CLONE_NEWPID</span><span class="p">);</span><span class="w">
+</span><span class="w">	</span><span class="n">assert_eq</span><span class="o">!</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span><span class="w">
+</span><span class="w">
+</span><span class="w">	</span><span class="kd">let</span><span class="w"> </span><span class="n">pid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">libc</span>::<span class="n">fork</span><span class="p">();</span><span class="w">
+</span><span class="w">	</span><span class="n">assert</span><span class="o">!</span><span class="p">(</span><span class="n">pid</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span><span class="w">
+</span><span class="w">
+</span><span class="w">	</span><span class="k">if</span><span class="w"> </span><span class="n">pid</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">		</span><span class="c1">// child process
+</span><span class="c1"></span><span class="w">		</span><span class="kd">let</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">libc</span>::<span class="n">mount</span><span class="p">(</span><span class="w">
+</span><span class="w">			</span><span class="n">new_root</span><span class="p">.</span><span class="n">as_ptr</span><span class="p">(),</span><span class="w">
+</span><span class="w">			</span><span class="n">new_root</span><span class="p">.</span><span class="n">as_ptr</span><span class="p">(),</span><span class="w">
+</span><span class="w">			</span><span class="n">CString</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;&#34;</span><span class="p">).</span><span class="n">unwrap</span><span class="p">().</span><span class="n">as_ptr</span><span class="p">(),</span><span class="w">
+</span><span class="w">			</span><span class="n">libc</span>::<span class="n">MS_BIND</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">libc</span>::<span class="n">MS_REC</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">libc</span>::<span class="n">MS_PRIVATE</span><span class="p">,</span><span class="w">
+</span><span class="w">			</span><span class="n">CString</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;&#34;</span><span class="p">).</span><span class="n">unwrap</span><span class="p">().</span><span class="n">as_ptr</span><span class="p">()</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">_</span><span class="p">,</span><span class="w">
+</span><span class="w">		</span><span class="p">);</span><span class="w">
+</span><span class="w">		</span><span class="n">assert_eq</span><span class="o">!</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span><span class="w">
+</span><span class="w">
+</span><span class="w">		</span><span class="kd">let</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">libc</span>::<span class="n">mkdir</span><span class="p">(</span><span class="n">old_root</span><span class="p">.</span><span class="n">as_ptr</span><span class="p">(),</span><span class="w"> </span><span class="mi">0755</span><span class="p">);</span><span class="w">
+</span><span class="w">		</span><span class="n">assert_eq</span><span class="o">!</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span><span class="w">
+</span><span class="w">
+</span><span class="w">		</span><span class="c1">// ...
+</span><span class="c1"></span><span class="w">
+</span><span class="w">	</span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">		</span><span class="c1">// parent process
+</span><span class="c1"></span><span class="w">		</span><span class="kd">let</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">libc</span>::<span class="n">wait4</span><span class="p">(</span><span class="w">
+</span><span class="w">			</span><span class="n">pid</span><span class="p">,</span><span class="w">
+</span><span class="w">			</span><span class="n">ptr</span>::<span class="n">null</span>::<span class="o">&lt;</span><span class="kt">i32</span><span class="o">&gt;</span><span class="p">()</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">mut</span><span class="w"> </span><span class="n">_</span><span class="p">,</span><span class="w">
+</span><span class="w">			</span><span class="mi">0</span><span class="p">,</span><span class="w">
+</span><span class="w">			</span><span class="n">ptr</span>::<span class="n">null</span>::<span class="o">&lt;</span><span class="kt">i32</span><span class="o">&gt;</span><span class="p">()</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">mut</span><span class="w"> </span><span class="n">_</span><span class="p">,</span><span class="w">
+</span><span class="w">		</span><span class="p">);</span><span class="w">
+</span><span class="w">
+</span><span class="w">		</span><span class="n">libc</span>::<span class="n">rmdir</span><span class="p">(</span><span class="n">old_root</span><span class="p">.</span><span class="n">as_ptr</span><span class="p">());</span><span class="w">
+</span><span class="w">		</span><span class="n">libc</span>::<span class="n">umount</span><span class="p">(</span><span class="n">new_root</span><span class="p">.</span><span class="n">as_ptr</span><span class="p">());</span><span class="w">
+</span><span class="w">	</span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span></code></pre></div><p><code>new_root</code> 目录同样需要挂载成 <code>private</code>，以及在 <code>new_root</code> 目录下创建 <code>.old_root</code> 目录用于放旧的文件系统。</p>
 <h3 id="切换命名空间">切换命名空间<a href="#切换命名空间" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
-<pre><code class="language-rust">// unshare新命名空间
-let r = libc::unshare(libc::CLONE_NEWNS | libc::CLONE_NEWNET);
-assert_eq!(r, 0);
-</code></pre>
-<h3 id="切换文件系统">切换文件系统<a href="#切换文件系统" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
-<pre><code class="language-rust">// 切换根文件系统
-let r = ffi::pivot_root(new_root.as_ptr(), old_root.as_ptr());
-assert_eq!(r, 0);
-
-let root_dir = CString::new(&quot;/&quot;).unwrap();
-libc::chdir(root_dir.as_ptr());
-
-// 挂载/proc
-let r = libc::mount(
-	CString::new(&quot;&quot;).unwrap().as_ptr(),
-	CString::new(&quot;/proc&quot;).unwrap().as_ptr(),
-	CString::new(&quot;proc&quot;).unwrap().as_ptr(),
-	libc::MS_NOEXEC | libc::MS_NOSUID | libc::MS_NODEV,
-	CString::new(&quot;&quot;).unwrap().as_ptr() as *const _,
-);
-assert_eq!(r, 0);
-
-// 挂载/sys
-let r = libc::mount(
-	CString::new(&quot;&quot;).unwrap().as_ptr(),
-	CString::new(&quot;/sys&quot;).unwrap().as_ptr(),
-	CString::new(&quot;sysfs&quot;).unwrap().as_ptr(),
-	libc::MS_NOEXEC | libc::MS_NOSUID | libc::MS_NODEV,
-	CString::new(&quot;&quot;).unwrap().as_ptr() as *const _,
-);
-assert_eq!(r, 0);
-
-// 挂载/dev
-let r = libc::mount(
-	CString::new(&quot;&quot;).unwrap().as_ptr(),
-	CString::new(&quot;/dev&quot;).unwrap().as_ptr(),
-	CString::new(&quot;devtmpfs&quot;).unwrap().as_ptr(),
-	libc::MS_STRICTATIME | libc::MS_NOSUID,
-	CString::new(&quot;mode=755&quot;).unwrap().as_ptr() as *const _,
-);
-assert_eq!(r, 0);
-</code></pre>
-<h3 id="卸载旧文件系统">卸载旧文件系统<a href="#卸载旧文件系统" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
-<pre><code class="language-rust">// 防止umount事件扩散到宿主环境
-let old_root_2 = CString::new(&quot;/.old_root&quot;).unwrap();
-let r = libc::mount(
-	CString::new(&quot;&quot;).unwrap().as_ptr(),
-	old_root_2.as_ptr(),
-	CString::new(&quot;&quot;).unwrap().as_ptr(),
-	libc::MS_SLAVE | libc::MS_REC,
-	CString::new(&quot;&quot;).unwrap().as_ptr() as *const _,
-);
-assert_eq!(r, 0);
-
-// umount /.old_root
-let r = libc::umount2(old_root_2.as_ptr(), libc::MNT_DETACH);
-assert_eq!(r, 0);
-
-libc::rmdir(old_root_2.as_ptr());
-</code></pre>
-<h3 id="执行容器内程序">执行容器内程序<a href="#执行容器内程序" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
-<pre><code class="language-rust">let prog = CString::new(command).unwrap();
-let _ = libc::execve(
-	prog.as_ptr(),
-	command_args.as_ptr(),
-	ptr::null::&lt;libc::c_char&gt;() as *const _,
-);
-unreachable!();
-</code></pre>
-<h3 id="编译运行">编译运行<a href="#编译运行" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
-<pre><code class="language-bash">$ cargo build
-$ ./target/debug/$(program) $(workspace)/alpine /bin/sh
-</code></pre>
-<p>查看根文件系统：</p>
-<pre><code class="language-none">/ # ls -la
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// unshare新命名空间
+</span><span class="c1"></span><span class="kd">let</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">libc</span>::<span class="n">unshare</span><span class="p">(</span><span class="n">libc</span>::<span class="n">CLONE_NEWNS</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">libc</span>::<span class="n">CLONE_NEWNET</span><span class="p">);</span><span class="w">
+</span><span class="w"></span><span class="n">assert_eq</span><span class="o">!</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span><span class="w">
+</span></code></pre></div><h3 id="切换文件系统">切换文件系统<a href="#切换文件系统" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// 切换根文件系统
+</span><span class="c1"></span><span class="kd">let</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ffi</span>::<span class="n">pivot_root</span><span class="p">(</span><span class="n">new_root</span><span class="p">.</span><span class="n">as_ptr</span><span class="p">(),</span><span class="w"> </span><span class="n">old_root</span><span class="p">.</span><span class="n">as_ptr</span><span class="p">());</span><span class="w">
+</span><span class="w"></span><span class="n">assert_eq</span><span class="o">!</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">root_dir</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CString</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;/&#34;</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span><span class="w">
+</span><span class="w"></span><span class="n">libc</span>::<span class="n">chdir</span><span class="p">(</span><span class="n">root_dir</span><span class="p">.</span><span class="n">as_ptr</span><span class="p">());</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="c1">// 挂载/proc
+</span><span class="c1"></span><span class="kd">let</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">libc</span>::<span class="n">mount</span><span class="p">(</span><span class="w">
+</span><span class="w">	</span><span class="n">CString</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;&#34;</span><span class="p">).</span><span class="n">unwrap</span><span class="p">().</span><span class="n">as_ptr</span><span class="p">(),</span><span class="w">
+</span><span class="w">	</span><span class="n">CString</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;/proc&#34;</span><span class="p">).</span><span class="n">unwrap</span><span class="p">().</span><span class="n">as_ptr</span><span class="p">(),</span><span class="w">
+</span><span class="w">	</span><span class="n">CString</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;proc&#34;</span><span class="p">).</span><span class="n">unwrap</span><span class="p">().</span><span class="n">as_ptr</span><span class="p">(),</span><span class="w">
+</span><span class="w">	</span><span class="n">libc</span>::<span class="n">MS_NOEXEC</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">libc</span>::<span class="n">MS_NOSUID</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">libc</span>::<span class="n">MS_NODEV</span><span class="p">,</span><span class="w">
+</span><span class="w">	</span><span class="n">CString</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;&#34;</span><span class="p">).</span><span class="n">unwrap</span><span class="p">().</span><span class="n">as_ptr</span><span class="p">()</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">_</span><span class="p">,</span><span class="w">
+</span><span class="w"></span><span class="p">);</span><span class="w">
+</span><span class="w"></span><span class="n">assert_eq</span><span class="o">!</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="c1">// 挂载/sys
+</span><span class="c1"></span><span class="kd">let</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">libc</span>::<span class="n">mount</span><span class="p">(</span><span class="w">
+</span><span class="w">	</span><span class="n">CString</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;&#34;</span><span class="p">).</span><span class="n">unwrap</span><span class="p">().</span><span class="n">as_ptr</span><span class="p">(),</span><span class="w">
+</span><span class="w">	</span><span class="n">CString</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;/sys&#34;</span><span class="p">).</span><span class="n">unwrap</span><span class="p">().</span><span class="n">as_ptr</span><span class="p">(),</span><span class="w">
+</span><span class="w">	</span><span class="n">CString</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;sysfs&#34;</span><span class="p">).</span><span class="n">unwrap</span><span class="p">().</span><span class="n">as_ptr</span><span class="p">(),</span><span class="w">
+</span><span class="w">	</span><span class="n">libc</span>::<span class="n">MS_NOEXEC</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">libc</span>::<span class="n">MS_NOSUID</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">libc</span>::<span class="n">MS_NODEV</span><span class="p">,</span><span class="w">
+</span><span class="w">	</span><span class="n">CString</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;&#34;</span><span class="p">).</span><span class="n">unwrap</span><span class="p">().</span><span class="n">as_ptr</span><span class="p">()</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">_</span><span class="p">,</span><span class="w">
+</span><span class="w"></span><span class="p">);</span><span class="w">
+</span><span class="w"></span><span class="n">assert_eq</span><span class="o">!</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="c1">// 挂载/dev
+</span><span class="c1"></span><span class="kd">let</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">libc</span>::<span class="n">mount</span><span class="p">(</span><span class="w">
+</span><span class="w">	</span><span class="n">CString</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;&#34;</span><span class="p">).</span><span class="n">unwrap</span><span class="p">().</span><span class="n">as_ptr</span><span class="p">(),</span><span class="w">
+</span><span class="w">	</span><span class="n">CString</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;/dev&#34;</span><span class="p">).</span><span class="n">unwrap</span><span class="p">().</span><span class="n">as_ptr</span><span class="p">(),</span><span class="w">
+</span><span class="w">	</span><span class="n">CString</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;devtmpfs&#34;</span><span class="p">).</span><span class="n">unwrap</span><span class="p">().</span><span class="n">as_ptr</span><span class="p">(),</span><span class="w">
+</span><span class="w">	</span><span class="n">libc</span>::<span class="n">MS_STRICTATIME</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">libc</span>::<span class="n">MS_NOSUID</span><span class="p">,</span><span class="w">
+</span><span class="w">	</span><span class="n">CString</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;mode=755&#34;</span><span class="p">).</span><span class="n">unwrap</span><span class="p">().</span><span class="n">as_ptr</span><span class="p">()</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">_</span><span class="p">,</span><span class="w">
+</span><span class="w"></span><span class="p">);</span><span class="w">
+</span><span class="w"></span><span class="n">assert_eq</span><span class="o">!</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span><span class="w">
+</span></code></pre></div><h3 id="卸载旧文件系统">卸载旧文件系统<a href="#卸载旧文件系统" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// 防止umount事件扩散到宿主环境
+</span><span class="c1"></span><span class="kd">let</span><span class="w"> </span><span class="n">old_root_2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CString</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;/.old_root&#34;</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span><span class="w">
+</span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">libc</span>::<span class="n">mount</span><span class="p">(</span><span class="w">
+</span><span class="w">	</span><span class="n">CString</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;&#34;</span><span class="p">).</span><span class="n">unwrap</span><span class="p">().</span><span class="n">as_ptr</span><span class="p">(),</span><span class="w">
+</span><span class="w">	</span><span class="n">old_root_2</span><span class="p">.</span><span class="n">as_ptr</span><span class="p">(),</span><span class="w">
+</span><span class="w">	</span><span class="n">CString</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;&#34;</span><span class="p">).</span><span class="n">unwrap</span><span class="p">().</span><span class="n">as_ptr</span><span class="p">(),</span><span class="w">
+</span><span class="w">	</span><span class="n">libc</span>::<span class="n">MS_SLAVE</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">libc</span>::<span class="n">MS_REC</span><span class="p">,</span><span class="w">
+</span><span class="w">	</span><span class="n">CString</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;&#34;</span><span class="p">).</span><span class="n">unwrap</span><span class="p">().</span><span class="n">as_ptr</span><span class="p">()</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">_</span><span class="p">,</span><span class="w">
+</span><span class="w"></span><span class="p">);</span><span class="w">
+</span><span class="w"></span><span class="n">assert_eq</span><span class="o">!</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="c1">// umount /.old_root
+</span><span class="c1"></span><span class="kd">let</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">libc</span>::<span class="n">umount2</span><span class="p">(</span><span class="n">old_root_2</span><span class="p">.</span><span class="n">as_ptr</span><span class="p">(),</span><span class="w"> </span><span class="n">libc</span>::<span class="n">MNT_DETACH</span><span class="p">);</span><span class="w">
+</span><span class="w"></span><span class="n">assert_eq</span><span class="o">!</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="n">libc</span>::<span class="n">rmdir</span><span class="p">(</span><span class="n">old_root_2</span><span class="p">.</span><span class="n">as_ptr</span><span class="p">());</span><span class="w">
+</span></code></pre></div><h3 id="执行容器内程序">执行容器内程序<a href="#执行容器内程序" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="kd">let</span><span class="w"> </span><span class="n">prog</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CString</span>::<span class="n">new</span><span class="p">(</span><span class="n">command</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span><span class="w">
+</span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">libc</span>::<span class="n">execve</span><span class="p">(</span><span class="w">
+</span><span class="w">	</span><span class="n">prog</span><span class="p">.</span><span class="n">as_ptr</span><span class="p">(),</span><span class="w">
+</span><span class="w">	</span><span class="n">command_args</span><span class="p">.</span><span class="n">as_ptr</span><span class="p">(),</span><span class="w">
+</span><span class="w">	</span><span class="n">ptr</span>::<span class="n">null</span>::<span class="o">&lt;</span><span class="n">libc</span>::<span class="n">c_char</span><span class="o">&gt;</span><span class="p">()</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">_</span><span class="p">,</span><span class="w">
+</span><span class="w"></span><span class="p">);</span><span class="w">
+</span><span class="w"></span><span class="n">unreachable</span><span class="o">!</span><span class="p">();</span><span class="w">
+</span></code></pre></div><h3 id="编译运行">编译运行<a href="#编译运行" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
+<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">$ cargo build
+$ ./target/debug/<span class="k">$(</span>program<span class="k">)</span> <span class="k">$(</span>workspace<span class="k">)</span>/alpine /bin/sh
+</code></pre></div><p>查看根文件系统：</p>
+<pre><code class="language-none" data-lang="none">/ # ls -la
 total 68
 drwxr-xr-x   19 root     root          4096 Jul 18 15:48 .
 drwxr-xr-x   19 root     root          4096 Jul 18 15:48 ..
@@ -304,21 +293,18 @@ drwxrwxrwt    2 root     root          4096 May 29 14:20 tmp
 drwxr-xr-x    7 root     root          4096 May 29 14:20 usr
 drwxr-xr-x   12 root     root          4096 May 29 14:20 var
 / #
-</code></pre>
-<p>查看进程：</p>
-<pre><code class="language-none">/ # ps aux
+</code></pre><p>查看进程：</p>
+<pre><code class="language-none" data-lang="none">/ # ps aux
 PID   USER     TIME  COMMAND
     1 root      0:00 /bin/sh
     8 root      0:00 ps aux
 / #
-</code></pre>
-<p>查看网络接口：</p>
-<pre><code class="language-none">/ # ip link
+</code></pre><p>查看网络接口：</p>
+<pre><code class="language-none" data-lang="none">/ # ip link
 1: lo: &lt;LOOPBACK&gt; mtu 65536 qdisc noop state DOWN qlen 1000
     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
 / #
-</code></pre>
-<p>容易忽视的要点是镜像文件系统目录及其父目录的挂载属性必须为 <code>private</code>，尤其是在 <code>systemd</code> 环境下！</p>
+</code></pre><p>容易忽视的要点是镜像文件系统目录及其父目录的挂载属性必须为 <code>private</code>，尤其是在 <code>systemd</code> 环境下！</p>
 <p>完整代码见：<a href="https://github.com/xiaopengli89/runc-rs">runc-rs</a></p>
 			</div>
 			<hr class="post-end">
@@ -326,7 +312,7 @@ PID   USER     TIME  COMMAND
 				<p>
 					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-tag meta-icon"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7" y2="7"></line></svg><span class="tag"><a href="https://xiaopengli89.github.io/tags/rust">rust</a></span><span class="tag"><a href="https://xiaopengli89.github.io/tags/oci">oci</a></span><span class="tag"><a href="https://xiaopengli89.github.io/tags/container">container</a></span><span class="tag"><a href="https://xiaopengli89.github.io/tags/namespace">namespace</a></span><span class="tag"><a href="https://xiaopengli89.github.io/tags/pivot_root">pivot_root</a></span>
 				</p>
-				<p><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-file-text"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>1129 Words</p>
+				<p><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-file-text"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>1634 Words</p>
 				<p><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-calendar"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>2020-07-18 22:15 &#43;0800</p>
 			</footer>
 		</article>

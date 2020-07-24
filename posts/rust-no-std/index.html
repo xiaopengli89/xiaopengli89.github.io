@@ -11,7 +11,7 @@
 <meta itemprop="description" content="Rust是一门真正的系统编程语言。">
 <meta itemprop="datePublished" content="2020-07-01T00:02:35&#43;08:00" />
 <meta itemprop="dateModified" content="2020-07-01T00:02:35&#43;08:00" />
-<meta itemprop="wordCount" content="1607">
+<meta itemprop="wordCount" content="1759">
 
 
 
@@ -79,16 +79,14 @@
 				<p>Rust是一门系统编程语言，比如使得编写操作系统内核变得可能。而在编写内核时，是不能有任何和操作系统相关的依赖的，因为操作系统内核是运行于裸机之上的，这就像鸡和鸡蛋的关系。而标准库的实现是基于操作系统的，诸如线程、文件、网络等等。因此在编写内核代码时不能使用标准库。这篇文章将介绍如何不使用Rust标准库编写一个可运行的程序。</p>
 <h3 id="禁用标准库">禁用标准库<a href="#禁用标准库" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
 <p>默认情况下，编译器会自动为我们的项目引用标准库，因此首先第一步是要禁用标准库，可以使用 <code>#![no_std]</code> 这个 <code>crate-level attribute</code> 来禁用标准库：</p>
-<pre><code class="language-rust">#![no_std]
-
-fn main() {
-    println!(&quot;Hello, World!&quot;);
-}
-</code></pre>
-<p>如果我们现在尝试运行它的话，会得到下面的错误：</p>
-<pre><code class="language-bash">$ cargo build
-</code></pre>
-<pre><code class="language-none">error: cannot find macro `println` in this scope
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#![no_std]</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">fn</span> <span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="n">println</span><span class="o">!</span><span class="p">(</span><span class="s">&#34;Hello, World!&#34;</span><span class="p">);</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>如果我们现在尝试运行它的话，会得到下面的错误：</p>
+<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">$ cargo build
+</code></pre></div><pre><code class="language-none" data-lang="none">error: cannot find macro `println` in this scope
  --&gt; src/main.rs:4:5
   |
 4 |     println!(&quot;Hello world!&quot;);
@@ -103,130 +101,111 @@ error: aborting due to 3 previous errors
 error: could not compile `panic-hander`.
 
 To learn more, run the command again with --verbose.
-</code></pre>
-<p>这里一共有3个错误，第1个：</p>
-<pre><code class="language-none">error: cannot find macro `println` in this scope
-</code></pre>
-<p>这个错误是因为 <code>println!</code> 这个宏是定义在标准库 <code>std::println</code> 里的，而我们禁用了标准库，自然无法再使用它。</p>
+</code></pre><p>这里一共有3个错误，第1个：</p>
+<pre><code class="language-none" data-lang="none">error: cannot find macro `println` in this scope
+</code></pre><p>这个错误是因为 <code>println!</code> 这个宏是定义在标准库 <code>std::println</code> 里的，而我们禁用了标准库，自然无法再使用它。</p>
 <p>第2个：</p>
-<pre><code class="language-none">error: `#[panic_handler]` function required, but not found
-</code></pre>
-<p>默认情况下的Rust程序是带有一个非常小的Runtime的，其中包括设置了panic异常处理：打印导致异常的backtrace。如果不使用标准库的话，就需要我们自己设置一个panic异常处理函数：</p>
-<pre><code class="language-rust">#![no_std]
-
-use core::panic::PanicInfo;
-
-fn main() {}
-
-#[panic_handler]
-fn panic_handler(info: &amp;PanicInfo) -&gt; ! {
-    loop {}
-}
-</code></pre>
-<p>这个异常处理函数的返回值是个 <a href="https://doc.rust-lang.org/std/primitive.never.html">never</a> 类型，这个函数不能被其他函数调用。可以先写个 <code>loop {}</code> 作为函数实现，参数 <code>PanicInfo</code> 则包含了发生异常的上下文信息。</p>
+<pre><code class="language-none" data-lang="none">error: `#[panic_handler]` function required, but not found
+</code></pre><p>默认情况下的Rust程序是带有一个非常小的Runtime的，其中包括设置了panic异常处理：打印导致异常的backtrace。如果不使用标准库的话，就需要我们自己设置一个panic异常处理函数：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#![no_std]</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">use</span><span class="w"> </span><span class="n">core</span>::<span class="n">panic</span>::<span class="n">PanicInfo</span><span class="p">;</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">fn</span> <span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="cp">#[panic_handler]</span><span class="w">
+</span><span class="w"></span><span class="k">fn</span> <span class="nf">panic_handler</span><span class="p">(</span><span class="n">info</span>: <span class="kp">&amp;</span><span class="nc">PanicInfo</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="o">!</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">loop</span><span class="w"> </span><span class="p">{}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>这个异常处理函数的返回值是个 <a href="https://doc.rust-lang.org/std/primitive.never.html">never</a> 类型，这个函数不能被其他函数调用。可以先写个 <code>loop {}</code> 作为函数实现，参数 <code>PanicInfo</code> 则包含了发生异常的上下文信息。</p>
 <p>第3个：</p>
-<pre><code class="language-none">error: language item required, but not found: `eh_personality`
-</code></pre>
-<p>提示缺少一个 <code>eh_personality</code> 的语言项。默认情况下当函数发生panic时，线程会停止，Rust展开线程栈，并析构栈上的变量。这是因为Rust支持捕获异常，而为了防止当函数异常退出时，没有析构栈上变量而导致内存或其他系统资源的泄漏。同样的，在不使用标准库时，需要我们自己实现一个 <code>eh_personality</code> 。</p>
-<pre><code class="language-rust">#![no_std]
-#![feature(lang_items)]
-
-use core::panic::PanicInfo;
-
-fn main() {}
-
-#[panic_handler]
-fn panic_handler(info: &amp;PanicInfo) -&gt; ! {
-    loop {}
-}
-
-#[lang = &quot;eh_personality&quot;]
-pub extern &quot;C&quot; fn rust_eh_personality() {}
-</code></pre>
-<p>再次编译时：</p>
-<pre><code class="language-none">error: requires `start` lang_item
-</code></pre>
-<p>提示缺少一个 <code>start</code> 语言项。在正常情况下 <code>main</code> 函数是作为Rust程序的入口，其实不然，在 <code>main</code> 函数执行前，需要先完成执行环境的初始化，如栈的创建，参数保存到对应的寄存器中，这些操作是在C库的入口函数中完成的，然后C库再调用Rust的Runtime入口函数，该函数被 <code>start</code> 语言项标记，Runtime在完成一些初始化配置后，再调用用户定义的 <code>main</code> 函数。因此我们需要重新实现最开始的入口函数，这个函数依赖于具体的操作系统。当然，在这个之前先需要禁用默认的 <code>main</code> 函数：</p>
-<pre><code class="language-rust">#![no_main]
-</code></pre>
-<p>在Linux上入口函数是 <code>_start</code>：</p>
-<pre><code class="language-rust">#[no_mangle]
-pub extern &quot;C&quot; fn _start(_argc: isize, _argv: *const *const u8) -&gt; i32 {
-	0
-}
-</code></pre>
-<p>在Mac上是 <code>main</code>：</p>
-<pre><code class="language-rust">#[no_mangle]
-pub extern &quot;C&quot; fn main(_argc: isize, _argv: *const *const u8) -&gt; i32 {
-	0
-}
-</code></pre>
-<p><code>no_mangle</code> 是为了防止编译器修改符号。</p>
+<pre><code class="language-none" data-lang="none">error: language item required, but not found: `eh_personality`
+</code></pre><p>提示缺少一个 <code>eh_personality</code> 的语言项。默认情况下当函数发生panic时，线程会停止，Rust展开线程栈，并析构栈上的变量。这是因为Rust支持捕获异常，而为了防止当函数异常退出时，没有析构栈上变量而导致内存或其他系统资源的泄漏。同样的，在不使用标准库时，需要我们自己实现一个 <code>eh_personality</code> 。</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#![no_std]</span><span class="w">
+</span><span class="w"></span><span class="cp">#![feature(lang_items)]</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">use</span><span class="w"> </span><span class="n">core</span>::<span class="n">panic</span>::<span class="n">PanicInfo</span><span class="p">;</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">fn</span> <span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="cp">#[panic_handler]</span><span class="w">
+</span><span class="w"></span><span class="k">fn</span> <span class="nf">panic_handler</span><span class="p">(</span><span class="n">info</span>: <span class="kp">&amp;</span><span class="nc">PanicInfo</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="o">!</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">loop</span><span class="w"> </span><span class="p">{}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="cp">#[lang = </span><span class="s">&#34;eh_personality&#34;</span><span class="cp">]</span><span class="w">
+</span><span class="w"></span><span class="k">pub</span><span class="w"> </span><span class="k">extern</span><span class="w"> </span><span class="s">&#34;C&#34;</span><span class="w"> </span><span class="k">fn</span> <span class="nf">rust_eh_personality</span><span class="p">()</span><span class="w"> </span><span class="p">{}</span><span class="w">
+</span></code></pre></div><p>再次编译时：</p>
+<pre><code class="language-none" data-lang="none">error: requires `start` lang_item
+</code></pre><p>提示缺少一个 <code>start</code> 语言项。在正常情况下 <code>main</code> 函数是作为Rust程序的入口，其实不然，在 <code>main</code> 函数执行前，需要先完成执行环境的初始化，如栈的创建，参数保存到对应的寄存器中，这些操作是在C库的入口函数中完成的，然后C库再调用Rust的Runtime入口函数，该函数被 <code>start</code> 语言项标记，Runtime在完成一些初始化配置后，再调用用户定义的 <code>main</code> 函数。因此我们需要重新实现最开始的入口函数，这个函数依赖于具体的操作系统。当然，在这个之前先需要禁用默认的 <code>main</code> 函数：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#![no_main]</span><span class="w">
+</span></code></pre></div><p>在Linux上入口函数是 <code>_start</code>：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[no_mangle]</span><span class="w">
+</span><span class="w"></span><span class="k">pub</span><span class="w"> </span><span class="k">extern</span><span class="w"> </span><span class="s">&#34;C&#34;</span><span class="w"> </span><span class="k">fn</span> <span class="nf">_start</span><span class="p">(</span><span class="n">_argc</span>: <span class="kt">isize</span><span class="p">,</span><span class="w"> </span><span class="n">_argv</span>: <span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="kt">u8</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="kt">i32</span> <span class="p">{</span><span class="w">
+</span><span class="w">	</span><span class="mi">0</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>在Mac上是 <code>main</code>：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[no_mangle]</span><span class="w">
+</span><span class="w"></span><span class="k">pub</span><span class="w"> </span><span class="k">extern</span><span class="w"> </span><span class="s">&#34;C&#34;</span><span class="w"> </span><span class="k">fn</span> <span class="nf">main</span><span class="p">(</span><span class="n">_argc</span>: <span class="kt">isize</span><span class="p">,</span><span class="w"> </span><span class="n">_argv</span>: <span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="kt">u8</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="kt">i32</span> <span class="p">{</span><span class="w">
+</span><span class="w">	</span><span class="mi">0</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p><code>no_mangle</code> 是为了防止编译器修改符号。</p>
 <p>我在Mac上编译时：</p>
-<pre><code class="language-none">ld: dynamic main executables must link with libSystem.dylib for architecture x86_64
-</code></pre>
-<p>这是因为Mac平台不允许静态链接到二进制库，需要添加编译器参数：</p>
-<pre><code class="language-bash">$ cargo rustc -- -C link-arg=-lSystem
-</code></pre>
-<p>如果是在Linux上编译的话：</p>
-<pre><code class="language-none">/src/main.rs:8: multiple definition of `_start'; /usr/lib/gcc/x86_64-pc-linux-gnu/10.1.0/../../../../lib/Scrt1.o:(.text+0x0): first defined here
+<pre><code class="language-none" data-lang="none">ld: dynamic main executables must link with libSystem.dylib for architecture x86_64
+</code></pre><p>这是因为Mac平台不允许静态链接到二进制库，需要添加编译器参数：</p>
+<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">$ cargo rustc -- -C link-arg<span class="o">=</span>-lSystem
+</code></pre></div><p>如果是在Linux上编译的话：</p>
+<pre><code class="language-none" data-lang="none">/src/main.rs:8: multiple definition of `_start'; /usr/lib/gcc/x86_64-pc-linux-gnu/10.1.0/../../../../lib/Scrt1.o:(.text+0x0): first defined here
           /usr/bin/ld: /usr/lib/gcc/x86_64-pc-linux-gnu/10.1.0/../../../../lib/Scrt1.o: in function `_start':
           (.text+0x16): undefined reference to `__libc_csu_fini'
           /usr/bin/ld: (.text+0x1d): undefined reference to `__libc_csu_init'
           /usr/bin/ld: (.text+0x24): undefined reference to `main'
           /usr/bin/ld: (.text+0x2a): undefined reference to `__libc_start_main'
           collect2: error: ld returned 1 exit status
-</code></pre>
-<p>因为编译器还是链接了C库的符号，并且和我们的入口函数发生了冲突，需要添加编译器参数：</p>
-<pre><code class="language-bash">$ cargo rustc -- -C link-args=-nostartfiles -lc
-</code></pre>
-<p>顺利编译通过！</p>
+</code></pre><p>因为编译器还是链接了C库的符号，并且和我们的入口函数发生了冲突，需要添加编译器参数：</p>
+<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">$ cargo rustc -- -C link-args<span class="o">=</span>-nostartfiles -lc
+</code></pre></div><p>顺利编译通过！</p>
 <h3 id="hello-world-呢">Hello, World 呢？<a href="#hello-world-呢" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
 <p>由于我们的程序什么都没有做，因此运行不会产生任何效果（当然也不会报错）。</p>
 <p>如果我们想打印 <code>Hello, World</code> 的话，可以借用 <code>libc</code> 这个库：</p>
-<pre><code class="language-toml">libc = &quot;0.2.71&quot;
-</code></pre>
-<pre><code class="language-rust">#[no_mangle]
-pub extern &quot;C&quot; fn main(_argc: isize, _argv: *const *const u8) -&gt; i32 {
-    unsafe {
-        libc::printf(b&quot;Hello, World!\n&quot; as *const _ as *const libc::c_char);
-    }
-    0
-}
-</code></pre>
-<p>编译后运行：</p>
-<pre><code class="language-none">Hello, World!
-</code></pre>
-<p>我们来处理下panic，然后尝试触发下panic：</p>
-<pre><code class="language-rust">#[no_mangle]
-pub extern &quot;C&quot; fn main(_nargs: i32, _args: *const *const u8) -&gt; i32 {
-    unsafe {
-        libc::printf(b&quot;Hello, World!\n&quot; as *const _ as *const libc::c_char);
-    }
-    panic!(&quot;panic&quot;);
-    0
-}
-
-#[panic_handler]
-fn panic_handler(info: &amp;PanicInfo) -&gt; ! {
-    if let Some(l) = info.location() {
-        unsafe {
-            libc::printf(
-                b&quot;\npanic at %s:%d\n&quot; as *const _ as *const libc::c_char,
-                l.file().as_bytes() as *const _ as *const libc::c_char,
-                l.line() as libc::uint32_t,
-            );
-        }
-    }
-    unsafe { libc::exit(0) }
-}
-</code></pre>
-<p>运行的结果：</p>
-<pre><code class="language-rust">Hello, World!
-panicsrc/main.rs
-panic at src/main.rs:12
-</code></pre>
-<p>第3行是我们打印的异常处理。第2行是编译器为我们加的。</p>
+<div class="highlight"><pre class="chroma"><code class="language-toml" data-lang="toml"><span class="nx">libc</span> <span class="p">=</span> <span class="s2">&#34;0.2.71&#34;</span>
+</code></pre></div><div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[no_mangle]</span><span class="w">
+</span><span class="w"></span><span class="k">pub</span><span class="w"> </span><span class="k">extern</span><span class="w"> </span><span class="s">&#34;C&#34;</span><span class="w"> </span><span class="k">fn</span> <span class="nf">main</span><span class="p">(</span><span class="n">_argc</span>: <span class="kt">isize</span><span class="p">,</span><span class="w"> </span><span class="n">_argv</span>: <span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="kt">u8</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="kt">i32</span> <span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="n">libc</span>::<span class="n">printf</span><span class="p">(</span><span class="s">b&#34;Hello, World!</span><span class="se">\n</span><span class="s">&#34;</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">libc</span>::<span class="n">c_char</span><span class="p">);</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w">    </span><span class="mi">0</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>编译后运行：</p>
+<pre><code class="language-none" data-lang="none">Hello, World!
+</code></pre><p>我们来处理下panic，然后尝试触发下panic：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[no_mangle]</span><span class="w">
+</span><span class="w"></span><span class="k">pub</span><span class="w"> </span><span class="k">extern</span><span class="w"> </span><span class="s">&#34;C&#34;</span><span class="w"> </span><span class="k">fn</span> <span class="nf">main</span><span class="p">(</span><span class="n">_nargs</span>: <span class="kt">i32</span><span class="p">,</span><span class="w"> </span><span class="n">_args</span>: <span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="kt">u8</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="kt">i32</span> <span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="n">libc</span>::<span class="n">printf</span><span class="p">(</span><span class="s">b&#34;Hello, World!</span><span class="se">\n</span><span class="s">&#34;</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">libc</span>::<span class="n">c_char</span><span class="p">);</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w">    </span><span class="n">panic</span><span class="o">!</span><span class="p">(</span><span class="s">&#34;panic&#34;</span><span class="p">);</span><span class="w">
+</span><span class="w">    </span><span class="mi">0</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="cp">#[panic_handler]</span><span class="w">
+</span><span class="w"></span><span class="k">fn</span> <span class="nf">panic_handler</span><span class="p">(</span><span class="n">info</span>: <span class="kp">&amp;</span><span class="nc">PanicInfo</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="o">!</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">l</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">info</span><span class="p">.</span><span class="n">location</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="n">libc</span>::<span class="n">printf</span><span class="p">(</span><span class="w">
+</span><span class="w">                </span><span class="s">b&#34;</span><span class="se">\n</span><span class="s">panic at %s:%d</span><span class="se">\n</span><span class="s">&#34;</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">libc</span>::<span class="n">c_char</span><span class="p">,</span><span class="w">
+</span><span class="w">                </span><span class="n">l</span><span class="p">.</span><span class="n">file</span><span class="p">().</span><span class="n">as_bytes</span><span class="p">()</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">libc</span>::<span class="n">c_char</span><span class="p">,</span><span class="w">
+</span><span class="w">                </span><span class="n">l</span><span class="p">.</span><span class="n">line</span><span class="p">()</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">libc</span>::<span class="n">uint32_t</span><span class="p">,</span><span class="w">
+</span><span class="w">            </span><span class="p">);</span><span class="w">
+</span><span class="w">        </span><span class="p">}</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w">    </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">libc</span>::<span class="n">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>运行的结果：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="n">Hello</span><span class="p">,</span><span class="w"> </span><span class="n">World</span><span class="o">!</span><span class="w">
+</span><span class="w"></span><span class="n">panicsrc</span><span class="o">/</span><span class="n">main</span><span class="p">.</span><span class="n">rs</span><span class="w">
+</span><span class="w"></span><span class="n">panic</span><span class="w"> </span><span class="n">at</span><span class="w"> </span><span class="n">src</span><span class="o">/</span><span class="n">main</span><span class="p">.</span><span class="n">rs</span>:<span class="mi">12</span><span class="w">
+</span></code></pre></div><p>第3行是我们打印的异常处理。第2行是编译器为我们加的。</p>
 <h3 id="结尾">结尾<a href="#结尾" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
 <p>好了，到这里就已经实现了一个不带标准库的Rust程序。虽然比平时写的Rust程序多了些东西，但其实是标准库为我们做了很多，现在只是我们自己去完成这些罢了。Rust是名副其实的系统级编程语言，虽然学习曲线有些陡峭，但是随着深入理解，这些都是Rust的目标所在，Rust是近几十年里出现的真正为解决系统编程问题而设计的出色语言。</p>
 			</div>
@@ -236,7 +215,7 @@ panic at src/main.rs:12
 				<p>
 					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-tag meta-icon"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7" y2="7"></line></svg><span class="tag"><a href="https://xiaopengli89.github.io/tags/rust">rust</a></span><span class="tag"><a href="https://xiaopengli89.github.io/tags/no_std">no_std</a></span><span class="tag"><a href="https://xiaopengli89.github.io/tags/libc">libc</a></span><span class="tag"><a href="https://xiaopengli89.github.io/tags/panic">panic</a></span>
 				</p>
-				<p><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-file-text"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>1607 Words</p>
+				<p><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-file-text"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>1759 Words</p>
 				<p><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-calendar"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>2020-07-01 00:02 &#43;0800</p>
 			</footer>
 		</article>
