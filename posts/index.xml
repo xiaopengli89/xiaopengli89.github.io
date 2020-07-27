@@ -6,8 +6,317 @@
 		<generator>Hugo -- gohugo.io</generator>
 		<language>en-us</language>
 		<copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright>
-		<lastBuildDate>Fri, 24 Jul 2020 15:03:06 +0800</lastBuildDate>
+		<lastBuildDate>Mon, 27 Jul 2020 17:49:22 +0800</lastBuildDate>
 		<atom:link href="https://xiaopengli89.github.io/posts/index.xml" rel="self" type="application/rss+xml" />
+		
+		<item>
+			<title>Rust中的多态 - Trait Object</title>
+			<link>https://xiaopengli89.github.io/posts/rust-trait-object/</link>
+			<pubDate>Mon, 27 Jul 2020 17:49:22 +0800</pubDate>
+			
+			<guid>https://xiaopengli89.github.io/posts/rust-trait-object/</guid>
+			<description>&lt;p&gt;Rust是一门静态类型语言，变量的类型一旦确定就不能更改。如果使用一个容器，则容器内部数据类型也必须完全一致，这会少一些灵活性。Rust中的 &lt;code&gt;Trait&lt;/code&gt; 不但可以用作范型约束（&lt;code&gt;Trait Bounds&lt;/code&gt;），也可以单独使用，我们叫 &lt;code&gt;Trait Object&lt;/code&gt;，用它可以间接地实现动态类型。&lt;/p&gt;</description>
+			<content type="html"><![CDATA[<p>Rust是一门静态类型语言，变量的类型一旦确定就不能更改。如果使用一个容器，则容器内部数据类型也必须完全一致，这会少一些灵活性。Rust中的 <code>Trait</code> 不但可以用作范型约束（<code>Trait Bounds</code>），也可以单独使用，我们叫 <code>Trait Object</code>，用它可以间接地实现动态类型。</p>
+<h2 id="动态大小类型dst">动态大小类型（DST）</h2>
+<p>在Rust的内存布局模型中，一般每个类型都有唯一确定的类型大小，很多情况下类型默认由编译器实现了 <code>Sized</code>。但是Rust中也存在类型大小不确定的情况，比较典型的有：</p>
+<ol>
+<li>切片（<code>slice</code>)</li>
+<li>最后一个字段大小不确定的结构体</li>
+<li><code>Trait Object</code></li>
+</ol>
+<p>这3种情况下，类型大小将不确定，我们将这些类型叫做动态大小类型（DST）。由于DST的类型大小无法确定，因此无法在栈上直接分配内存空间，变量必须通过指针间接引用。</p>
+<p>切片是数组的部分连续引用，由头指针和长度构成。</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">struct</span> <span class="nc">Slice</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">	</span><span class="n">head</span>: <span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">T</span><span class="p">,</span><span class="w">
+</span><span class="w">	</span><span class="n">size</span>: <span class="kt">usize</span><span class="p">,</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><pre><code class="language-none" data-lang="none">0: E     &lt;-- head: 2
+1: E     |   size: 4
+2: E &lt;----
+3: E     |
+4: E     |
+5: E &lt;----
+6: E
+7: E
+</code></pre><p>切片由 <code>Range</code> 运算符和中括号构造，利用 <code>Range</code> 中的 <code>starting_index</code> 和 <code>ending_index</code> 确定头指针和长度信息：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="kd">let</span><span class="w"> </span><span class="n">arr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">];</span><span class="w">
+</span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">sli</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">arr</span><span class="p">[</span><span class="mi">1</span><span class="p">..</span><span class="o">=</span><span class="mi">3</span><span class="p">];</span><span class="w">
+</span></code></pre></div><p>自定义DST结构体的话，只需要在结构中内嵌唯一一个DST类型，并且是在最后一个字段，而目前唯一能构造这种结构体的方式是通过范型：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">struct</span> <span class="nc">Foo</span><span class="o">&lt;</span><span class="n">T</span>: <span class="o">?</span><span class="nb">Sized</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="n">f1</span>: <span class="kt">bool</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="n">f2</span>: <span class="kt">u8</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="n">f3</span>: <span class="nc">T</span><span class="p">,</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">foo</span>: <span class="kp">&amp;</span><span class="nc">Foo</span><span class="o">&lt;</span><span class="p">[</span><span class="kt">i32</span><span class="p">]</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">Foo</span>::<span class="o">&lt;</span><span class="p">[</span><span class="kt">i32</span><span class="p">;</span><span class="w"> </span><span class="mi">3</span><span class="p">]</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">	</span><span class="n">f1</span>: <span class="nc">false</span><span class="p">,</span><span class="w">
+</span><span class="w">	</span><span class="n">f2</span>: <span class="mi">1</span><span class="p">,</span><span class="w">
+</span><span class="w">	</span><span class="n">f3</span>: <span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">],</span><span class="w">
+</span><span class="w"></span><span class="p">};</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="n">foo</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">Foo</span>::<span class="o">&lt;</span><span class="p">[</span><span class="kt">i32</span><span class="p">;</span><span class="w"> </span><span class="mi">4</span><span class="p">]</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">	</span><span class="n">f1</span>: <span class="nc">false</span><span class="p">,</span><span class="w">
+</span><span class="w">	</span><span class="n">f2</span>: <span class="mi">1</span><span class="p">,</span><span class="w">
+</span><span class="w">	</span><span class="n">f3</span>: <span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="p">],</span><span class="w">
+</span><span class="w"></span><span class="p">};</span><span class="w">
+</span></code></pre></div><p><code>Trait Object</code> 则是实现了固定 <code>Trait</code> 集合的不同类型的实例，并且通过胖指针隐藏了具体的类型和方法实现信息。通过 <code>Trait Object</code> 可以实现动态地修改变量类型，动态地调用不同方法实现（动态分发），即其他编程语言里的多态性。</p>
+<h2 id="trait-object-的实现"><code>Trait Object</code> 的实现</h2>
+<p>为了实现不同的类型能被一个变量或容器持有，<code>Trait Object</code> 内部本身只有 <code>data</code> 和 <code>vtable</code> 字段构成，并且2个字段都是指针，直接类型大小其实也是确定的。其中 <code>data</code> 指向具体的类型实例，而 <code>vtable</code> 则是指向实现了 <code>Trait</code> 的方法集合：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">pub</span><span class="w"> </span><span class="k">struct</span> <span class="nc">TraitObject</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">data</span>: <span class="o">*</span><span class="k">mut</span><span class="w"> </span><span class="p">(),</span><span class="w">
+</span><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">vtable</span>: <span class="o">*</span><span class="k">mut</span><span class="w"> </span><span class="p">(),</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>由于 <code>Trait Object</code> 属于DST的一种，因此构造时必须通过指针间接引用，并且需要在 <code>Trait</code> 前附加 <code>dyn</code> 关键字，通常可以由 <code>&amp;dyn SomeTrait</code> 或 <code>Box&lt;dyn SomeTrait&gt;</code> 2种方式来构造：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">trait</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="p">{}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">struct</span> <span class="nc">Foo1</span><span class="p">;</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">struct</span> <span class="nc">Foo2</span><span class="p">;</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Foo1</span><span class="w"> </span><span class="p">{}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Foo2</span><span class="w"> </span><span class="p">{}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">bar</span>: <span class="kp">&amp;</span><span class="nc">dyn</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">Foo1</span><span class="p">;</span><span class="w">
+</span><span class="w"></span><span class="n">bar</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">Foo2</span><span class="p">;</span><span class="w">
+</span></code></pre></div><p>可以构造一个 <code>Trait Object</code> 实例查看内部的数据构成：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">use</span><span class="w"> </span><span class="n">std</span>::<span class="n">mem</span><span class="p">;</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">trait</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">f1</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">);</span><span class="w">
+</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">f2</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">);</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">struct</span> <span class="nc">Foo</span><span class="p">;</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Foo</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">f1</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">{}</span><span class="w">
+</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">f2</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">{}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">foo</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Foo</span><span class="p">;</span><span class="w">
+</span><span class="w"></span><span class="n">println</span><span class="o">!</span><span class="p">(</span><span class="s">&#34;foo&#39;s address = {}&#34;</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">foo</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">Foo</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">usize</span><span class="p">);</span><span class="w">
+</span><span class="w"></span><span class="n">println</span><span class="o">!</span><span class="p">(</span><span class="s">&#34;Foo::f1 = {}&#34;</span><span class="p">,</span><span class="w"> </span><span class="n">Foo</span>::<span class="n">f1</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">usize</span><span class="p">);</span><span class="w">
+</span><span class="w"></span><span class="n">println</span><span class="o">!</span><span class="p">(</span><span class="s">&#34;Foo::f2 = {}&#34;</span><span class="p">,</span><span class="w"> </span><span class="n">Foo</span>::<span class="n">f2</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">usize</span><span class="p">);</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">bar</span>: <span class="kp">&amp;</span><span class="nc">dyn</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">foo</span><span class="p">;</span><span class="w">
+</span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">data</span><span class="p">,</span><span class="w"> </span><span class="n">vtable</span><span class="p">)</span>: <span class="p">(</span><span class="kt">usize</span><span class="p">,</span><span class="w"> </span><span class="kt">usize</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">mem</span>::<span class="n">transmute</span><span class="p">(</span><span class="n">bar</span><span class="p">)</span><span class="w"> </span><span class="p">};</span><span class="w">
+</span><span class="w"></span><span class="n">println</span><span class="o">!</span><span class="p">(</span><span class="s">&#34;data = {}, vtable = {}&#34;</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="p">,</span><span class="w"> </span><span class="n">vtable</span><span class="p">);</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">vtable</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">vtable</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="kt">usize</span><span class="p">;</span><span class="w">
+</span><span class="w"></span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">	</span><span class="n">println</span><span class="o">!</span><span class="p">(</span><span class="w">
+</span><span class="w">		</span><span class="s">&#34;[{}, {}, {}, {}, {}]&#34;</span><span class="p">,</span><span class="w">
+</span><span class="w">		</span><span class="o">*</span><span class="n">vtable</span><span class="p">,</span><span class="w">
+</span><span class="w">		</span><span class="o">*</span><span class="n">vtable</span><span class="p">.</span><span class="n">offset</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span><span class="w">
+</span><span class="w">		</span><span class="o">*</span><span class="n">vtable</span><span class="p">.</span><span class="n">offset</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span><span class="w">
+</span><span class="w">		</span><span class="o">*</span><span class="n">vtable</span><span class="p">.</span><span class="n">offset</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span><span class="w">
+</span><span class="w">		</span><span class="o">*</span><span class="n">vtable</span><span class="p">.</span><span class="n">offset</span><span class="p">(</span><span class="mi">4</span><span class="p">),</span><span class="w">
+</span><span class="w">	</span><span class="p">)</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>打印出的结果：</p>
+<pre><code class="language-none" data-lang="none">foo's address = 140729104675248
+Foo::f1 = 94428356803312
+Foo::f2 = 94428356803328
+data = 140729104675248, vtable = 94428357017888
+[94428356801504, 0, 1, 94428356803312, 94428356803328]
+</code></pre><p>可以看到变量 <code>foo</code> 的内存地址就是 <code>data</code> 的值，而 <code>Foo::f1</code> 和 <code>Foo::f2</code> 方法的地址分别出现在 <code>vtable</code> 的第3和第4个位置上，这样程序运行期间就可以动态确定对象和需要调用的方法了。</p>
+<p><strong>NOTE:</strong> <code>vtable</code> 的第0个位置保存的是对象的析构方法地址，第1个位置保存的是对象的类型大小（这里因为样例的 <code>Foo</code> 结构为空，所以等于0），第2个位置保存的是对象的内存对齐大小（由于 <code>Foo</code> 结构的类型大小为0，所以对齐大小为1字节）。<sup id="fnref:1"><a href="#fn:1" class="footnote-ref" role="doc-noteref">1</a></sup></p>
+<h2 id="限制">限制</h2>
+<p>虽然 <code>Trait Object</code> 具有范型不具备的灵活性，并且某些情况下甚至不得不通过它来实现（比如异步运行时中需要保存 <code>Future</code> 对象），但 <code>Trait Object</code> 在使用上还有些局限性，一些特性不能运用在它上面。</p>
+<ol>
+<li>只能绑定一个 <code>Trait</code>， 除了 <a href="https://doc.rust-lang.org/reference/special-types-and-traits.html#auto-traits">auto traits</a> 和 <a href="https://doc.rust-lang.org/reference/items/traits.html#supertraits">supertraits</a> 外，不能附加其他 <code>Trait</code>，比如不能如下定义一个 <code>Trait Object</code>：</li>
+</ol>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">type</span> <span class="nc">SomeType</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">dyn</span><span class="w"> </span><span class="n">TraitA</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">TraitB</span><span class="o">&gt;</span><span class="p">;</span><span class="w">
+</span></code></pre></div><ol start="2">
+<li>无法定义范型方法（<code>object safe</code> <sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup> 条件之一）：</li>
+</ol>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">trait</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">say</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">p</span>: <span class="nc">T</span><span class="p">);</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">struct</span> <span class="nc">Foo</span><span class="p">;</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Foo</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">say</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">p</span>: <span class="nc">T</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">bar</span>: <span class="nb">Box</span><span class="o">&lt;</span><span class="n">dyn</span><span class="w"> </span><span class="n">Bar</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Box</span>::<span class="n">new</span><span class="p">(</span><span class="n">Foo</span><span class="p">);</span><span class="w"> </span><span class="c1">// 无法编译通过
+</span></code></pre></div><ol start="3">
+<li>除 <code>receiver</code> 外的 <code>Self</code> 类型声明（<code>object safe</code> <sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup> 条件之一）：</li>
+</ol>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">trait</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">say</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="kp">&amp;</span><span class="nc">Self</span><span class="p">;</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">struct</span> <span class="nc">Foo</span><span class="p">;</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Foo</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">say</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="kp">&amp;</span><span class="nc">Self</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="bp">self</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">bar</span>: <span class="nb">Box</span><span class="o">&lt;</span><span class="n">dyn</span><span class="w"> </span><span class="n">Bar</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Box</span>::<span class="n">new</span><span class="p">(</span><span class="n">Foo</span><span class="p">);</span><span class="w"> </span><span class="c1">// 无法编译通过
+</span></code></pre></div><ol start="4">
+<li>无法定义关联函数（<code>Associated Functions</code>）（<code>object safe</code> <sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup> 条件之一）：</li>
+</ol>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">trait</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">hello</span><span class="p">();</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">struct</span> <span class="nc">Foo</span><span class="p">;</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Foo</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">hello</span><span class="p">()</span><span class="w"> </span><span class="p">{}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">bar</span>: <span class="nb">Box</span><span class="o">&lt;</span><span class="n">dyn</span><span class="w"> </span><span class="n">Bar</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Box</span>::<span class="n">new</span><span class="p">(</span><span class="n">Foo</span><span class="p">);</span><span class="w"> </span><span class="c1">// 无法编译通过
+</span></code></pre></div><ol start="5">
+<li>只能定义一个生命周期：</li>
+</ol>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">type</span> <span class="nc">SomeType</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="p">,</span><span class="w"> </span><span class="na">&#39;b</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">dyn</span><span class="w"> </span><span class="n">TraitA</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="na">&#39;a</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="na">&#39;b</span><span class="o">&gt;</span><span class="p">;</span><span class="w"> </span><span class="c1">// 无法编译通过
+</span></code></pre></div><ol start="6">
+<li><code>Trait</code> 本身不能附加 <code>Self: Sized</code> 约束（<code>object safe</code> <sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup> 条件之一）：</li>
+</ol>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">trait</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="k">where</span><span class="w"> </span><span class="n">Self</span>: <span class="nb">Sized</span> <span class="p">{</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">struct</span> <span class="nc">Foo</span><span class="p">;</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Foo</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">bar</span>: <span class="nb">Box</span><span class="o">&lt;</span><span class="n">dyn</span><span class="w"> </span><span class="n">Bar</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Box</span>::<span class="n">new</span><span class="p">(</span><span class="n">Foo</span><span class="p">);</span><span class="w"> </span><span class="c1">// 无法编译通过
+</span></code></pre></div><ol start="7">
+<li>不能定义关联常量（<code>object safe</code> <sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup> 条件之一）：</li>
+</ol>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">trait</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">ID</span>: <span class="kt">u32</span><span class="p">;</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">struct</span> <span class="nc">Foo</span><span class="p">;</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Foo</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">ID</span>: <span class="kt">u32</span> <span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">bar</span>: <span class="nb">Box</span><span class="o">&lt;</span><span class="n">dyn</span><span class="w"> </span><span class="n">Bar</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Box</span>::<span class="n">new</span><span class="p">(</span><span class="n">Foo</span><span class="p">);</span><span class="w"> </span><span class="c1">// 无法编译通过
+</span></code></pre></div><ol start="8">
+<li>不允许 <code>opt-out bounds</code>：</li>
+</ol>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">type</span> <span class="nc">SomeType</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">dyn</span><span class="w"> </span><span class="n">TraitA</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="o">?</span><span class="nb">Sized</span><span class="o">&gt;</span><span class="p">;</span><span class="w"> </span><span class="c1">// 无法编译通过
+</span></code></pre></div><h2 id="通过-self-sized-约束将特定方法排除在-vtable-外">通过 <code>Self: Sized</code> 约束将特定方法排除在 <code>vtable</code> 外</h2>
+<p>有时候我们希望把某些不具备 <code>object-safe</code> 条件的方法排除在 <code>vtable</code> 外，比如范型方法、除了 <code>receiver</code> 外的 <code>Self</code> 类型声明、关联函数，相当于生成一个具备 <code>object-safe</code> 的子集。这时候只需要在方法上附加 <code>where Self: Sized</code> 约束即可：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">trait</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">say</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">(</span><span class="n">p</span>: <span class="nc">T</span><span class="p">)</span><span class="w"> </span><span class="k">where</span><span class="w"> </span><span class="n">Self</span>: <span class="nb">Sized</span><span class="p">;</span><span class="w">
+</span><span class="w">    
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">hello</span><span class="p">()</span><span class="w"> </span><span class="k">where</span><span class="w"> </span><span class="n">Self</span>: <span class="nb">Sized</span><span class="p">;</span><span class="w">
+</span><span class="w">    
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">set</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="kp">&amp;</span><span class="nc">Self</span><span class="w"> </span><span class="k">where</span><span class="w"> </span><span class="n">Self</span>: <span class="nb">Sized</span><span class="p">;</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">struct</span> <span class="nc">Foo</span><span class="p">;</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Foo</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">say</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">(</span><span class="n">p</span>: <span class="nc">T</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w">    
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">hello</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w">    
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">set</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="kp">&amp;</span><span class="nc">Self</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="bp">self</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">bar</span>: <span class="nb">Box</span><span class="o">&lt;</span><span class="n">dyn</span><span class="w"> </span><span class="n">Bar</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Box</span>::<span class="n">new</span><span class="p">(</span><span class="n">Foo</span><span class="p">);</span><span class="w"> </span><span class="c1">// 编译通过
+</span></code></pre></div><p>之所以能通过这种方式来标记，是因为 <a href="https://doc.rust-lang.org/reference/special-types-and-traits.html#sized"><code>implementation items</code> 默认不会被编译器实现 <code>Sized</code></a>。当然这些被排除的方法在 <code>Trait Object</code> 上也无法调用。</p>
+<h2 id="trait-object-的生命周期推导"><code>Trait Object</code> 的生命周期推导</h2>
+<p>由于 <code>Trait Object</code> 内可能包含引用，因此也需要在定义时描述其生命周期，不过大多数时候编译器都能在上下文中推断出所需的生命周期，规则如下<sup id="fnref:3"><a href="#fn:3" class="footnote-ref" role="doc-noteref">3</a></sup>：</p>
+<blockquote>
+<p>如果一个trait对象作为一个类型参数传递到泛型中，那么它的生命约束会从它包含的类型中推断</p>
+<ol>
+<li>如果包含的类型中有唯一的约束，那么就使用这个约束。</li>
+<li>如果包含的类型中有超过一个约束，那么必须显式指定约束。</li>
+</ol>
+<p>如果以上都不适用，那么：</p>
+<ol>
+<li>如果trait是以单个生命周期约束定义的，那么就使用这个约束</li>
+<li>如果所有生命周期约束都是 &lsquo;static 的，那么就使用 &lsquo;static 作为约束</li>
+<li>如果trait没有生命周期约束，那么它的生命周期将会从表达式中推断，如果不在表达式中，那么就是 &lsquo;static 的</li>
+</ol>
+</blockquote>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// For the following trait...
+</span><span class="c1"></span><span class="k">trait</span><span class="w"> </span><span class="n">Foo</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="c1">// These two are the same as Box&lt;T&gt; has no lifetime bound on T
+</span><span class="c1"></span><span class="k">type</span> <span class="nc">T1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">dyn</span><span class="w"> </span><span class="n">Foo</span><span class="o">&gt;</span><span class="p">;</span><span class="w">
+</span><span class="w"></span><span class="k">type</span> <span class="nc">T2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">dyn</span><span class="w"> </span><span class="n">Foo</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nb">&#39;static</span><span class="o">&gt;</span><span class="p">;</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="c1">// ...and so are these:
+</span><span class="c1"></span><span class="k">impl</span><span class="w"> </span><span class="n">dyn</span><span class="w"> </span><span class="n">Foo</span><span class="w"> </span><span class="p">{}</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="w"> </span><span class="n">dyn</span><span class="w"> </span><span class="n">Foo</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nb">&#39;static</span><span class="w"> </span><span class="p">{}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="c1">// ...so are these, because &amp;&#39;a T requires T: &#39;a
+</span><span class="c1"></span><span class="k">type</span> <span class="nc">T3</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="na">&#39;a</span><span class="w"> </span><span class="n">dyn</span><span class="w"> </span><span class="n">Foo</span><span class="p">;</span><span class="w">
+</span><span class="w"></span><span class="k">type</span> <span class="nc">T4</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="na">&#39;a</span><span class="w"> </span><span class="p">(</span><span class="n">dyn</span><span class="w"> </span><span class="n">Foo</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="na">&#39;a</span><span class="p">);</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="c1">// std::cell::Ref&lt;&#39;a, T&gt; also requires T: &#39;a, so these are the same
+</span><span class="c1"></span><span class="k">type</span> <span class="nc">T5</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span>::<span class="n">cell</span>::<span class="n">Ref</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="p">,</span><span class="w"> </span><span class="n">dyn</span><span class="w"> </span><span class="n">Foo</span><span class="o">&gt;</span><span class="p">;</span><span class="w">
+</span><span class="w"></span><span class="k">type</span> <span class="nc">T6</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span>::<span class="n">cell</span>::<span class="n">Ref</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="p">,</span><span class="w"> </span><span class="n">dyn</span><span class="w"> </span><span class="n">Foo</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="na">&#39;a</span><span class="o">&gt;</span><span class="p">;</span><span class="w">
+</span></code></pre></div><div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// This is an example of an error.
+</span><span class="c1"></span><span class="k">trait</span><span class="w"> </span><span class="n">Foo</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="k">struct</span> <span class="nc">TwoBounds</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="p">,</span><span class="w"> </span><span class="na">&#39;b</span><span class="p">,</span><span class="w"> </span><span class="n">T</span>: <span class="o">?</span><span class="nb">Sized</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="na">&#39;a</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="na">&#39;b</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="n">f1</span>: <span class="kp">&amp;</span><span class="na">&#39;a</span><span class="w"> </span><span class="kt">i32</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="n">f2</span>: <span class="kp">&amp;</span><span class="na">&#39;b</span><span class="w"> </span><span class="kt">i32</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="n">f3</span>: <span class="nc">T</span><span class="p">,</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="k">type</span> <span class="nc">T7</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="p">,</span><span class="w"> </span><span class="na">&#39;b</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">TwoBounds</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="p">,</span><span class="w"> </span><span class="na">&#39;b</span><span class="p">,</span><span class="w"> </span><span class="n">dyn</span><span class="w"> </span><span class="n">Foo</span><span class="o">&gt;</span><span class="p">;</span><span class="w">
+</span><span class="w"></span><span class="c1">//                                  ^^^^^^^
+</span><span class="c1">// Error: the lifetime bound for this object type cannot be deduced from context
+</span></code></pre></div><div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// For the following trait...
+</span><span class="c1"></span><span class="k">trait</span><span class="w"> </span><span class="n">Bar</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="o">&gt;</span>: <span class="na">&#39;a</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="c1">// ...these two are the same:
+</span><span class="c1"></span><span class="k">type</span> <span class="nc">T1</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">dyn</span><span class="w"> </span><span class="n">Bar</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="o">&gt;&gt;</span><span class="p">;</span><span class="w">
+</span><span class="w"></span><span class="k">type</span> <span class="nc">T2</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">dyn</span><span class="w"> </span><span class="n">Bar</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="o">&gt;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="na">&#39;a</span><span class="o">&gt;</span><span class="p">;</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="c1">// ...and so are these:
+</span><span class="c1"></span><span class="k">impl</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="o">&gt;</span><span class="w"> </span><span class="n">dyn</span><span class="w"> </span><span class="n">Bar</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{}</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="o">&gt;</span><span class="w"> </span><span class="n">dyn</span><span class="w"> </span><span class="n">Bar</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="o">&gt;</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="na">&#39;a</span><span class="w"> </span><span class="p">{}</span><span class="w">
+</span></code></pre></div><h2 id="与范型相比有什么优劣">与范型相比有什么优劣</h2>
+<p>范型会在编译期间展开成具体的类型以及方法，因此可以在编译期间确定对象的类型内存布局、方法地址，这属于静态分发；而 <code>Trait Object</code> 是在程序运行期间通过指针间接确定具体对象的类型内存布局和方法地址，这属于动态分发。</p>
+<p>优势：</p>
+<ol>
+<li>能实现多态，动态地修改类型和调用方法，实现动态容器。</li>
+<li>没有代码膨胀问题，范型由于每个类型和方法都需要独立展开，而 <code>Trait Object</code> 不需要这么做，因此可以生成更小的代码尺寸。</li>
+</ol>
+<p>劣势：</p>
+<ol>
+<li>上面提到的各种限制。</li>
+<li>由于动态分发需要在程序运行期间通过指针间接访问数据和调用方法，有一定的性能开销。</li>
+</ol>
+<section class="footnotes" role="doc-endnotes">
+<hr>
+<ol>
+<li id="fn:1" role="doc-endnote">
+<p>空元组（<code>()</code>）和零尺寸类型的类型大小为0，内存对齐大小为1。- <a href="https://doc.rust-lang.org/reference/type-layout.html#tuple-layout">Type Layout</a> <a href="#fnref:1" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:2" role="doc-endnote">
+<p>即对象安全。- <a href="https://doc.rust-lang.org/reference/items/traits.html#object-safety">Object Safety</a> <a href="#fnref:2" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+<li id="fn:3" role="doc-endnote">
+<p><a href="https://doc.rust-lang.org/reference/lifetime-elision.html#default-trait-object-lifetimes">Default trait object lifetimes</a> 和 <a href="https://github.com/whfuyn/rust-blog/blob/master/posts/Rust%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F%E7%9A%84%E5%B8%B8%E8%A7%81%E8%AF%AF%E8%A7%A3.md#6-%E8%A3%85%E7%AE%B1%E7%9A%84trait%E5%AF%B9%E8%B1%A1%E6%B2%A1%E6%9C%89%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F">Rust生命周期的常见误解</a> <a href="#fnref:3" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+</li>
+</ol>
+</section>]]></content>
+		</item>
 		
 		<item>
 			<title>Rust中的生命周期及变性</title>
@@ -186,7 +495,7 @@
   |              ^^^ second mutable borrow occurs here
 6 |     print(b1, b2);
   |           -- first borrow later used here
-</code></pre><p>原因在于 <code>read_bytes</code> 方法根据自动推导规则3，返回值的生命周期将同 <code>&amp;mut self</code> 一致，并且是由 <code>&amp;mut T</code> 降级到 <code>&amp;T</code> ，在返回的引用没有析构前，它将一致持有 <code>&amp;mut self</code> ，导致第二次无法再借用。因此我们需要动手指定返回值的生命周期以符合语义：</p>
+</code></pre><p>原因在于 <code>read_bytes</code> 方法根据自动推导规则3，返回值的生命周期将同 <code>&amp;mut self</code> 一致，并且是由 <code>&amp;mut T</code> 降级到 <code>&amp;T</code> ，在返回的引用没有析构前，它将一直持有 <code>&amp;mut self</code> ，导致第二次无法再借用。因此我们需要手动指定返回值的生命周期以符合语义：</p>
 <div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// ...
 </span><span class="c1"></span><span class="k">fn</span> <span class="nf">read_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="kp">&amp;</span><span class="na">&#39;a</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">]</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">	</span><span class="bp">self</span><span class="p">.</span><span class="n">pos</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span><span class="w">

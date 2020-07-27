@@ -246,7 +246,7 @@
   |              ^^^ second mutable borrow occurs here
 6 |     print(b1, b2);
   |           -- first borrow later used here
-</code></pre><p>原因在于 <code>read_bytes</code> 方法根据自动推导规则3，返回值的生命周期将同 <code>&amp;mut self</code> 一致，并且是由 <code>&amp;mut T</code> 降级到 <code>&amp;T</code> ，在返回的引用没有析构前，它将一致持有 <code>&amp;mut self</code> ，导致第二次无法再借用。因此我们需要动手指定返回值的生命周期以符合语义：</p>
+</code></pre><p>原因在于 <code>read_bytes</code> 方法根据自动推导规则3，返回值的生命周期将同 <code>&amp;mut self</code> 一致，并且是由 <code>&amp;mut T</code> 降级到 <code>&amp;T</code> ，在返回的引用没有析构前，它将一直持有 <code>&amp;mut self</code> ，导致第二次无法再借用。因此我们需要手动指定返回值的生命周期以符合语义：</p>
 <div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// ...
 </span><span class="c1"></span><span class="k">fn</span> <span class="nf">read_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="kp">&amp;</span><span class="na">&#39;a</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">]</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">	</span><span class="bp">self</span><span class="p">.</span><span class="n">pos</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span><span class="w">
@@ -330,6 +330,9 @@
 			</footer>
 		</article>
 		<div class="post-nav thin">
+			<a class="next-post" href="https://xiaopengli89.github.io/posts/rust-trait-object/">
+				<span class="post-nav-label"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-left"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>&nbsp;Newer</span><br><span>Rust中的多态 - Trait Object</span>
+			</a>
 			<a class="prev-post" href="https://xiaopengli89.github.io/posts/rust-asm-macro/">
 				<span class="post-nav-label">Older&nbsp;<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-right"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></span><br><span>Rust新的内联汇编语法</span>
 			</a>
