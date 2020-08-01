@@ -2081,7 +2081,7 @@ To learn more, run the command again with --verbose.
 </span></code></pre></div><p>运行的结果：</p>
 <pre><code class="language-none" data-lang="none">Hello, World!
 panic at src/main.rs:12
-</code></pre><p>第3行是我们打印的异常处理。第2行是编译器为我们加的。</p>
+</code></pre><p>第2行是我们打印的异常处理。</p>
 <h3 id="结尾">结尾</h3>
 <p>好了，到这里就已经实现了一个不带标准库的Rust程序。虽然比平时写的Rust程序多了些东西，但其实是标准库为我们做了很多，现在只是我们自己去完成这些罢了。Rust是名副其实的系统级编程语言，虽然学习曲线有些陡峭，但是随着深入理解，这些都是Rust的目标所在，Rust是近几十年里出现的真正为解决系统编程问题而设计的出色语言。</p>]]></content>
 		</item>
