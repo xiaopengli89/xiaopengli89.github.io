@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en-us">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta http-equiv="X-UA-Compatible" content="ie=edge">
+	<meta name="theme-color" content="#494f5c">
+	<meta name="msapplication-TileColor" content="#494f5c">
+<meta itemprop="name" content="用Rust实现一个Goroutine">
+<meta itemprop="description" content="这几天本来是想实现下Go1.14中的信号抢占调度器，不过结果还是遇到了难点，主要在于如何获取到信号处理前的上下文信息。
+这篇文章用于记录下实现的过程，尽管最终只实现了协作式调度，
+但还是整理出了目前用户态实现异步抢占或类抢占的实现方式。">
+<meta itemprop="datePublished" content="2020-08-05T14:11:03&#43;08:00" />
+<meta itemprop="dateModified" content="2020-08-05T14:11:03&#43;08:00" />
+<meta itemprop="wordCount" content="5616">
+
+
+
+<meta itemprop="keywords" content="rust,goroutine," /><meta property="og:title" content="用Rust实现一个Goroutine" />
+<meta property="og:description" content="这几天本来是想实现下Go1.14中的信号抢占调度器，不过结果还是遇到了难点，主要在于如何获取到信号处理前的上下文信息。
+这篇文章用于记录下实现的过程，尽管最终只实现了协作式调度，
+但还是整理出了目前用户态实现异步抢占或类抢占的实现方式。" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://xiaopengli89.github.io/posts/goroutine-rs/" />
+<meta property="article:published_time" content="2020-08-05T14:11:03+08:00" />
+<meta property="article:modified_time" content="2020-08-05T14:11:03+08:00" />
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="用Rust实现一个Goroutine"/>
+<meta name="twitter:description" content="这几天本来是想实现下Go1.14中的信号抢占调度器，不过结果还是遇到了难点，主要在于如何获取到信号处理前的上下文信息。
+这篇文章用于记录下实现的过程，尽管最终只实现了协作式调度，
+但还是整理出了目前用户态实现异步抢占或类抢占的实现方式。"/>
+
+	<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+	<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+	<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+	<link rel="manifest" href="/site.webmanifest">
+	<link rel="mask-icon" href="/safari-pinned-tab.svg" color="">
+	<link rel="shortcut icon" href="/favicon.ico">
+
+	<title>用Rust实现一个Goroutine</title>
+	<link rel="stylesheet" href="https://xiaopengli89.github.io/css/style.min.eac77496566fd7d5768fd650ddb0b2b181ca6a2d7c5fdd6fe6b8ba4bf47e566f.css" integrity="sha256-6sd0llZv19V2j9ZQ3bCysYHKai18X91v5ri6S/R+Vm8=" crossorigin="anonymous">
+	
+	<link rel="stylesheet" href="https://atelierbram.github.io/syntax-highlighting/archive/assets/css/prism/prism-base16-railscasts.dark.css">
+	<link rel="stylesheet" href="https://xiaopengli89.github.io/css/site.css">
+</head>
+
+<body id="page">
+	
+	<header id="site-header" class="animated slideInUp">
+		<div class="hdr-wrapper section-inner">
+			<div class="hdr-left">
+				<div class="site-branding">
+					<a href="https://xiaopengli89.github.io">Torigoth</a>
+				</div>
+				<nav class="site-nav hide-in-mobile">
+					
+				<a href="https://xiaopengli89.github.io/posts/">Posts</a>
+				<a href="https://xiaopengli89.github.io/tags/">Tags</a>
+				<a href="https://xiaopengli89.github.io/about/">About</a>
+
+				</nav>
+			</div>
+			<div class="hdr-right hdr-icons">
+				<span class="hdr-social hide-in-mobile"><a href="mailto:x.friday@outlook.com" target="_blank" rel="noopener me" title="Email"><svg xmlns="http://www.w3.org/2000/svg" class="feather" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg></a><a href="https://www.linkedin.com/in/%E5%B0%8F%E9%B9%8F-%E6%9D%8E-078a86124/" target="_blank" rel="noopener me" title="Linkedin"><svg xmlns="http://www.w3.org/2000/svg" class="feather" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path><rect x="2" y="9" width="4" height="12"></rect><circle cx="4" cy="4" r="2"></circle></svg></a><a href="https://github.com/xiaopengli89" target="_blank" rel="noopener me" title="Github"><svg xmlns="http://www.w3.org/2000/svg" class="feather" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg></a></span><button id="menu-btn" class="hdr-btn" title="Menu"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-menu"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg></button>
+			</div>
+		</div>
+	</header>
+	<div id="mobile-menu" class="animated fast">
+		<ul>
+			<li><a href="https://xiaopengli89.github.io/posts/">Posts</a></li>
+			<li><a href="https://xiaopengli89.github.io/tags/">Tags</a></li>
+			<li><a href="https://xiaopengli89.github.io/about/">About</a></li>
+		</ul>
+	</div>
+
+
+	<main class="site-main section-inner animated fadeIn faster">
+		<article class="thin">
+			<header class="post-header">
+				<div class="post-meta"><span>Aug 5, 2020</span></div>
+				<h1>用Rust实现一个Goroutine</h1>
+			</header>
+			<div class="content">
+				<p>这几天本来是想实现下Go1.14中的信号抢占调度器，不过结果还是遇到了难点，主要在于如何获取到信号处理前的上下文信息。
+这篇文章用于记录下实现的过程，尽管最终只实现了协作式调度，
+但还是整理出了目前用户态实现异步抢占或类抢占的实现方式。</p>
+<h2 id="gmp模型">GMP模型<a href="#gmp模型" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h2>
+<p>关于GMP模型的解析网上已经有不少文章，因此不在这里做重复式的搬运。</p>
+<p>在这里我对于M和P的实现是直接基于<code>thread_local</code>的，也没有去实现工作窃取，简单看下P的结构定义：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">pub</span><span class="w"> </span><span class="k">struct</span> <span class="nc">Processor</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="n">tx</span>: <span class="nc">Sender</span><span class="o">&lt;</span><span class="n">Goroutine</span><span class="o">&gt;</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">tx_new</span>: <span class="nc">Sender</span><span class="o">&lt;</span><span class="n">TaskInfo</span><span class="o">&gt;</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="n">rx</span>: <span class="nc">Receiver</span><span class="o">&lt;</span><span class="n">Goroutine</span><span class="o">&gt;</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="n">rx_new</span>: <span class="nc">Receiver</span><span class="o">&lt;</span><span class="n">TaskInfo</span><span class="o">&gt;</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="n">current</span>: <span class="nc">Cell</span><span class="o">&lt;</span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">Goroutine</span><span class="o">&gt;&gt;</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="n">safe_point</span>: <span class="nc">AtomicBool</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="n">private_stack</span>: <span class="p">(</span><span class="kt">usize</span><span class="p">,</span><span class="w"> </span><span class="kt">usize</span><span class="p">),</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>其中几个<code>Sender</code>和<code>Receiver</code>用于任务的提交和获取，<code>current</code>保存当前正在运行的G，
+<code>safe_point</code>用于标记目前是否处于安全抢占点，不过由于抢占处于未完成状态，因此实际不会用到它，
+<code>private_stack</code>是每个P独立的私有栈空间，主要作用是当一个G运行结束后，需要回收G的栈空间时作为回收操作的上下文。</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="n">thread_local</span><span class="o">!</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">static</span><span class="w"> </span><span class="n">PROCESSOR</span>: <span class="nc">Processor</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Processor</span>::<span class="n">new</span><span class="p">();</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="w"> </span><span class="n">Processor</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="c1">// 栈默认空间大小
+</span><span class="c1"></span><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">STACK_SIZE</span>: <span class="kt">usize</span> <span class="o">=</span><span class="w"> </span><span class="mi">32</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1024</span><span class="p">;</span><span class="w">
+</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">new</span><span class="p">()</span><span class="w"> </span>-&gt; <span class="nc">Self</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="c1">// processor私有栈，用于回收goroutine时的上下文
+</span><span class="c1"></span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">layout</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">Layout</span>::<span class="n">from_size_align_unchecked</span><span class="p">(</span><span class="n">Self</span>::<span class="n">STACK_SIZE</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="p">};</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">stack</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">alloc</span><span class="p">(</span><span class="n">layout</span><span class="p">)</span><span class="w"> </span><span class="p">};</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">bp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">stack</span><span class="p">.</span><span class="n">offset</span><span class="p">(</span><span class="n">Self</span>::<span class="n">STACK_SIZE</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">isize</span><span class="p">)</span><span class="w"> </span><span class="p">};</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">sp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bp</span><span class="p">;</span><span class="w">
+</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">tx</span><span class="p">,</span><span class="w"> </span><span class="n">rx</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mpsc</span>::<span class="n">channel</span><span class="p">();</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">tx_new</span><span class="p">,</span><span class="w"> </span><span class="n">rx_new</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mpsc</span>::<span class="n">channel</span><span class="p">();</span><span class="w">
+</span><span class="w">
+</span><span class="w">        </span><span class="n">Self</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="n">tx</span><span class="p">,</span><span class="w">
+</span><span class="w">            </span><span class="n">tx_new</span><span class="p">,</span><span class="w">
+</span><span class="w">            </span><span class="n">rx</span><span class="p">,</span><span class="w">
+</span><span class="w">            </span><span class="n">rx_new</span><span class="p">,</span><span class="w">
+</span><span class="w">            </span><span class="n">current</span>: <span class="nc">Cell</span>::<span class="n">new</span><span class="p">(</span><span class="nb">None</span><span class="p">),</span><span class="w">
+</span><span class="w">            </span><span class="n">safe_point</span>: <span class="nc">AtomicBool</span>::<span class="n">new</span><span class="p">(</span><span class="kc">false</span><span class="p">),</span><span class="w">
+</span><span class="w">            </span><span class="n">private_stack</span>: <span class="p">(</span><span class="n">bp</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">usize</span><span class="p">,</span><span class="w"> </span><span class="n">sp</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">usize</span><span class="p">),</span><span class="w">
+</span><span class="w">        </span><span class="p">}</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>当需要提交一个新任务时，会通过<code>tx_new</code>投递一个<code>TaskInfo</code>进来，而<code>TaskInfo</code>主要描述了任务需要执行的代码和栈空间：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">pub</span><span class="w"> </span><span class="k">struct</span> <span class="nc">TaskInfo</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">task</span>: <span class="nb">Box</span><span class="o">&lt;</span><span class="n">dyn</span><span class="w"> </span><span class="nb">FnOnce</span><span class="p">()</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nb">Send</span><span class="o">&gt;</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">stack_size</span>: <span class="kt">usize</span><span class="p">,</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>对于<code>task</code>用闭包还是遇到了个问题，那就是在代码跳转时，怎么获取到匿名闭包的<code>call</code>方法地址（当然还有其捕获的变量）。
+于是参考了<a href="https://cfsamson.gitbook.io/green-threads-explained-in-200-lines-of-rust/final-200-lines-of-code">Green Threads Explained in 200 Lines of Rust</a>
+这篇文章，作者是直接使用了函数指针，这种方式虽然可以直接从函数指针获取到其代码地址，
+但同时也失去了闭包的灵活性，比如在2个G之间需要通信时，需要通过闭包捕获进<code>channel</code>。</p>
+<p>不过后来还是利用闭包的内存布局实现了闭包作为任务入口。</p>
+<p>由于闭包在内存布局上是个胖指针，因此可以提取出<code>data</code>和<code>vtable</code>，然后分别利用C的调用约定，传递进一个全局函数中，
+再在那个全局函数中把参数恢复成闭包并执行。</p>
+<p>并且这样还带来了一个好处，就是可以在全局函数中做G的清理工作。</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// ...
+</span><span class="c1">// 从新任务队列获取
+</span><span class="c1">// 分配栈空间
+</span><span class="c1"></span><span class="kd">let</span><span class="w"> </span><span class="n">layout</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">Layout</span>::<span class="n">from_size_align_unchecked</span><span class="p">(</span><span class="n">stack_size</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="p">};</span><span class="w">
+</span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">stack</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">alloc</span><span class="p">(</span><span class="n">layout</span><span class="p">)</span><span class="w"> </span><span class="p">};</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">bp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">stack</span><span class="p">.</span><span class="n">offset</span><span class="p">(</span><span class="n">stack_size</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">isize</span><span class="p">)</span><span class="w"> </span><span class="p">};</span><span class="w">
+</span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">sp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bp</span><span class="p">;</span><span class="w">
+</span><span class="w"></span><span class="p">{</span><span class="w">
+</span><span class="w">	</span><span class="bp">self</span><span class="p">.</span><span class="n">current</span><span class="w">
+</span><span class="w">		</span><span class="p">.</span><span class="n">set</span><span class="p">(</span><span class="nb">Some</span><span class="p">(</span><span class="n">Goroutine</span>::<span class="n">new</span><span class="p">(</span><span class="n">stack_size</span><span class="p">,</span><span class="w"> </span><span class="n">stack</span><span class="p">,</span><span class="w"> </span><span class="n">layout</span><span class="p">)));</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">task</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Box</span>::<span class="n">into_raw</span><span class="p">(</span><span class="n">task</span><span class="p">);</span><span class="w">
+</span><span class="w"></span><span class="c1">// task是个胖指针, data和vtable需要单独传递
+</span><span class="c1"></span><span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">data</span><span class="p">,</span><span class="w"> </span><span class="n">vtable</span><span class="p">)</span>: <span class="p">(</span><span class="kt">usize</span><span class="p">,</span><span class="w"> </span><span class="kt">usize</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">mem</span>::<span class="n">transmute</span><span class="p">(</span><span class="n">task</span><span class="p">)</span><span class="w"> </span><span class="p">};</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="c1">// 修改栈指针并跳转
+</span><span class="c1"></span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">	</span><span class="n">asm</span><span class="o">!</span><span class="p">(</span><span class="w">
+</span><span class="w">		</span><span class="s">&#34;mov rsp, {sp}&#34;</span><span class="p">,</span><span class="w">
+</span><span class="w">		</span><span class="s">&#34;mov rbp, {bp}&#34;</span><span class="p">,</span><span class="w">
+</span><span class="w">		</span><span class="s">&#34;mov rdi, {data}&#34;</span><span class="p">,</span><span class="w">
+</span><span class="w">		</span><span class="s">&#34;mov rsi, {vtable}&#34;</span><span class="p">,</span><span class="w">
+</span><span class="w">		</span><span class="s">&#34;call {launch}&#34;</span><span class="p">,</span><span class="w">
+</span><span class="w">		</span><span class="n">sp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">in</span><span class="p">(</span><span class="n">reg</span><span class="p">)</span><span class="w"> </span><span class="n">sp</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">usize</span><span class="p">,</span><span class="w">
+</span><span class="w">		</span><span class="n">bp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">in</span><span class="p">(</span><span class="n">reg</span><span class="p">)</span><span class="w"> </span><span class="n">bp</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">usize</span><span class="p">,</span><span class="w">
+</span><span class="w">		</span><span class="n">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">in</span><span class="p">(</span><span class="n">reg</span><span class="p">)</span><span class="w"> </span><span class="n">data</span><span class="p">,</span><span class="w">
+</span><span class="w">		</span><span class="n">vtable</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">in</span><span class="p">(</span><span class="n">reg</span><span class="p">)</span><span class="w"> </span><span class="n">vtable</span><span class="p">,</span><span class="w">
+</span><span class="w">		</span><span class="n">launch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sym</span><span class="w"> </span><span class="n">launch</span><span class="p">,</span><span class="w">
+</span><span class="w">	</span><span class="p">);</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="n">unreachable</span><span class="o">!</span><span class="p">();</span><span class="w">
+</span><span class="w"></span><span class="c1">// ...
+</span></code></pre></div><div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">extern</span><span class="w"> </span><span class="s">&#34;C&#34;</span><span class="w"> </span><span class="k">fn</span> <span class="nf">launch</span><span class="p">(</span><span class="n">data</span>: <span class="kt">usize</span><span class="p">,</span><span class="w"> </span><span class="n">vtable</span>: <span class="kt">usize</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="o">!</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="c1">// 恢复FnOnce
+</span><span class="c1"></span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">f</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">f</span>: <span class="o">*</span><span class="k">mut</span><span class="w"> </span><span class="n">dyn</span><span class="w"> </span><span class="nb">FnOnce</span><span class="p">()</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mem</span>::<span class="n">transmute</span><span class="p">((</span><span class="n">data</span><span class="p">,</span><span class="w"> </span><span class="n">vtable</span><span class="p">));</span><span class="w">
+</span><span class="w">        </span><span class="nb">Box</span>::<span class="n">from_raw</span><span class="p">(</span><span class="n">f</span><span class="p">)</span><span class="w">
+</span><span class="w">    </span><span class="p">};</span><span class="w">
+</span><span class="w">    </span><span class="c1">// 执行任务
+</span><span class="c1"></span><span class="w">    </span><span class="n">f</span><span class="p">();</span><span class="w">
+</span><span class="w">    </span><span class="n">PROCESSOR</span><span class="p">.</span><span class="n">with</span><span class="p">(</span><span class="o">|</span><span class="n">p</span><span class="o">|</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="c1">// 切换到processor私有栈空间以回收goroutine的栈空间
+</span><span class="c1"></span><span class="w">        </span><span class="c1">// 永不返回
+</span><span class="c1"></span><span class="w">        </span><span class="n">p</span><span class="p">.</span><span class="n">context_to_private</span><span class="p">()</span><span class="w">
+</span><span class="w">    </span><span class="p">})</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>当G执行完成后，需要清理其栈空间，不过不能直接在G的上下文中执行清理工作，因为回收自身会造成段错误。</p>
+<p>因此需要先切换到P本身附带的一个私有栈空间，再去执行清理工作。</p>
+<p>清理完成后，还需要检查当前运行时是否已经退出，比如当主Goroutine运行结束后会关闭运行时。</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// 必须在processor私有栈空间执行
+</span><span class="c1">// 永不返回
+</span><span class="c1"></span><span class="k">extern</span><span class="w"> </span><span class="s">&#34;C&#34;</span><span class="w"> </span><span class="k">fn</span> <span class="nf">dealloc_current</span><span class="p">()</span><span class="w"> </span>-&gt; <span class="o">!</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="n">PROCESSOR</span><span class="p">.</span><span class="n">with</span><span class="p">(</span><span class="o">|</span><span class="n">p</span><span class="o">|</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="c1">// 回收已完成的goroutine栈空间
+</span><span class="c1"></span><span class="w">        </span><span class="n">p</span><span class="p">.</span><span class="n">dealloc_current</span><span class="p">();</span><span class="w">
+</span><span class="w">
+</span><span class="w">        </span><span class="c1">// 检查退出
+</span><span class="c1"></span><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="n">RT</span><span class="p">.</span><span class="n">is_shutdown</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">                </span><span class="n">libc</span>::<span class="n">pthread_exit</span><span class="p">(</span><span class="n">ptr</span>::<span class="n">null_mut</span><span class="p">());</span><span class="w">
+</span><span class="w">            </span><span class="p">}</span><span class="w">
+</span><span class="w">        </span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w">        </span><span class="c1">// 运行下一个goroutine，永不返回
+</span><span class="c1"></span><span class="w">        </span><span class="n">p</span><span class="p">.</span><span class="n">run</span><span class="p">()</span><span class="w">
+</span><span class="w">    </span><span class="p">})</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="w"> </span><span class="n">Processor</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">context_to_private</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="o">!</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="n">asm</span><span class="o">!</span><span class="p">(</span><span class="w">
+</span><span class="w">                </span><span class="s">&#34;mov rbp, {bp}&#34;</span><span class="p">,</span><span class="w">
+</span><span class="w">                </span><span class="s">&#34;mov rsp, {sp}&#34;</span><span class="p">,</span><span class="w">
+</span><span class="w">                </span><span class="s">&#34;call {dealloc_current}&#34;</span><span class="p">,</span><span class="w">
+</span><span class="w">                </span><span class="n">bp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">in</span><span class="p">(</span><span class="n">reg</span><span class="p">)</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">private_stack</span><span class="p">.</span><span class="mi">0</span><span class="p">,</span><span class="w">
+</span><span class="w">                </span><span class="n">sp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">in</span><span class="p">(</span><span class="n">reg</span><span class="p">)</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">private_stack</span><span class="p">.</span><span class="mi">1</span><span class="p">,</span><span class="w">
+</span><span class="w">                </span><span class="n">dealloc_current</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sym</span><span class="w"> </span><span class="n">dealloc_current</span><span class="p">,</span><span class="w">
+</span><span class="w">            </span><span class="p">);</span><span class="w">
+</span><span class="w">        </span><span class="p">}</span><span class="w">
+</span><span class="w">        </span><span class="n">unreachable</span><span class="o">!</span><span class="p">();</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">dealloc_current</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">current</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">current</span><span class="p">.</span><span class="n">take</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">                </span><span class="n">dealloc</span><span class="p">(</span><span class="n">current</span><span class="p">.</span><span class="n">stack</span><span class="p">,</span><span class="w"> </span><span class="n">current</span><span class="p">.</span><span class="n">layout</span><span class="p">);</span><span class="w">
+</span><span class="w">            </span><span class="p">}</span><span class="w">
+</span><span class="w">        </span><span class="p">}</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>然后是看下G的定义：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">pub</span><span class="w"> </span><span class="k">struct</span> <span class="nc">Context</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">ucontext</span>: <span class="nb">Box</span><span class="o">&lt;</span><span class="n">libc</span>::<span class="n">ucontext_t</span><span class="o">&gt;</span><span class="p">,</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">pub</span><span class="w"> </span><span class="k">struct</span> <span class="nc">Goroutine</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="c1">// 上下文
+</span><span class="c1"></span><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">cx</span>: <span class="nb">Option</span><span class="o">&lt;</span><span class="n">Context</span><span class="o">&gt;</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="c1">// 栈大小
+</span><span class="c1"></span><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">stack_size</span>: <span class="kt">usize</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="c1">// 栈空间
+</span><span class="c1"></span><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">stack</span>: <span class="o">*</span><span class="k">mut</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="c1">// 内存布局
+</span><span class="c1"></span><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">layout</span>: <span class="nc">Layout</span><span class="p">,</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="w"> </span><span class="n">Goroutine</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">new</span><span class="p">(</span><span class="n">stack_size</span>: <span class="kt">usize</span><span class="p">,</span><span class="w"> </span><span class="n">stack</span>: <span class="o">*</span><span class="k">mut</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">layout</span>: <span class="nc">Layout</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nc">Self</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="n">Self</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="n">cx</span>: <span class="nb">None</span><span class="p">,</span><span class="w">
+</span><span class="w">            </span><span class="n">stack_size</span><span class="p">,</span><span class="w">
+</span><span class="w">            </span><span class="n">stack</span><span class="p">,</span><span class="w">
+</span><span class="w">            </span><span class="n">layout</span><span class="p">,</span><span class="w">
+</span><span class="w">        </span><span class="p">}</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>G的结构其实就非常简单了，主要就是调度时需要的上下文以及清理G时需要的栈空间布局信息。</p>
+<p>由于我这里没有实现工作窃取，那调度器的实现其实也就非常简单了，主要的工作就是从<code>tx_new</code>获取新任务，
+以及从<code>tx</code>获取之前被调度走的未完成的任务。</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// 运行下一个goroutine，永不返回
+</span><span class="c1"></span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">run</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="o">!</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">	</span><span class="k">loop</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">		</span><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Ok</span><span class="p">(</span><span class="n">TaskInfo</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">task</span><span class="p">,</span><span class="w"> </span><span class="n">stack_size</span><span class="w"> </span><span class="p">})</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">rx_new</span><span class="p">.</span><span class="n">try_recv</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">			</span><span class="c1">// 从新任务队列获取
+</span><span class="c1"></span><span class="w">			</span><span class="c1">// 分配栈空间
+</span><span class="c1"></span><span class="w">			</span><span class="kd">let</span><span class="w"> </span><span class="n">layout</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">Layout</span>::<span class="n">from_size_align_unchecked</span><span class="p">(</span><span class="n">stack_size</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="p">};</span><span class="w">
+</span><span class="w">			</span><span class="kd">let</span><span class="w"> </span><span class="n">stack</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">alloc</span><span class="p">(</span><span class="n">layout</span><span class="p">)</span><span class="w"> </span><span class="p">};</span><span class="w">
+</span><span class="w">
+</span><span class="w">			</span><span class="kd">let</span><span class="w"> </span><span class="n">bp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">stack</span><span class="p">.</span><span class="n">offset</span><span class="p">(</span><span class="n">stack_size</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">isize</span><span class="p">)</span><span class="w"> </span><span class="p">};</span><span class="w">
+</span><span class="w">			</span><span class="kd">let</span><span class="w"> </span><span class="n">sp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bp</span><span class="p">;</span><span class="w">
+</span><span class="w">			</span><span class="p">{</span><span class="w">
+</span><span class="w">				</span><span class="bp">self</span><span class="p">.</span><span class="n">current</span><span class="w">
+</span><span class="w">					</span><span class="p">.</span><span class="n">set</span><span class="p">(</span><span class="nb">Some</span><span class="p">(</span><span class="n">Goroutine</span>::<span class="n">new</span><span class="p">(</span><span class="n">stack_size</span><span class="p">,</span><span class="w"> </span><span class="n">stack</span><span class="p">,</span><span class="w"> </span><span class="n">layout</span><span class="p">)));</span><span class="w">
+</span><span class="w">			</span><span class="p">}</span><span class="w">
+</span><span class="w">			</span><span class="kd">let</span><span class="w"> </span><span class="n">task</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Box</span>::<span class="n">into_raw</span><span class="p">(</span><span class="n">task</span><span class="p">);</span><span class="w">
+</span><span class="w">			</span><span class="c1">// task是个胖指针, data和vtable需要单独传递
+</span><span class="c1"></span><span class="w">			</span><span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">data</span><span class="p">,</span><span class="w"> </span><span class="n">vtable</span><span class="p">)</span>: <span class="p">(</span><span class="kt">usize</span><span class="p">,</span><span class="w"> </span><span class="kt">usize</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">mem</span>::<span class="n">transmute</span><span class="p">(</span><span class="n">task</span><span class="p">)</span><span class="w"> </span><span class="p">};</span><span class="w">
+</span><span class="w">
+</span><span class="w">			</span><span class="c1">// 修改栈指针并跳转
+</span><span class="c1"></span><span class="w">			</span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">				</span><span class="n">asm</span><span class="o">!</span><span class="p">(</span><span class="w">
+</span><span class="w">					</span><span class="s">&#34;mov rsp, {sp}&#34;</span><span class="p">,</span><span class="w">
+</span><span class="w">					</span><span class="s">&#34;mov rbp, {bp}&#34;</span><span class="p">,</span><span class="w">
+</span><span class="w">					</span><span class="s">&#34;mov rdi, {data}&#34;</span><span class="p">,</span><span class="w">
+</span><span class="w">					</span><span class="s">&#34;mov rsi, {vtable}&#34;</span><span class="p">,</span><span class="w">
+</span><span class="w">					</span><span class="s">&#34;call {launch}&#34;</span><span class="p">,</span><span class="w">
+</span><span class="w">					</span><span class="n">sp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">in</span><span class="p">(</span><span class="n">reg</span><span class="p">)</span><span class="w"> </span><span class="n">sp</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">usize</span><span class="p">,</span><span class="w">
+</span><span class="w">					</span><span class="n">bp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">in</span><span class="p">(</span><span class="n">reg</span><span class="p">)</span><span class="w"> </span><span class="n">bp</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">usize</span><span class="p">,</span><span class="w">
+</span><span class="w">					</span><span class="n">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">in</span><span class="p">(</span><span class="n">reg</span><span class="p">)</span><span class="w"> </span><span class="n">data</span><span class="p">,</span><span class="w">
+</span><span class="w">					</span><span class="n">vtable</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">in</span><span class="p">(</span><span class="n">reg</span><span class="p">)</span><span class="w"> </span><span class="n">vtable</span><span class="p">,</span><span class="w">
+</span><span class="w">					</span><span class="n">launch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sym</span><span class="w"> </span><span class="n">launch</span><span class="p">,</span><span class="w">
+</span><span class="w">				</span><span class="p">);</span><span class="w">
+</span><span class="w">			</span><span class="p">}</span><span class="w">
+</span><span class="w">			</span><span class="n">unreachable</span><span class="o">!</span><span class="p">();</span><span class="w">
+</span><span class="w">		</span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Ok</span><span class="p">(</span><span class="n">g_next</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">rx</span><span class="p">.</span><span class="n">try_recv</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">			</span><span class="c1">// 从运行队列获取
+</span><span class="c1"></span><span class="w">			</span><span class="kd">let</span><span class="w"> </span><span class="n">cx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">g_next</span><span class="p">.</span><span class="n">cx</span><span class="p">.</span><span class="n">as_ref</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span><span class="w">
+</span><span class="w">			</span><span class="kd">let</span><span class="w"> </span><span class="n">ucontext</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cx</span><span class="p">.</span><span class="n">ucontext</span><span class="p">.</span><span class="n">as_ref</span><span class="p">()</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">_</span><span class="p">;</span><span class="w">
+</span><span class="w">			</span><span class="p">{</span><span class="w">
+</span><span class="w">				</span><span class="bp">self</span><span class="p">.</span><span class="n">current</span><span class="p">.</span><span class="n">set</span><span class="p">(</span><span class="nb">Some</span><span class="p">(</span><span class="n">g_next</span><span class="p">));</span><span class="w">
+</span><span class="w">			</span><span class="p">}</span><span class="w">
+</span><span class="w">			</span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">				</span><span class="c1">// 恢复上下文
+</span><span class="c1"></span><span class="w">				</span><span class="n">libc</span>::<span class="n">setcontext</span><span class="p">(</span><span class="n">ucontext</span><span class="p">);</span><span class="w">
+</span><span class="w">			</span><span class="p">}</span><span class="w">
+</span><span class="w">			</span><span class="n">unreachable</span><span class="o">!</span><span class="p">();</span><span class="w">
+</span><span class="w">		</span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">			</span><span class="n">thread</span>::<span class="n">sleep</span><span class="p">(</span><span class="n">Duration</span>::<span class="n">from_millis</span><span class="p">(</span><span class="mi">10</span><span class="p">));</span><span class="w">
+</span><span class="w">			</span><span class="k">continue</span><span class="p">;</span><span class="w">
+</span><span class="w">		</span><span class="p">}</span><span class="w">
+</span><span class="w">	</span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>调度方法需要保存当前的上下文，之后将任务重新放回队列尾端，执行下一个任务。</p>
+<p>需要注意的是，当目前的G下次被重新调度时，恢复上下文后执行的指令就是保存的那个地址后的一个指令，为了避免被无限调度（刚恢复又申请调度），
+需要一个标记来区分是不是恢复后的上下文。并且这个标记不能成为上下文快照的一部分，也就是读取和修改必须是内存操作。
+如果仅仅用一个栈上变量来作为标记是不行的，因为该变量可能会被写入寄存器，获取上下文后再修改它对于下次恢复时是不可见的，
+因为会被作为上下文快照的一部分被恢复成之前的值。</p>
+<p>另外需要注意的是：</p>
+<ol>
+<li>初始化标记</li>
+<li>获取上下文快照</li>
+<li>修改标记</li>
+<li>调度</li>
+</ol>
+<p>这4步操作是不能被编译器或CPU指令重排优化的，否则会UB。这里我使用<code>read_volatile</code>和<code>write_volatile</code>来确保内存操作和屏障：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">impl</span><span class="w"> </span><span class="n">Processor</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">	</span><span class="c1">// 保存当前现场并运行下一个goroutine，永不返回
+</span><span class="c1"></span><span class="w">    </span><span class="k">fn</span> <span class="nf">sched</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">cx</span>: <span class="nc">Context</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="o">!</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="k">mut</span><span class="w"> </span><span class="n">current</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">current</span><span class="p">.</span><span class="n">take</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="c1">// 保存现场
+</span><span class="c1"></span><span class="w">            </span><span class="n">current</span><span class="p">.</span><span class="n">cx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">cx</span><span class="p">);</span><span class="w">
+</span><span class="w">            </span><span class="c1">// 添加到队列尾端
+</span><span class="c1"></span><span class="w">            </span><span class="bp">self</span><span class="p">.</span><span class="n">tx</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">current</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span><span class="w">
+</span><span class="w">        </span><span class="p">}</span><span class="w">
+</span><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">run</span><span class="p">()</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">fn</span> <span class="nf">do_sched</span><span class="p">(</span><span class="n">p</span>: <span class="kp">&amp;</span><span class="nc">Processor</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">skip</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="p">;</span><span class="w">
+</span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">cx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">cx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mem</span>::<span class="n">zeroed</span>::<span class="o">&lt;</span><span class="n">libc</span>::<span class="n">ucontext_t</span><span class="o">&gt;</span><span class="p">();</span><span class="w">
+</span><span class="w">        </span><span class="n">libc</span>::<span class="n">getcontext</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">cx</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">mut</span><span class="w"> </span><span class="n">_</span><span class="p">);</span><span class="w">
+</span><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="n">ptr</span>::<span class="n">read_volatile</span><span class="p">(</span><span class="o">&amp;</span><span class="n">skip</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">_</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="k">return</span><span class="p">;</span><span class="w">
+</span><span class="w">        </span><span class="p">}</span><span class="w">
+</span><span class="w">        </span><span class="n">ptr</span>::<span class="n">write_volatile</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">skip</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">mut</span><span class="w"> </span><span class="n">_</span><span class="p">,</span><span class="w"> </span><span class="kc">true</span><span class="p">);</span><span class="w">
+</span><span class="w">        </span><span class="n">cx</span><span class="w">
+</span><span class="w">    </span><span class="p">};</span><span class="w">
+</span><span class="w">
+</span><span class="w">    </span><span class="c1">// 调度，永不返回
+</span><span class="c1"></span><span class="w">    </span><span class="n">p</span><span class="p">.</span><span class="n">sched</span><span class="p">(</span><span class="n">Context</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="n">ucontext</span>: <span class="nb">Box</span>::<span class="n">new</span><span class="p">(</span><span class="n">cx</span><span class="p">),</span><span class="w">
+</span><span class="w">    </span><span class="p">});</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="c1">// 主动申请调度
+</span><span class="c1"></span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">sched</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="n">PROCESSOR</span><span class="p">.</span><span class="n">with</span><span class="p">(</span><span class="n">do_sched</span><span class="p">);</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>运行时的实现方面，初始化工作就是创建线程（M），并启动其Processor：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">pub</span><span class="w"> </span><span class="k">struct</span> <span class="nc">Runtime</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="n">thread_num</span>: <span class="kt">usize</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="c1">// 与Processor通信
+</span><span class="c1"></span><span class="w">    </span><span class="n">goroutine_tx</span>: <span class="nb">Vec</span><span class="o">&lt;</span><span class="n">ProcessorChannel</span><span class="o">&gt;</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="n">is_shutdown</span>: <span class="nc">AtomicBool</span><span class="p">,</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">struct</span> <span class="nc">ProcessorChannel</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="n">tx</span>: <span class="nc">Sender</span><span class="o">&lt;</span><span class="n">TaskInfo</span><span class="o">&gt;</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="n">pid</span>: <span class="nc">libc</span>::<span class="n">pthread_t</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="n">lock</span>: <span class="nc">AtomicBool</span><span class="p">,</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="w"> </span><span class="n">Runtime</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">new</span><span class="p">(</span><span class="n">thread_num</span>: <span class="kt">usize</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nc">Self</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">goroutine_tx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">vec</span><span class="o">!</span><span class="p">[];</span><span class="w">
+</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">tx2</span><span class="p">,</span><span class="w"> </span><span class="n">rx2</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mpsc</span>::<span class="n">channel</span><span class="p">();</span><span class="w">
+</span><span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="mi">0</span><span class="p">..</span><span class="n">thread_num</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="kd">let</span><span class="w"> </span><span class="n">tx2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tx2</span><span class="p">.</span><span class="n">clone</span><span class="p">();</span><span class="w">
+</span><span class="w">            </span><span class="n">thread</span>::<span class="n">spawn</span><span class="p">(</span><span class="k">move</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">                </span><span class="kd">let</span><span class="w"> </span><span class="n">pid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">                    </span><span class="n">libc</span>::<span class="n">pthread_self</span><span class="p">()</span><span class="w">
+</span><span class="w">                </span><span class="p">};</span><span class="w">
+</span><span class="w">                </span><span class="n">PROCESSOR</span><span class="p">.</span><span class="n">with</span><span class="p">(</span><span class="o">|</span><span class="n">p</span><span class="o">|</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">                    </span><span class="kd">let</span><span class="w"> </span><span class="n">tx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">p</span><span class="p">.</span><span class="n">tx_new</span><span class="p">.</span><span class="n">clone</span><span class="p">();</span><span class="w">
+</span><span class="w">                    </span><span class="n">tx2</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">ProcessorChannel</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">                        </span><span class="n">tx</span><span class="p">,</span><span class="w">
+</span><span class="w">                        </span><span class="n">pid</span><span class="p">,</span><span class="w">
+</span><span class="w">                        </span><span class="n">lock</span>: <span class="nc">AtomicBool</span>::<span class="n">new</span><span class="p">(</span><span class="kc">false</span><span class="p">),</span><span class="w">
+</span><span class="w">                    </span><span class="p">})</span><span class="w">
+</span><span class="w">                    </span><span class="p">.</span><span class="n">unwrap</span><span class="p">();</span><span class="w">
+</span><span class="w">                    </span><span class="c1">// 启动processor
+</span><span class="c1"></span><span class="w">                    </span><span class="n">p</span><span class="p">.</span><span class="n">run</span><span class="p">();</span><span class="w">
+</span><span class="w">                </span><span class="p">});</span><span class="w">
+</span><span class="w">            </span><span class="p">});</span><span class="w">
+</span><span class="w">        </span><span class="p">}</span><span class="w">
+</span><span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="mi">0</span><span class="p">..</span><span class="n">thread_num</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="n">goroutine_tx</span><span class="p">.</span><span class="n">push</span><span class="p">(</span><span class="n">rx2</span><span class="p">.</span><span class="n">recv</span><span class="p">().</span><span class="n">unwrap</span><span class="p">());</span><span class="w">
+</span><span class="w">        </span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w">        </span><span class="n">Self</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="n">thread_num</span><span class="p">,</span><span class="w">
+</span><span class="w">            </span><span class="n">goroutine_tx</span><span class="p">,</span><span class="w">
+</span><span class="w">            </span><span class="n">is_shutdown</span>: <span class="nc">AtomicBool</span>::<span class="n">new</span><span class="p">(</span><span class="kc">false</span><span class="p">),</span><span class="w">
+</span><span class="w">        </span><span class="p">}</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>投递新任务可以指定G需要的栈空间大小，由于可能在不同的M上启动新的G，而<code>Sender</code>是非线程安全的，因此使用了自旋保护：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">impl</span><span class="w"> </span><span class="n">Processor</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="c1">// 使用默认栈大小启动一个goroutine
+</span><span class="c1"></span><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">go</span><span class="o">&lt;</span><span class="n">F</span><span class="o">&gt;</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">f</span>: <span class="nc">F</span><span class="p">)</span><span class="w">
+</span><span class="w">    </span><span class="k">where</span><span class="w">
+</span><span class="w">        </span><span class="n">F</span>: <span class="nb">FnOnce</span><span class="p">()</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nb">Send</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nb">&#39;static</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">go_with_stack_size</span><span class="p">(</span><span class="n">Processor</span>::<span class="n">STACK_SIZE</span><span class="p">,</span><span class="w"> </span><span class="n">f</span><span class="p">);</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w">    </span><span class="c1">// 指定栈大小启动一个goroutine
+</span><span class="c1"></span><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">go_with_stack_size</span><span class="o">&lt;</span><span class="n">F</span><span class="o">&gt;</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">stack_size</span>: <span class="kt">usize</span><span class="p">,</span><span class="w"> </span><span class="n">f</span>: <span class="nc">F</span><span class="p">)</span><span class="w">
+</span><span class="w">    </span><span class="k">where</span><span class="w">
+</span><span class="w">        </span><span class="n">F</span>: <span class="nb">FnOnce</span><span class="p">()</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nb">Send</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nb">&#39;static</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SystemTime</span>::<span class="n">now</span><span class="p">()</span><span class="w">
+</span><span class="w">            </span><span class="p">.</span><span class="n">duration_since</span><span class="p">(</span><span class="n">SystemTime</span>::<span class="n">UNIX_EPOCH</span><span class="p">)</span><span class="w">
+</span><span class="w">            </span><span class="p">.</span><span class="n">unwrap</span><span class="p">();</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">n</span><span class="p">.</span><span class="n">as_nanos</span><span class="p">()</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">usize</span><span class="p">)</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">thread_num</span><span class="p">;</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">f</span>: <span class="nb">Box</span><span class="o">&lt;</span><span class="n">dyn</span><span class="w"> </span><span class="nb">FnOnce</span><span class="p">()</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nb">Send</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Box</span>::<span class="n">new</span><span class="p">(</span><span class="n">f</span><span class="p">);</span><span class="w">
+</span><span class="w">        </span><span class="c1">// 获取锁
+</span><span class="c1"></span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">p</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="bp">self</span><span class="p">.</span><span class="n">goroutine_tx</span><span class="p">[</span><span class="n">i</span><span class="p">];</span><span class="w">
+</span><span class="w">        </span><span class="k">while</span><span class="w"> </span><span class="n">p</span><span class="p">.</span><span class="n">lock</span><span class="p">.</span><span class="n">compare_and_swap</span><span class="p">(</span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">Ordering</span>::<span class="n">SeqCst</span><span class="p">)</span><span class="w"> </span><span class="p">{}</span><span class="w">
+</span><span class="w">		</span><span class="c1">// 投递任务
+</span><span class="c1"></span><span class="w">        </span><span class="n">p</span><span class="p">.</span><span class="n">tx</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">TaskInfo</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="n">stack_size</span><span class="p">,</span><span class="w">
+</span><span class="w">            </span><span class="n">task</span>: <span class="nc">f</span><span class="p">,</span><span class="w">
+</span><span class="w">        </span><span class="p">})</span><span class="w">
+</span><span class="w">        </span><span class="p">.</span><span class="n">unwrap</span><span class="p">();</span><span class="w">
+</span><span class="w">        </span><span class="c1">// 释放锁
+</span><span class="c1"></span><span class="w">        </span><span class="n">p</span><span class="p">.</span><span class="n">lock</span><span class="p">.</span><span class="n">store</span><span class="p">(</span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="n">Ordering</span>::<span class="n">SeqCst</span><span class="p">);</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>最后是关闭运行时方法, 主要用于主Goroutine退出时执行：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">impl</span><span class="w"> </span><span class="n">Processor</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="c1">// 关闭runtime
+</span><span class="c1"></span><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">shutdown</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">is_shutdown</span><span class="p">.</span><span class="n">store</span><span class="p">(</span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">Ordering</span>::<span class="n">SeqCst</span><span class="p">);</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">is_shutdown</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="kt">bool</span> <span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">is_shutdown</span><span class="p">.</span><span class="n">load</span><span class="p">(</span><span class="n">Ordering</span>::<span class="n">SeqCst</span><span class="p">)</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>关于运行时的初始化，我简单地实现了个Lazy加载器，不过最近
+<a href="https://github.com/rust-lang/rust/pull/72414">Add lazy initialization primitives to std #72414</a>
+也已经合并进标准库，以后很多项目都不必依赖<a href="https://crates.io/crates/once_cell">once_cell</a>或
+<a href="https://crates.io/crates/lazy_static">lazy_static</a>了。</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">pub</span><span class="w"> </span><span class="k">struct</span> <span class="nc">Lazy</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="n">F</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">fn</span><span class="p">()</span><span class="w"> </span>-&gt; <span class="nc">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="n">inner</span>: <span class="nc">Cell</span><span class="o">&lt;</span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="n">once</span>: <span class="nc">Once</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="n">init</span>: <span class="nc">Cell</span><span class="o">&lt;</span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">F</span><span class="o">&gt;&gt;</span><span class="p">,</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="n">F</span><span class="o">&gt;</span><span class="w"> </span><span class="n">Lazy</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="n">F</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="k">fn</span> <span class="nf">new</span><span class="p">(</span><span class="n">f</span>: <span class="nc">F</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nc">Self</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="n">Self</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="n">inner</span>: <span class="nc">Cell</span>::<span class="n">new</span><span class="p">(</span><span class="nb">None</span><span class="p">),</span><span class="w">
+</span><span class="w">            </span><span class="n">once</span>: <span class="nc">Once</span>::<span class="n">new</span><span class="p">(),</span><span class="w">
+</span><span class="w">            </span><span class="n">init</span>: <span class="nc">Cell</span>::<span class="n">new</span><span class="p">(</span><span class="nb">Some</span><span class="p">(</span><span class="n">f</span><span class="p">)),</span><span class="w">
+</span><span class="w">        </span><span class="p">}</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="n">Deref</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Lazy</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">type</span> <span class="nc">Target</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">T</span><span class="p">;</span><span class="w">
+</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">deref</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="kp">&amp;</span><span class="nc">Self</span>::<span class="n">Target</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">once</span><span class="p">.</span><span class="n">call_once</span><span class="p">(</span><span class="o">||</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="kd">let</span><span class="w"> </span><span class="n">init</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">init</span><span class="p">.</span><span class="n">take</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span><span class="w">
+</span><span class="w">            </span><span class="bp">self</span><span class="p">.</span><span class="n">inner</span><span class="p">.</span><span class="n">set</span><span class="p">(</span><span class="nb">Some</span><span class="p">(</span><span class="n">init</span><span class="p">()));</span><span class="w">
+</span><span class="w">        </span><span class="p">});</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">p</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">inner</span><span class="p">.</span><span class="n">as_ptr</span><span class="p">();</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">p</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">&amp;*</span><span class="n">p</span><span class="w"> </span><span class="p">};</span><span class="w">
+</span><span class="w">        </span><span class="n">p</span><span class="p">.</span><span class="n">as_ref</span><span class="p">().</span><span class="n">unwrap</span><span class="p">()</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">unsafe</span><span class="w"> </span><span class="k">impl</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="nb">Sync</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Lazy</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="c1">// ...
+</span><span class="c1"></span><span class="w">
+</span><span class="w"></span><span class="c1">// M线程数
+</span><span class="c1"></span><span class="k">static</span><span class="w"> </span><span class="n">THREAD_NUM</span>: <span class="nc">AtomicUsize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">AtomicUsize</span>::<span class="n">new</span><span class="p">(</span><span class="mi">2</span><span class="p">);</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="c1">// 初始化Runtime
+</span><span class="c1"></span><span class="k">pub</span><span class="w"> </span><span class="k">static</span><span class="w"> </span><span class="n">RT</span>: <span class="nc">Lazy</span><span class="o">&lt;</span><span class="n">Runtime</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Lazy</span>::<span class="n">new</span><span class="p">(</span><span class="o">||</span><span class="w"> </span><span class="n">Runtime</span>::<span class="n">new</span><span class="p">(</span><span class="n">THREAD_NUM</span><span class="p">.</span><span class="n">load</span><span class="p">(</span><span class="n">Ordering</span>::<span class="n">SeqCst</span><span class="p">)));</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="cp">#[allow(dead_code)]</span><span class="w">
+</span><span class="w"></span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">set_thread_num</span><span class="p">(</span><span class="n">n</span>: <span class="kt">usize</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="n">THREAD_NUM</span><span class="p">.</span><span class="n">store</span><span class="p">(</span><span class="n">n</span><span class="p">,</span><span class="w"> </span><span class="n">Ordering</span>::<span class="n">SeqCst</span><span class="p">);</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>在Go中，main函数其实并不是程序的真正入口，而是作为一个独立的G运行的。
+为此我利用Rust的属性宏将原本的main函数做了包装，主要工作在于：</p>
+<ol>
+<li>启动前配置线程数</li>
+<li>生成主Goroutine并投递进运行时</li>
+<li>使用<code>channel</code>实现主Goroutine与主线程通信，主线程监控其退出</li>
+</ol>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[proc_macro_attribute]</span><span class="w">
+</span><span class="w"></span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">main</span><span class="p">(</span><span class="n">attr</span>: <span class="nc">TokenStream</span><span class="p">,</span><span class="w"> </span><span class="n">item</span>: <span class="nc">TokenStream</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nc">TokenStream</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">args</span>: <span class="nc">AttributeArgs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">syn</span>::<span class="n">parse_macro_input</span><span class="o">!</span><span class="p">(</span><span class="n">attr</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">AttributeArgs</span><span class="p">);</span><span class="w">
+</span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">arg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">args</span><span class="p">.</span><span class="n">into_iter</span><span class="p">().</span><span class="n">next</span><span class="p">();</span><span class="w">
+</span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">thread_num</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">arg</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">meta</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="n">NestedMeta</span>::<span class="n">Meta</span><span class="p">(</span><span class="n">meta</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">arg</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="n">meta</span><span class="w">
+</span><span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="n">panic</span><span class="o">!</span><span class="p">(</span><span class="s">&#34;invalid attrs&#34;</span><span class="p">);</span><span class="w">
+</span><span class="w">        </span><span class="p">};</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="n">Meta</span>::<span class="n">NameValue</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">meta</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="n">v</span><span class="w">
+</span><span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="n">panic</span><span class="o">!</span><span class="p">(</span><span class="s">&#34;invalid attrs&#34;</span><span class="p">);</span><span class="w">
+</span><span class="w">        </span><span class="p">};</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">seg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">v</span><span class="p">.</span><span class="n">path</span><span class="p">.</span><span class="n">segments</span><span class="p">.</span><span class="n">into_iter</span><span class="p">().</span><span class="n">next</span><span class="p">().</span><span class="n">expect</span><span class="p">(</span><span class="s">&#34;invalid attrs&#34;</span><span class="p">);</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">ident</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">seg</span><span class="p">.</span><span class="n">ident</span><span class="p">.</span><span class="n">to_string</span><span class="p">();</span><span class="w">
+</span><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="n">ident</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="s">&#34;thread_num&#34;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="n">panic</span><span class="o">!</span><span class="p">(</span><span class="s">&#34;invalid attrs&#34;</span><span class="p">);</span><span class="w">
+</span><span class="w">        </span><span class="p">}</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="n">Lit</span>::<span class="n">Int</span><span class="p">(</span><span class="n">n</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">v</span><span class="p">.</span><span class="n">lit</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="n">n</span><span class="p">.</span><span class="n">base10_parse</span>::<span class="o">&lt;</span><span class="kt">usize</span><span class="o">&gt;</span><span class="p">().</span><span class="n">unwrap</span><span class="p">()</span><span class="w">
+</span><span class="w">        </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="n">panic</span><span class="o">!</span><span class="p">(</span><span class="s">&#34;invalid attrs&#34;</span><span class="p">);</span><span class="w">
+</span><span class="w">        </span><span class="p">};</span><span class="w">
+</span><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="n">panic</span><span class="o">!</span><span class="p">(</span><span class="s">&#34;thread_num must be at least 1&#34;</span><span class="p">);</span><span class="w">
+</span><span class="w">        </span><span class="p">}</span><span class="w">
+</span><span class="w">        </span><span class="n">n</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="mi">2</span><span class="w">
+</span><span class="w">    </span><span class="p">};</span><span class="w">
+</span><span class="w">
+</span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">input</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">syn</span>::<span class="n">parse_macro_input</span><span class="o">!</span><span class="p">(</span><span class="n">item</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">syn</span>::<span class="n">ItemFn</span><span class="p">);</span><span class="w">
+</span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">input</span><span class="p">.</span><span class="n">sig</span><span class="p">.</span><span class="n">output</span><span class="p">;</span><span class="w">
+</span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">input</span><span class="p">.</span><span class="n">sig</span><span class="p">.</span><span class="n">ident</span><span class="p">;</span><span class="w">
+</span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">body</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">input</span><span class="p">.</span><span class="n">block</span><span class="p">;</span><span class="w">
+</span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">attrs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">input</span><span class="p">.</span><span class="n">attrs</span><span class="p">;</span><span class="w">
+</span><span class="w">
+</span><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="s">&#34;main&#34;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="n">panic</span><span class="o">!</span><span class="p">(</span><span class="s">&#34;only the main function can be tagged with #[goroutine_rs::main]&#34;</span><span class="p">);</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">quote</span><span class="o">!</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="k">fn</span> <span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="err">#</span><span class="n">ret</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="c1">// 设置线程池大小
+</span><span class="c1"></span><span class="w">            </span>::<span class="n">goroutine_rs</span>::<span class="n">set_thread_num</span><span class="p">(</span><span class="err">#</span><span class="n">thread_num</span><span class="p">);</span><span class="w">
+</span><span class="w">            </span><span class="c1">// 主goroutine函数
+</span><span class="c1"></span><span class="w">            </span><span class="err">#</span><span class="p">(</span><span class="err">#</span><span class="n">attrs</span><span class="p">)</span><span class="o">*</span><span class="w">
+</span><span class="w">            </span><span class="k">fn</span> <span class="nf">go_main</span><span class="p">()</span><span class="w"> </span><span class="err">#</span><span class="n">ret</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">                </span><span class="err">#</span><span class="n">body</span><span class="w">
+</span><span class="w">            </span><span class="p">}</span><span class="w">
+</span><span class="w">            </span><span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">tx</span><span class="p">,</span><span class="w"> </span><span class="n">rx</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span>::<span class="n">std</span>::<span class="n">sync</span>::<span class="n">mpsc</span>::<span class="n">channel</span><span class="p">();</span><span class="w">
+</span><span class="w">            </span><span class="c1">// 把主goroutine函数作为一个goroutine运行
+</span><span class="c1"></span><span class="w">            </span>::<span class="n">goroutine_rs</span>::<span class="n">RT</span><span class="p">.</span><span class="n">go</span><span class="p">(</span><span class="k">move</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">                </span><span class="kd">let</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">go_main</span><span class="p">();</span><span class="w">
+</span><span class="w">                </span><span class="n">tx</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">r</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span><span class="w">
+</span><span class="w">                </span>::<span class="n">goroutine_rs</span>::<span class="n">RT</span><span class="p">.</span><span class="n">shutdown</span><span class="p">();</span><span class="w">
+</span><span class="w">            </span><span class="p">});</span><span class="w">
+</span><span class="w">            </span><span class="k">loop</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">                </span>::<span class="n">std</span>::<span class="n">thread</span>::<span class="n">sleep</span><span class="p">(</span>::<span class="n">std</span>::<span class="n">time</span>::<span class="n">Duration</span>::<span class="n">from_millis</span><span class="p">(</span><span class="mi">10</span><span class="p">));</span><span class="w">
+</span><span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Ok</span><span class="p">(</span><span class="n">r</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rx</span><span class="p">.</span><span class="n">try_recv</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">                    </span><span class="c1">// 主goroutine退出
+</span><span class="c1"></span><span class="w">                    </span><span class="k">return</span><span class="w"> </span><span class="n">r</span><span class="p">;</span><span class="w">
+</span><span class="w">                </span><span class="p">}</span><span class="w">
+</span><span class="w">            </span><span class="p">}</span><span class="w">
+</span><span class="w">        </span><span class="p">}</span><span class="w">
+</span><span class="w">    </span><span class="p">};</span><span class="w">
+</span><span class="w">    </span><span class="n">result</span><span class="p">.</span><span class="n">into</span><span class="p">()</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>在启动时就可以像这样来运行main函数了：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[goroutine_rs::main(thread_num = 2)]</span><span class="w">
+</span><span class="w"></span><span class="k">fn</span> <span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">	</span><span class="c1">// ...
+</span><span class="c1"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>尝试运行个样例：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[goroutine_rs::main(thread_num = 1)]</span><span class="w">
+</span><span class="w"></span><span class="k">fn</span> <span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">tx</span><span class="p">,</span><span class="w"> </span><span class="n">rx</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mpsc</span>::<span class="n">channel</span><span class="p">();</span><span class="w">
+</span><span class="w">    </span><span class="n">RT</span><span class="p">.</span><span class="n">go</span><span class="p">(</span><span class="k">move</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="k">loop</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="n">println</span><span class="o">!</span><span class="p">(</span><span class="s">&#34;goroutine 1&#34;</span><span class="p">);</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tx</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span><span class="w">
+</span><span class="w">        </span><span class="n">sched</span><span class="p">();</span><span class="w">
+</span><span class="w">    </span><span class="p">});</span><span class="w">
+</span><span class="w">	</span><span class="n">RT</span><span class="p">.</span><span class="n">go</span><span class="p">(</span><span class="o">||</span><span class="w"> </span><span class="k">loop</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="n">println</span><span class="o">!</span><span class="p">(</span><span class="s">&#34;goroutine 2&#34;</span><span class="p">);</span><span class="w">
+</span><span class="w">        </span><span class="n">sched</span><span class="p">();</span><span class="w">
+</span><span class="w">    </span><span class="p">});</span><span class="w">
+</span><span class="w">    </span><span class="k">loop</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Ok</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rx</span><span class="p">.</span><span class="n">try_recv</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="n">println</span><span class="o">!</span><span class="p">(</span><span class="s">&#34;msg from goroutine 1: {}&#34;</span><span class="p">,</span><span class="w"> </span><span class="n">msg</span><span class="p">);</span><span class="w">
+</span><span class="w">        </span><span class="p">}</span><span class="w">
+</span><span class="w">        </span><span class="n">sched</span><span class="p">();</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><pre><code class="language-none" data-lang="none">...
+goroutine 1
+goroutine 2
+msg from goroutine 1: 1
+goroutine 1
+goroutine 2
+msg from goroutine 1: 1
+goroutine 1
+goroutine 2
+msg from goroutine 1: 1
+goroutine 1
+goroutine 2
+msg from goroutine 1: 1
+goroutine 1
+goroutine 2
+msg from goroutine 1: 1
+...
+</code></pre><p>可以看到3个Goroutine（main函数本身就是个G）会交替执行，并且Goroutine之间可以使用<code>channel</code>来通信。</p>
+<h2 id="关于抢占式调度">关于抢占式调度<a href="#关于抢占式调度" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h2>
+<p>目前Go1.14中实现了一个基于信号的异步抢占式调度器，之前的各种实现其实都是伪抢占式，通过编译器或各种IO调用插入调度代码，
+来实现看似不需要用户主动调用<code>sched</code>方法。</p>
+<p>不过在信号发生时如何保存之前的上下文却是个问题，这里先要从操作系统内核调度线程开始理。</p>
+<p>当一个线程正处于运行状态，操作系统内核如果要执行抢占，必须先获取到CPU的使用权，而这一步是由中断来实现的。
+中断可以打断CPU的执行指令流，强制跳转至中断处理程序，当内核在执行抢占时，需要将目前的寄存器状态保存起来，而保存的位置是在内核栈中。
+然后从下一个需要运行的线程内核栈中恢复上次保存的寄存器状态信息，完成线程的抢占操作。</p>
+<p>信号发生时其实并不会马上去执行信号处理函数，而是设置进程的信号位。当进程被重新调度时，内核会检查其信号位，
+并从信号处理函数表中查找到注册的信号处理函数，然后在用户栈上分配信号处理函数的函数栈（如果为信号处理函数配置了独立的栈空间，
+则会在这个独立的栈空间中执行信号处理函数），跳转到信号处理函数开始处理信号。信号处理完成后，再回到内核态，恢复之前的上下文并开始执行原来的指令。</p>
+<p>需要注意的是，信号处理函数的第三个参数<code>ucontext_t</code>并不是之前的上下文，至少是不完整的，不能直接将其保存起来。可以看下几篇相关的文章：</p>
+<ol>
+<li><a href="https://willnewton.name/2014/03/27/setcontext-and-signal-handlers/">setcontext and signal handlers</a></li>
+<li><a href="http://zwillow.blogspot.com/2007/04/linux-signal-handling-is-broken.html">Linux signal handling is broken</a></li>
+<li><a href="https://bugzilla.redhat.com/show_bug.cgi?id=170248">Calling setcontext with the ucontext_t supplied to a SA_SIGINFO signal handler segfaults</a></li>
+</ol>
+<p>随后我在glibc的<a href="https://code.woboq.org/userspace/glibc/debug/segfault.c.html">segfault.c</a>中寻找相关线索：</p>
+<div class="highlight"><pre class="chroma"><code class="language-c" data-lang="c"><span class="cm">/* This function is called when a segmentation fault is caught.  The system
+</span><span class="cm">   is in an unstable state now.  This means especially that malloc() might
+</span><span class="cm">   not work anymore.  */</span>
+<span class="k">static</span> <span class="kt">void</span>
+<span class="nf">catch_segfault</span> <span class="p">(</span><span class="kt">int</span> <span class="n">signal</span><span class="p">,</span> <span class="n">SIGCONTEXT</span> <span class="n">ctx</span><span class="p">)</span>
+<span class="p">{</span>
+  <span class="kt">int</span> <span class="n">fd</span><span class="p">,</span> <span class="n">cnt</span><span class="p">,</span> <span class="n">i</span><span class="p">;</span>
+  <span class="kt">void</span> <span class="o">**</span><span class="n">arr</span><span class="p">;</span>
+  <span class="k">struct</span> <span class="n">sigaction</span> <span class="n">sa</span><span class="p">;</span>
+  <span class="n">uintptr_t</span> <span class="n">pc</span><span class="p">;</span>
+  <span class="cm">/* This is the name of the file we are writing to.  If none is given
+</span><span class="cm">     or we cannot write to this file write to stderr.  */</span>
+  <span class="n">fd</span> <span class="o">=</span> <span class="mi">2</span><span class="p">;</span>
+  <span class="k">if</span> <span class="p">(</span><span class="n">fname</span> <span class="o">!=</span> <span class="nb">NULL</span><span class="p">)</span>
+    <span class="p">{</span>
+      <span class="n">fd</span> <span class="o">=</span> <span class="n">open</span> <span class="p">(</span><span class="n">fname</span><span class="p">,</span> <span class="n">O_TRUNC</span> <span class="o">|</span> <span class="n">O_WRONLY</span> <span class="o">|</span> <span class="n">O_CREAT</span><span class="p">,</span> <span class="mo">0666</span><span class="p">);</span>
+      <span class="k">if</span> <span class="p">(</span><span class="n">fd</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">fd</span> <span class="o">=</span> <span class="mi">2</span><span class="p">;</span>
+    <span class="p">}</span>
+  <span class="n">WRITE_STRING</span> <span class="p">(</span><span class="s">&#34;*** &#34;</span><span class="p">);</span>
+  <span class="n">write_strsignal</span> <span class="p">(</span><span class="n">fd</span><span class="p">,</span> <span class="n">signal</span><span class="p">);</span>
+  <span class="n">WRITE_STRING</span> <span class="p">(</span><span class="s">&#34;</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">);</span>
+<span class="cp">#ifdef REGISTER_DUMP
+</span><span class="cp"></span>  <span class="n">REGISTER_DUMP</span><span class="p">;</span>
+<span class="cp">#endif
+</span><span class="cp"></span>  <span class="n">WRITE_STRING</span> <span class="p">(</span><span class="s">&#34;</span><span class="se">\n</span><span class="s">Backtrace:</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">);</span>
+  <span class="cm">/* Get the backtrace.  */</span>
+
+  <span class="c1">// ...
+</span><span class="c1"></span><span class="p">}</span>
+</code></pre></div><p>其中<code>SIGCONTEXT</code>和<code>REGISTER_DUMP</code>2个宏分别定义在<a href="https://code.woboq.org/userspace/glibc/sysdeps/unix/sysv/linux/x86_64/sigcontextinfo.h.html">sigcontextinfo.h</a>
+和<a href="https://code.woboq.org/userspace/glibc/sysdeps/unix/sysv/linux/x86_64/register-dump.h.html">register-dump.h</a>中。</p>
+<div class="highlight"><pre class="chroma"><code class="language-c" data-lang="c"><span class="k">static</span> <span class="kt">void</span>
+<span class="nf">register_dump</span> <span class="p">(</span><span class="kt">int</span> <span class="n">fd</span><span class="p">,</span> <span class="n">ucontext_t</span> <span class="o">*</span><span class="n">ctx</span><span class="p">)</span>
+<span class="p">{</span>
+  <span class="kt">char</span> <span class="n">regs</span><span class="p">[</span><span class="mi">25</span><span class="p">][</span><span class="mi">16</span><span class="p">];</span>
+  <span class="kt">char</span> <span class="n">fpregs</span><span class="p">[</span><span class="mi">30</span><span class="p">][</span><span class="mi">8</span><span class="p">];</span>
+  <span class="kt">char</span> <span class="n">xmmregs</span><span class="p">[</span><span class="mi">16</span><span class="p">][</span><span class="mi">32</span><span class="p">];</span>
+  <span class="k">struct</span> <span class="n">iovec</span> <span class="n">iov</span><span class="p">[</span><span class="mi">147</span><span class="p">];</span>
+  <span class="n">size_t</span> <span class="n">nr</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+  <span class="kt">int</span> <span class="n">i</span><span class="p">;</span>
+<span class="cp">#define ADD_STRING(str) \
+</span><span class="cp">  iov[nr].iov_base = (char *) str;                                              \
+</span><span class="cp">  iov[nr].iov_len = strlen (str);                                              \
+</span><span class="cp">  ++nr
+</span><span class="cp">#define ADD_MEM(str, len) \
+</span><span class="cp">  iov[nr].iov_base = str;                                                      \
+</span><span class="cp">  iov[nr].iov_len = len;                                                      \
+</span><span class="cp">  ++nr
+</span><span class="cp"></span>  <span class="cm">/* Generate strings of register contents.  */</span>
+  <span class="n">hexvalue</span> <span class="p">(</span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">uc_mcontext</span><span class="p">.</span><span class="n">gregs</span><span class="p">[</span><span class="n">REG_RAX</span><span class="p">],</span> <span class="n">regs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">16</span><span class="p">);</span>
+  <span class="n">hexvalue</span> <span class="p">(</span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">uc_mcontext</span><span class="p">.</span><span class="n">gregs</span><span class="p">[</span><span class="n">REG_RBX</span><span class="p">],</span> <span class="n">regs</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">16</span><span class="p">);</span>
+
+  <span class="c1">// ...
+</span><span class="c1"></span><span class="p">}</span>
+</code></pre></div><p>发现<code>register_dump</code>函数还是直接使用了<code>ucontext_t</code>，并且我怀疑dump出来的寄存器信息同样是不完整的。</p>
+<p>那Go1.14的信号抢占又是如何实现的呢？我翻阅了几个Proposal，其中3个我认为是关键的：</p>
+<ol>
+<li><a href="https://github.com/golang/proposal/blob/master/design/24543/safe-points-everywhere.md">Proposal: Safe-points everywhere for non-cooperative goroutine preemption</a></li>
+<li><a href="https://github.com/golang/proposal/blob/master/design/24543/conservative-inner-frame.md">Proposal: Conservative inner-frame scanning for non-cooperative goroutine preemption</a></li>
+<li><a href="https://github.com/golang/proposal/blob/master/design/24543-non-cooperative-preemption.md">Proposal: Non-cooperative goroutine preemption</a></li>
+</ol>
+<p>在第1个Proposal中，作者写到：</p>
+<blockquote>
+<p>I propose that we implement fully non-cooperative preemption by recording enough metadata to allow safe-points (almost) everywhere.</p>
+<p>To do this, we would modify the compiler to produce register maps in addition to stack maps,
+and to emit these for as many program counters as possible.
+The runtime would use a signal (or GetThreadContext on Windows, or a note on Plan9) to retrieve each thread&rsquo;s register state,
+from which it could get the stack and register map for the interrupted PC.
+The garbage collector would then treat live pointers in registers just as it treats live pointers on the stack.</p>
+</blockquote>
+<p>也就是说Go的编译器在尽可能多的指令后保存了寄存器的状态信息，此举为在信号处理函数中获取线程寄存器状态提供了支持。</p>
+<p>不仅如此，该Proposal也为调用注入（<code>Call injection</code>）提供了支持，调用注入可以在信号处理和调试器方法调用方面提供极大的便利
+（因为之前的寄存器状态不会被污染）。</p>
+<p>比如在信号处理函数退出后，需要在原来的指令前插入执行一些指令。可以看一个例子，在异步抢占中非常关键的一个函数：<code>asyncPreempt</code>，
+这个函数由不同平台的汇编实现，<a href="https://github.com/golang/go/blob/master/src/runtime/preempt_amd64.s">这里是amd64平台实现</a>。
+而它需要在信号处理函数中注入到之前的指令前，相当于在原来的指令地址调用它，实现注入的方式就是把原来的指令地址压入栈中，然后修改IP寄存器，
+其实也就是手动完成<code>call</code>指令。</p>
+<div class="highlight"><pre class="chroma"><code class="language-go" data-lang="go"><span class="kd">func</span> <span class="p">(</span><span class="nx">c</span> <span class="o">*</span><span class="nx">sigctxt</span><span class="p">)</span> <span class="nf">pushCall</span><span class="p">(</span><span class="nx">targetPC</span><span class="p">,</span> <span class="nx">resumePC</span> <span class="kt">uintptr</span><span class="p">)</span> <span class="p">{</span>
+	<span class="c1">// Make it look like we called target at resumePC.
+</span><span class="c1"></span>	<span class="nx">sp</span> <span class="o">:=</span> <span class="nb">uintptr</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nf">rsp</span><span class="p">())</span>
+	<span class="nx">sp</span> <span class="o">-=</span> <span class="nx">sys</span><span class="p">.</span><span class="nx">PtrSize</span>
+	<span class="o">*</span><span class="p">(</span><span class="o">*</span><span class="kt">uintptr</span><span class="p">)(</span><span class="nx">unsafe</span><span class="p">.</span><span class="nf">Pointer</span><span class="p">(</span><span class="nx">sp</span><span class="p">))</span> <span class="p">=</span> <span class="nx">resumePC</span>
+	<span class="nx">c</span><span class="p">.</span><span class="nf">set_rsp</span><span class="p">(</span><span class="nb">uint64</span><span class="p">(</span><span class="nx">sp</span><span class="p">))</span>
+	<span class="nx">c</span><span class="p">.</span><span class="nf">set_rip</span><span class="p">(</span><span class="nb">uint64</span><span class="p">(</span><span class="nx">targetPC</span><span class="p">))</span>
+<span class="p">}</span>
+</code></pre></div><p>在异常处理和调试器中调用方法都依赖于调用注入的支持，而它们又都是建立在
+<a href="https://github.com/golang/proposal/blob/master/design/24543/safe-points-everywhere.md">Proposal 1</a>
+的实现之上。</p>
+<p>不过遗憾的是，这样的特性只能由编译器来实现。</p>
+<p>另外在<code>tokio</code>中看到一个比较有意思的类似任务抢占的调度策略，这个调度策略在<code>tokio 0.2.14</code>版本中添加进来。</p>
+<p>Rust中的异步模型是基于Future的，当一个Future处于执行状态时，只要它的IO资源一直处于就绪状态，那它将会一直执行下去而不会被重新调度。
+从总吞吐量的角度看，这其实也是合理的策略，毕竟CPU一直处于负载状态，如果来回切换Future，反而会产生额外的开销。
+可是在某些特殊情况下，这就会带来非常大的Future饥饿问题（或者叫负载不均衡），同一个Future一直占有CPU资源，其他Future就没有执行的机会了。</p>
+<p>尽管tokio中有<code>yield_now</code>方法用于强制调度，不过这必须由用户显式调用，大多数场景下都不会直接使用，毕竟每次都切换Future也不是我们期望的。</p>
+<p>其实这个问题是被关联发现的，<a href="https://github.com/denoland/deno">Deno</a>的作者<a href="https://github.com/ry">Ryan Dahl</a>使用tokio作为Deno的底层运行时，
+他在使用<a href="https://github.com/hyperium/hyper">Hyper</a>做测试时，发现了非常高的尾延迟（tail latencies），导致这些尾延迟的原因就是前面所说的那种情况
+（IO资源一直处于就绪状态）。</p>
+<p>而Hyper在<a href="https://github.com/hyperium/hyper/pull/1829">PR #1829</a>中通过强制调度那些IO资源一直处于就绪状态的连接来解决这个尾延迟问题。
+而同样的问题其实在Node.js中也被解决过，Node.js为每个IO资源设定了限制，当达到限制后将会被强制调度。</p>
+<p>Hyper虽然解决了这个问题，但其实经过仔细想，这个问题由异步运行时来解决会更有价值，这样所有在这个运行时上的Future都可以利用到这种策略的优势。</p>
+<p>因此tokio为每个Future引入操作预算（<code>operation budget</code>），每次异步操作（调用<code>.await</code>）时，都会减少操作预算，当操作预算为0时，无论IO资源是否就绪，
+都会强制返回Pending，而这会使当前Future被调度，此时Future的操作预算会被重置。</p>
+<p>当然这样的策略并不能算是真正的抢占，其一在于Future消耗的资源计算仅限于IO，没有计算其CPU资源消耗，其二是调度点只能处于<code>.await</code>处，
+无法在Future正常运行过程中打断。</p>
+<h2 id="小结">小结<a href="#小结" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h2>
+<p>虽然到最后还是没有找到可以在用户空间实现异步抢占的方法（不依赖于编译器实现的情况下），不过还是找到了一些有价值的思路，
+之后会再尝试寻找其他的解决办法。</p>
+<h2 id="参考资料">参考资料<a href="#参考资料" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h2>
+<ol>
+<li><a href="https://cfsamson.gitbook.io/green-threads-explained-in-200-lines-of-rust/final-200-lines-of-code">Green Threads Explained in 200 Lines of Rust</a></li>
+<li><a href="https://draveness.me/golang/docs/part3-runtime/ch06-concurrency/golang-goroutine/#%E6%8A%A2%E5%8D%A0%E5%BC%8F%E8%B0%83%E5%BA%A6%E5%99%A8">Go 语言调度器与 Goroutine 实现原理 | Go 语言设计与实现</a></li>
+<li><a href="https://zhuanlan.zhihu.com/p/77598393">Linux中的信号处理机制</a></li>
+<li><a href="https://changkun.de/golang/zh-cn/part2runtime/ch06sched/preemption/">协作与抢占</a></li>
+<li><a href="https://github.com/golang/proposal/blob/master/design/24543/safe-points-everywhere.md">Proposal: Safe-points everywhere for non-cooperative goroutine preemption</a></li>
+<li><a href="https://github.com/golang/proposal/blob/master/design/24543/conservative-inner-frame.md">Proposal: Conservative inner-frame scanning for non-cooperative goroutine preemption</a></li>
+<li><a href="https://github.com/golang/proposal/blob/master/design/24543-non-cooperative-preemption.md">Proposal: Non-cooperative goroutine preemption</a></li>
+<li><a href="https://code.woboq.org/userspace/glibc/debug/segfault.c.html">glibc/debug/segfault.c</a></li>
+<li><a href="https://deploy-preview-422--tokio.netlify.app/blog/2020-04-preemption/">Reducing tail latencies with automatic cooperative task yielding</a></li>
+</ol>
+			</div>
+			<hr class="post-end">
+			<footer class="post-info">
+				<p>
+					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-tag meta-icon"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7" y2="7"></line></svg><span class="tag"><a href="https://xiaopengli89.github.io/tags/rust">rust</a></span><span class="tag"><a href="https://xiaopengli89.github.io/tags/goroutine">goroutine</a></span>
+				</p>
+				<p><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-file-text"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>5616 Words</p>
+				<p><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-calendar"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>2020-08-05 14:11 &#43;0800</p>
+			</footer>
+		</article>
+		<div class="post-nav thin">
+			<a class="prev-post" href="https://xiaopengli89.github.io/posts/rust-trait-object/">
+				<span class="post-nav-label">Older&nbsp;<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-right"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></span><br><span>Rust中的多态 - Trait Object</span>
+			</a>
+		</div>
+		<div id="comments" class="thin">
+</div>
+	</main>
+
+	<footer id="site-footer" class="section-inner thin animated fadeIn faster">
+		<p>&copy; 2020 <a href="https://xiaopengli89.github.io">Xiaopeng Li</a> &#183; <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a></p>
+		<p>
+			Made with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> &#183; Theme <a href="https://github.com/Track3/hermit" target="_blank" rel="noopener">Hermit</a> &#183; <a href="https://xiaopengli89.github.io/posts/index.xml" target="_blank" title="rss"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-rss"><path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle></svg></a>
+		</p>
+	</footer>
+
+
+
+	<script src="https://xiaopengli89.github.io/js/bundle.min.4a9a0ac3d2217822c7865b4161e6c2a71de1d70492264337755427898dd718f6.js" integrity="sha256-SpoKw9IheCLHhltBYebCpx3h1wSSJkM3dVQniY3XGPY=" crossorigin="anonymous"></script>
+	
+<script src="https://cdn.bootcdn.net/ajax/libs/prism/1.20.0/prism.min.js"></script>
+<script src="https://cdn.bootcdn.net/ajax/libs/prism/1.20.0/plugins/autoloader/prism-autoloader.min.js"></script>
+<script>Prism.plugins.autoloader.languages_path = 'https://cdn.bootcdn.net/ajax/libs/prism/1.20.0/components/'</script>
+
+
+
+</body>
+
+</html>

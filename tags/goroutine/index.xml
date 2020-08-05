@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>goroutine on Torigoth</title>
+    <link>https://xiaopengli89.github.io/tags/goroutine/</link>
+    <description>Recent content in goroutine on Torigoth</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright>
+    <lastBuildDate>Wed, 05 Aug 2020 14:11:03 +0800</lastBuildDate>
+    
+	<atom:link href="https://xiaopengli89.github.io/tags/goroutine/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>用Rust实现一个Goroutine</title>
+      <link>https://xiaopengli89.github.io/posts/goroutine-rs/</link>
+      <pubDate>Wed, 05 Aug 2020 14:11:03 +0800</pubDate>
+      
+      <guid>https://xiaopengli89.github.io/posts/goroutine-rs/</guid>
+      <description>&lt;p&gt;这几天本来是想实现下Go1.14中的信号抢占调度器，不过结果还是遇到了难点，主要在于如何获取到信号处理前的上下文信息。
+这篇文章用于记录下实现的过程，尽管最终只实现了协作式调度，
+但还是整理出了目前用户态实现异步抢占或类抢占的实现方式。&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>
