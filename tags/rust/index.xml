@@ -7,10 +7,21 @@
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright>
-    <lastBuildDate>Wed, 05 Aug 2020 14:11:03 +0800</lastBuildDate>
+    <lastBuildDate>Sat, 08 Aug 2020 20:13:04 +0800</lastBuildDate>
     
 	<atom:link href="https://xiaopengli89.github.io/tags/rust/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>Crossbeam的无锁并发Channel解析</title>
+      <link>https://xiaopengli89.github.io/posts/crossbeam-channel/</link>
+      <pubDate>Sat, 08 Aug 2020 20:13:04 +0800</pubDate>
+      
+      <guid>https://xiaopengli89.github.io/posts/crossbeam-channel/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://crates.io/crates/crossbeam&#34;&gt;crossbeam&lt;/a&gt;是一个提供并发编程的工具库，实现了诸如&lt;code&gt;原子Cell&lt;/code&gt;、&lt;code&gt;工作窃取双端队列&lt;/code&gt;、&lt;code&gt;分段队列&lt;/code&gt;、
+&lt;code&gt;多生产者多消费者Channel&lt;/code&gt;等无锁并发数据结构，在运行时、调度器、线程同步等领域应用广泛。&lt;/p&gt;
+&lt;p&gt;虽然Rust标准库中也提供了用于线程同步的&lt;code&gt;mpsc::channel&lt;/code&gt;，不过内置的channel实现算法和crossbeam不同，也不支持多个消费者。&lt;/p&gt;</description>
+    </item>
     
     <item>
       <title>用Rust实现一个Goroutine</title>
@@ -125,15 +136,6 @@
       <guid>https://xiaopengli89.github.io/posts/rust-box-heap/</guid>
       <description>&lt;p&gt;&lt;a href=&#34;https://doc.rust-lang.org/std/boxed/index.html&#34;&gt;Box&lt;/a&gt; 是一个在Rust中经常被用到的智能指针，它的作用是实现堆内存分配，并且管理该块内存的生命周期。尤其在实现递归数据结构时，通过 &lt;a href=&#34;https://doc.rust-lang.org/std/boxed/index.html&#34;&gt;Box&lt;/a&gt; 才能让一个类型大小不会无限膨胀。同时 &lt;a href=&#34;https://doc.rust-lang.org/std/boxed/index.html&#34;&gt;Box&lt;/a&gt; 的内存布局同 &lt;code&gt;C&lt;/code&gt; 二进制兼容，也就是说在使用 &lt;code&gt;FFI&lt;/code&gt; 时，可以直接在参数或返回值中使用 &lt;a href=&#34;https://doc.rust-lang.org/std/boxed/index.html&#34;&gt;Box&lt;/a&gt;。&lt;/p&gt;
 &lt;p&gt;这篇文章将介绍利用Rust的动态内存分配实现一个简单的自定义 &lt;code&gt;Box&lt;/code&gt; 。&lt;/p&gt;</description>
-    </item>
-    
-    <item>
-      <title>不使用Rust标准库编写一个可运行的程序</title>
-      <link>https://xiaopengli89.github.io/posts/rust-no-std/</link>
-      <pubDate>Wed, 01 Jul 2020 00:02:35 +0800</pubDate>
-      
-      <guid>https://xiaopengli89.github.io/posts/rust-no-std/</guid>
-      <description>&lt;p&gt;Rust是一门系统编程语言，比如使得编写操作系统内核变得可能。而在编写内核时，是不能有任何和操作系统相关的依赖的，因为操作系统内核是运行于裸机之上的，这就像鸡和鸡蛋的关系。而标准库的实现是基于操作系统的，诸如线程、文件、网络等等。因此在编写内核代码时不能使用标准库。这篇文章将介绍如何不使用Rust标准库编写一个可运行的程序。&lt;/p&gt;</description>
     </item>
     
   </channel>

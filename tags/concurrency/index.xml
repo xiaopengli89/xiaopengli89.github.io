@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>concurrency on Torigoth</title>
+    <link>https://xiaopengli89.github.io/tags/concurrency/</link>
+    <description>Recent content in concurrency on Torigoth</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright>
+    <lastBuildDate>Sat, 08 Aug 2020 20:13:04 +0800</lastBuildDate>
+    
+	<atom:link href="https://xiaopengli89.github.io/tags/concurrency/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>Crossbeam的无锁并发Channel解析</title>
+      <link>https://xiaopengli89.github.io/posts/crossbeam-channel/</link>
+      <pubDate>Sat, 08 Aug 2020 20:13:04 +0800</pubDate>
+      
+      <guid>https://xiaopengli89.github.io/posts/crossbeam-channel/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://crates.io/crates/crossbeam&#34;&gt;crossbeam&lt;/a&gt;是一个提供并发编程的工具库，实现了诸如&lt;code&gt;原子Cell&lt;/code&gt;、&lt;code&gt;工作窃取双端队列&lt;/code&gt;、&lt;code&gt;分段队列&lt;/code&gt;、
+&lt;code&gt;多生产者多消费者Channel&lt;/code&gt;等无锁并发数据结构，在运行时、调度器、线程同步等领域应用广泛。&lt;/p&gt;
+&lt;p&gt;虽然Rust标准库中也提供了用于线程同步的&lt;code&gt;mpsc::channel&lt;/code&gt;，不过内置的channel实现算法和crossbeam不同，也不支持多个消费者。&lt;/p&gt;</description>
+    </item>
+    
+  </channel>
+</rss>
