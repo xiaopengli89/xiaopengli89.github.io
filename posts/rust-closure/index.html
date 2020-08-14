@@ -234,7 +234,7 @@
 </span><span class="w">
 </span><span class="w"></span><span class="n">println</span><span class="o">!</span><span class="p">(</span><span class="s">&#34;{}&#34;</span><span class="p">,</span><span class="w"> </span><span class="n">a</span><span class="p">);</span><span class="w">
 </span></code></pre></div><ol start="3">
-<li>如果闭包需要上下文的 <code>Ownership</code>，则生成 <code>FnOcne</code>，方法调用 <code>call_once</code>，因为调用闭包会导致失去 <code>Ownership</code> ，所以闭包只能调用一次，上下文环境被 <code>move</code> 进闭包，外部不再能使用被捕获的变量，例如：</li>
+<li>如果闭包需要上下文的 <code>Ownership</code>，则生成 <code>FnOnce</code>，方法调用 <code>call_once</code>，因为调用闭包会导致失去 <code>Ownership</code> ，所以闭包只能调用一次，上下文环境被 <code>move</code> 进闭包，外部不再能使用被捕获的变量，例如：</li>
 </ol>
 <div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="kd">let</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">String</span>::<span class="n">from</span><span class="p">(</span><span class="s">&#34;a&#34;</span><span class="p">);</span><span class="w">
 </span><span class="w">
