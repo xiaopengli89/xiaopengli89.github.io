@@ -2798,7 +2798,7 @@ PID   USER     TIME  COMMAND
 </span></code></pre></div><p>这里可以看到 <code>Task</code> 内的 <code>Future</code> 的 <code>Output</code> 关联类型被定义成了 <code>()</code> ，这是因为 <code>Executor</code> 只会接收顶级的 <code>Future</code> ，非顶级的 <code>Future</code> 组合子会由编译器生成的生成器自动处理，至于如何接收顶级 <code>Future</code> 的结果可以由下面的 <code>Runtime</code> 实现。</p>
 <h3 id="实现-runtime">实现 <code>Runtime</code></h3>
 <div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">struct</span> <span class="nc">Runtime</span><span class="w"> </span><span class="p">{</span><span class="w">
-</span><span class="w">    </span><span class="n">tx_futures</span>: <span class="nb">Option</span><span class="o">&lt;</span><span class="n">Sender</span><span class="o">&lt;</span><span class="n">Task</span><span class="o">&gt;&gt;</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="n">tx_futures</span>: <span class="nc">Sender</span><span class="o">&lt;</span><span class="n">Task</span><span class="o">&gt;</span><span class="p">,</span><span class="w">
 </span><span class="w">    </span><span class="c1">// 由于 Sender 没有实现 Sync，所以实现一个简单的 Spin
 </span><span class="c1"></span><span class="w">    </span><span class="n">lock</span>: <span class="nc">AtomicBool</span><span class="p">,</span><span class="w">
 </span><span class="w"></span><span class="p">}</span><span class="w">
@@ -2806,15 +2806,17 @@ PID   USER     TIME  COMMAND
 </span><span class="w"></span><span class="k">unsafe</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="nb">Sync</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Runtime</span><span class="w"> </span><span class="p">{}</span><span class="w">
 </span><span class="w">
 </span><span class="w"></span><span class="k">impl</span><span class="w"> </span><span class="n">Runtime</span><span class="w"> </span><span class="p">{</span><span class="w">
-</span><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="k">fn</span> <span class="nf">uninit</span><span class="p">()</span><span class="w"> </span>-&gt; <span class="nc">Self</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">new</span><span class="p">()</span><span class="w"> </span>-&gt; <span class="nc">Self</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">tx_futures</span><span class="p">,</span><span class="w"> </span><span class="n">rx_futures</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mpsc</span>::<span class="n">channel</span><span class="p">();</span><span class="w">
+</span><span class="w">        </span><span class="c1">// 初始化Executor
+</span><span class="c1"></span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">executor</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Executor</span>::<span class="n">new</span><span class="p">(</span><span class="n">rx_futures</span><span class="p">,</span><span class="w"> </span><span class="n">tx_futures</span><span class="p">.</span><span class="n">clone</span><span class="p">());</span><span class="w">
+</span><span class="w">        </span><span class="n">thread</span>::<span class="n">spawn</span><span class="p">(</span><span class="k">move</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="n">executor</span><span class="p">.</span><span class="n">run</span><span class="p">();</span><span class="w">
+</span><span class="w">        </span><span class="p">});</span><span class="w">
 </span><span class="w">        </span><span class="n">Self</span><span class="w"> </span><span class="p">{</span><span class="w">
-</span><span class="w">            </span><span class="n">tx_futures</span>: <span class="nb">None</span><span class="p">,</span><span class="w">
+</span><span class="w">            </span><span class="n">tx_futures</span><span class="p">,</span><span class="w">
 </span><span class="w">            </span><span class="n">lock</span>: <span class="nc">AtomicBool</span>::<span class="n">new</span><span class="p">(</span><span class="kc">false</span><span class="p">),</span><span class="w">
 </span><span class="w">        </span><span class="p">}</span><span class="w">
-</span><span class="w">    </span><span class="p">}</span><span class="w">
-</span><span class="w">
-</span><span class="w">    </span><span class="k">fn</span> <span class="nf">init</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">tx_futures</span>: <span class="nc">Sender</span><span class="o">&lt;</span><span class="n">Task</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
-</span><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">tx_futures</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">tx_futures</span><span class="p">);</span><span class="w">
 </span><span class="w">    </span><span class="p">}</span><span class="w">
 </span><span class="w">
 </span><span class="w">    </span><span class="k">fn</span> <span class="nf">spawn</span><span class="o">&lt;</span><span class="n">F</span><span class="p">,</span><span class="w"> </span><span class="n">R</span><span class="o">&gt;</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">f</span>: <span class="nc">F</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nc">impl</span><span class="w"> </span><span class="n">Future</span><span class="o">&lt;</span><span class="n">Output</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">R</span><span class="o">&gt;</span><span class="w">
@@ -2837,11 +2839,7 @@ PID   USER     TIME  COMMAND
 </span><span class="w">        </span><span class="c1">// 获取锁
 </span><span class="c1"></span><span class="w">        </span><span class="k">while</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">lock</span><span class="p">.</span><span class="n">compare_and_swap</span><span class="p">(</span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">Ordering</span>::<span class="n">SeqCst</span><span class="p">)</span><span class="w"> </span><span class="p">{}</span><span class="w">
 </span><span class="w">        </span><span class="c1">// 调度任务
-</span><span class="c1"></span><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">tx_futures</span><span class="w">
-</span><span class="w">            </span><span class="p">.</span><span class="n">as_ref</span><span class="p">()</span><span class="w">
-</span><span class="w">            </span><span class="p">.</span><span class="n">expect</span><span class="p">(</span><span class="s">&#34;Runtime未初始化&#34;</span><span class="p">)</span><span class="w">
-</span><span class="w">            </span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">task</span><span class="p">)</span><span class="w">
-</span><span class="w">            </span><span class="p">.</span><span class="n">unwrap</span><span class="p">();</span><span class="w">
+</span><span class="c1"></span><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">tx_futures</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">task</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span><span class="w">
 </span><span class="w">        </span><span class="c1">// 释放锁
 </span><span class="c1"></span><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">lock</span><span class="p">.</span><span class="n">store</span><span class="p">(</span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="n">Ordering</span>::<span class="n">SeqCst</span><span class="p">);</span><span class="w">
 </span><span class="w">        </span><span class="n">waiter_f</span><span class="w">
@@ -2865,11 +2863,7 @@ PID   USER     TIME  COMMAND
 </span><span class="w">        </span><span class="c1">// 获取锁
 </span><span class="c1"></span><span class="w">        </span><span class="k">while</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">lock</span><span class="p">.</span><span class="n">compare_and_swap</span><span class="p">(</span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">Ordering</span>::<span class="n">SeqCst</span><span class="p">)</span><span class="w"> </span><span class="p">{}</span><span class="w">
 </span><span class="w">        </span><span class="c1">// 调度任务
-</span><span class="c1"></span><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">tx_futures</span><span class="w">
-</span><span class="w">            </span><span class="p">.</span><span class="n">as_ref</span><span class="p">()</span><span class="w">
-</span><span class="w">            </span><span class="p">.</span><span class="n">expect</span><span class="p">(</span><span class="s">&#34;Runtime未初始化&#34;</span><span class="p">)</span><span class="w">
-</span><span class="w">            </span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">task</span><span class="p">)</span><span class="w">
-</span><span class="w">            </span><span class="p">.</span><span class="n">unwrap</span><span class="p">();</span><span class="w">
+</span><span class="c1"></span><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">tx_futures</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">task</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span><span class="w">
 </span><span class="w">        </span><span class="c1">// 释放锁
 </span><span class="c1"></span><span class="w">        </span><span class="bp">self</span><span class="p">.</span><span class="n">lock</span><span class="p">.</span><span class="n">store</span><span class="p">(</span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="n">Ordering</span>::<span class="n">SeqCst</span><span class="p">);</span><span class="w">
 </span><span class="w">        </span><span class="n">rx</span><span class="p">.</span><span class="n">recv</span><span class="p">().</span><span class="n">unwrap</span><span class="p">()</span><span class="w">
@@ -2933,23 +2927,16 @@ PID   USER     TIME  COMMAND
 </span></code></pre></div><p>当 <code>Waiter</code> 内的数据没有就绪时，注册当前 <code>Task</code> 的 <code>Waker</code>；当派生的顶级 <code>Future</code> 完成时，调用 <code>complete</code> 方法，写入数据，执行唤醒器（重新调度当前的 <code>Task</code>）。</p>
 <h3 id="运行时的初始化">运行时的初始化</h3>
 <p>由于新任务的派生可能在多个线程中，为此可以简单地初始化一个全局运行时，并将运行时标记为 <code>Sync</code>（因为我们对 <code>Sender</code> 已经做了自旋锁保护）：</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">fn</span> <span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
-</span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">tx_futures</span><span class="p">,</span><span class="w"> </span><span class="n">rx_futures</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">mpsc</span>::<span class="n">channel</span><span class="p">();</span><span class="w">
-</span><span class="w">    </span><span class="c1">// 初始化Executor
-</span><span class="c1"></span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">executor</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Executor</span>::<span class="n">new</span><span class="p">(</span><span class="n">rx_futures</span><span class="p">,</span><span class="w"> </span><span class="n">tx_futures</span><span class="p">.</span><span class="n">clone</span><span class="p">());</span><span class="w">
-</span><span class="w">    </span><span class="n">thread</span>::<span class="n">spawn</span><span class="p">(</span><span class="k">move</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="p">{</span><span class="w">
-</span><span class="w">        </span><span class="n">executor</span><span class="p">.</span><span class="n">run</span><span class="p">();</span><span class="w">
-</span><span class="w">    </span><span class="p">});</span><span class="w">
-</span><span class="w">    </span><span class="c1">// 初始化Runtime
-</span><span class="c1"></span><span class="w">    </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w">
-</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">rt_ptr</span>: <span class="o">*</span><span class="k">mut</span><span class="w"> </span><span class="n">Runtime</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">RT</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">mut</span><span class="w"> </span><span class="n">_</span><span class="p">;</span><span class="w">
-</span><span class="w">        </span><span class="p">(</span><span class="o">*</span><span class="n">rt_ptr</span><span class="p">).</span><span class="n">init</span><span class="p">(</span><span class="n">tx_futures</span><span class="p">);</span><span class="w">
-</span><span class="w">    </span><span class="p">}</span><span class="w">
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#![feature(once_cell)]</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">use</span><span class="w"> </span><span class="n">std</span>::<span class="n">lazy</span>::<span class="n">SyncLazy</span><span class="p">;</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="k">fn</span> <span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">RT</span><span class="p">.</span><span class="n">block_on</span><span class="p">(</span><span class="n">async</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="p">});</span><span class="w">
 </span><span class="w">    </span><span class="n">dbg</span><span class="o">!</span><span class="p">(</span><span class="n">r</span><span class="p">);</span><span class="w">
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span><span class="w">
-</span><span class="w"></span><span class="k">static</span><span class="w"> </span><span class="n">RT</span>: <span class="nc">Runtime</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Runtime</span>::<span class="n">uninit</span><span class="p">();</span><span class="w">
+</span><span class="w"></span><span class="k">static</span><span class="w"> </span><span class="n">RT</span>: <span class="nc">SyncLazy</span><span class="o">&lt;</span><span class="n">Runtime</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SyncLazy</span>::<span class="n">new</span><span class="p">(</span><span class="o">||</span><span class="w"> </span><span class="n">Runtime</span>::<span class="n">new</span><span class="p">());</span><span class="w">
 </span></code></pre></div><p>运行代码：</p>
 <div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">$ cargo run
 </code></pre></div><pre><code class="language-none" data-lang="none">[src/main.rs:28] r = 2
