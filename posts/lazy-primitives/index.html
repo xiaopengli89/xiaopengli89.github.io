@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en-us">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta http-equiv="X-UA-Compatible" content="ie=edge">
+	<meta name="theme-color" content="#494f5c">
+	<meta name="msapplication-TileColor" content="#494f5c">
+<meta itemprop="name" content="Lazy原生类型">
+<meta itemprop="description" content="最近 Add lazy initialization primitives to std #72414 合并进标准库，以前为了实现全局变量的初始化，
+一般有2种方式：
+
+const fn
+第三方crate，比如once_cell 和 lazy_static
+
+由于const fn同常量表达式一样，是在const context上下文中执行，即在编译时计算函数（或表达式）结果，因此在使用上有诸多限制，比如类型参数只能绑定
+生命周期和Sized（?Sized），只能调用其他const fn等。
+Lazy类型实现的是延迟初始化，因此不必受到const fn的限制，同时能加快某些组件的启动，未使用到的功能甚至可以不初始化。
+延迟初始化应用广泛，比如配置文件的读取，异步运行时需要初始化全局的Executor等，因此合并进标准库可以方便不少。">
+<meta itemprop="datePublished" content="2020-08-18T00:50:39&#43;08:00" />
+<meta itemprop="dateModified" content="2020-08-18T00:50:39&#43;08:00" />
+<meta itemprop="wordCount" content="2893">
+
+
+
+<meta itemprop="keywords" content="rust,lazy," /><meta property="og:title" content="Lazy原生类型" />
+<meta property="og:description" content="最近 Add lazy initialization primitives to std #72414 合并进标准库，以前为了实现全局变量的初始化，
+一般有2种方式：
+
+const fn
+第三方crate，比如once_cell 和 lazy_static
+
+由于const fn同常量表达式一样，是在const context上下文中执行，即在编译时计算函数（或表达式）结果，因此在使用上有诸多限制，比如类型参数只能绑定
+生命周期和Sized（?Sized），只能调用其他const fn等。
+Lazy类型实现的是延迟初始化，因此不必受到const fn的限制，同时能加快某些组件的启动，未使用到的功能甚至可以不初始化。
+延迟初始化应用广泛，比如配置文件的读取，异步运行时需要初始化全局的Executor等，因此合并进标准库可以方便不少。" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://xiaopengli89.github.io/posts/lazy-primitives/" />
+<meta property="article:published_time" content="2020-08-18T00:50:39+08:00" />
+<meta property="article:modified_time" content="2020-08-18T00:50:39+08:00" />
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="Lazy原生类型"/>
+<meta name="twitter:description" content="最近 Add lazy initialization primitives to std #72414 合并进标准库，以前为了实现全局变量的初始化，
+一般有2种方式：
+
+const fn
+第三方crate，比如once_cell 和 lazy_static
+
+由于const fn同常量表达式一样，是在const context上下文中执行，即在编译时计算函数（或表达式）结果，因此在使用上有诸多限制，比如类型参数只能绑定
+生命周期和Sized（?Sized），只能调用其他const fn等。
+Lazy类型实现的是延迟初始化，因此不必受到const fn的限制，同时能加快某些组件的启动，未使用到的功能甚至可以不初始化。
+延迟初始化应用广泛，比如配置文件的读取，异步运行时需要初始化全局的Executor等，因此合并进标准库可以方便不少。"/>
+
+	<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+	<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+	<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+	<link rel="manifest" href="/site.webmanifest">
+	<link rel="mask-icon" href="/safari-pinned-tab.svg" color="">
+	<link rel="shortcut icon" href="/favicon.ico">
+
+	<title>Lazy原生类型</title>
+	<link rel="stylesheet" href="https://xiaopengli89.github.io/css/style.min.eac77496566fd7d5768fd650ddb0b2b181ca6a2d7c5fdd6fe6b8ba4bf47e566f.css" integrity="sha256-6sd0llZv19V2j9ZQ3bCysYHKai18X91v5ri6S/R+Vm8=" crossorigin="anonymous">
+	
+	<link rel="stylesheet" href="https://atelierbram.github.io/syntax-highlighting/archive/assets/css/prism/prism-base16-railscasts.dark.css">
+	<link rel="stylesheet" href="https://xiaopengli89.github.io/css/site.css">
+</head>
+
+<body id="page">
+	
+	<header id="site-header" class="animated slideInUp">
+		<div class="hdr-wrapper section-inner">
+			<div class="hdr-left">
+				<div class="site-branding">
+					<a href="https://xiaopengli89.github.io">Torigoth</a>
+				</div>
+				<nav class="site-nav hide-in-mobile">
+					
+				<a href="https://xiaopengli89.github.io/posts/">Posts</a>
+				<a href="https://xiaopengli89.github.io/tags/">Tags</a>
+				<a href="https://xiaopengli89.github.io/about/">About</a>
+
+				</nav>
+			</div>
+			<div class="hdr-right hdr-icons">
+				<span class="hdr-social hide-in-mobile"><a href="mailto:x.friday@outlook.com" target="_blank" rel="noopener me" title="Email"><svg xmlns="http://www.w3.org/2000/svg" class="feather" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg></a><a href="https://www.linkedin.com/in/%E5%B0%8F%E9%B9%8F-%E6%9D%8E-078a86124/" target="_blank" rel="noopener me" title="Linkedin"><svg xmlns="http://www.w3.org/2000/svg" class="feather" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path><rect x="2" y="9" width="4" height="12"></rect><circle cx="4" cy="4" r="2"></circle></svg></a><a href="https://github.com/xiaopengli89" target="_blank" rel="noopener me" title="Github"><svg xmlns="http://www.w3.org/2000/svg" class="feather" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg></a></span><button id="menu-btn" class="hdr-btn" title="Menu"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-menu"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg></button>
+			</div>
+		</div>
+	</header>
+	<div id="mobile-menu" class="animated fast">
+		<ul>
+			<li><a href="https://xiaopengli89.github.io/posts/">Posts</a></li>
+			<li><a href="https://xiaopengli89.github.io/tags/">Tags</a></li>
+			<li><a href="https://xiaopengli89.github.io/about/">About</a></li>
+		</ul>
+	</div>
+
+
+	<main class="site-main section-inner animated fadeIn faster">
+		<article class="thin">
+			<header class="post-header">
+				<div class="post-meta"><span>Aug 18, 2020</span></div>
+				<h1>Lazy原生类型</h1>
+			</header>
+			<div class="content">
+				<p>最近 <a href="https://github.com/rust-lang/rust/pull/72414">Add lazy initialization primitives to std #72414</a> 合并进标准库，以前为了实现全局变量的初始化，
+一般有2种方式：</p>
+<ol>
+<li><code>const fn</code></li>
+<li>第三方crate，比如<a href="https://crates.io/crates/once_cell">once_cell</a> 和 <a href="https://crates.io/crates/lazy_static">lazy_static</a></li>
+</ol>
+<p>由于<code>const fn</code>同常量表达式一样，是在<code>const context</code>上下文中执行，即在编译时计算函数（或表达式）结果，因此在使用上有诸多限制，比如类型参数只能绑定
+生命周期和Sized（?Sized），只能调用其他<code>const fn</code>等。</p>
+<p>Lazy类型实现的是延迟初始化，因此不必受到<code>const fn</code>的限制，同时能加快某些组件的启动，未使用到的功能甚至可以不初始化。</p>
+<p>延迟初始化应用广泛，比如配置文件的读取，异步运行时需要初始化全局的Executor等，因此合并进标准库可以方便不少。</p>
+<p>在<code>std::lazy</code>下有2个用于延迟初始化的类型：<code>Lazy</code>和<code>SyncLazy</code>。其中<code>Lazy</code>是非线程安全的，主要用于TLS或非多线程访问。<code>SyncLazy</code>则是<code>Lazy</code>的线程安全
+版本，多用于全局变量的初始化。</p>
+<p><code>Lazy</code>类型相对简单，因此这篇文章主要介绍<code>SyncLazy</code>的实现：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[unstable(feature = </span><span class="s">&#34;once_cell&#34;</span><span class="cp">, issue = </span><span class="s">&#34;74465&#34;</span><span class="cp">)]</span><span class="w">
+</span><span class="w"></span><span class="k">pub</span><span class="w"> </span><span class="k">struct</span> <span class="nc">SyncLazy</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="n">F</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">fn</span><span class="p">()</span><span class="w"> </span>-&gt; <span class="nc">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="n">cell</span>: <span class="nc">SyncOnceCell</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="n">init</span>: <span class="nc">Cell</span><span class="o">&lt;</span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">F</span><span class="o">&gt;&gt;</span><span class="p">,</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="cp">#[unstable(feature = </span><span class="s">&#34;once_cell&#34;</span><span class="cp">, issue = </span><span class="s">&#34;74465&#34;</span><span class="cp">)]</span><span class="w">
+</span><span class="w"></span><span class="k">unsafe</span><span class="w"> </span><span class="k">impl</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="n">F</span>: <span class="nb">Send</span><span class="o">&gt;</span><span class="w"> </span><span class="nb">Sync</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">SyncLazy</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="n">F</span><span class="o">&gt;</span><span class="w"> </span><span class="k">where</span><span class="w"> </span><span class="n">SyncOnceCell</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span>: <span class="nb">Sync</span> <span class="p">{}</span><span class="w">
+</span></code></pre></div><p>cell用于保存内部数据，init则用于保存初始化函数，当第一次访问数据时，init中保存的函数将会执行。</p>
+<p>由于<code>SyncLazy</code>需要支持多线程的共享访问，所以需要实现<code>Sync</code>。</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[unstable(feature = </span><span class="s">&#34;once_cell&#34;</span><span class="cp">, issue = </span><span class="s">&#34;74465&#34;</span><span class="cp">)]</span><span class="w">
+</span><span class="w"></span><span class="k">pub</span><span class="w"> </span><span class="k">struct</span> <span class="nc">SyncOnceCell</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="n">once</span>: <span class="nc">Once</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="c1">// Whether or not the value is initialized is tracked by `state_and_queue`.
+</span><span class="c1"></span><span class="w">    </span><span class="n">value</span>: <span class="nc">UnsafeCell</span><span class="o">&lt;</span><span class="n">MaybeUninit</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span><span class="p">,</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>在<code>SyncOnceCell</code>内，value用于保存数据 ，once用于确保在多线程环境下，初始化函数只被执行一次，这也是和非线程安全版<code>Lazy</code>的最大区别：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[unstable(feature = </span><span class="s">&#34;once_cell&#34;</span><span class="cp">, issue = </span><span class="s">&#34;74465&#34;</span><span class="cp">)]</span><span class="w">
+</span><span class="w"></span><span class="k">pub</span><span class="w"> </span><span class="k">struct</span> <span class="nc">OnceCell</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="c1">// Invariant: written to at most once.
+</span><span class="c1"></span><span class="w">    </span><span class="n">inner</span>: <span class="nc">UnsafeCell</span><span class="o">&lt;</span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span><span class="p">,</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>通过实现<code>Deref</code>，可以像智能指针那样使用内部类型：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">impl</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="n">F</span>: <span class="nb">FnOnce</span><span class="p">()</span><span class="w"> </span>-&gt; <span class="nc">T</span><span class="o">&gt;</span><span class="w"> </span><span class="n">SyncLazy</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="n">F</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="cp">#[unstable(feature = </span><span class="s">&#34;once_cell&#34;</span><span class="cp">, issue = </span><span class="s">&#34;74465&#34;</span><span class="cp">)]</span><span class="w">
+</span><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">force</span><span class="p">(</span><span class="n">this</span>: <span class="kp">&amp;</span><span class="nc">SyncLazy</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="n">F</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="kp">&amp;</span><span class="nc">T</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="n">this</span><span class="p">.</span><span class="n">cell</span><span class="p">.</span><span class="n">get_or_init</span><span class="p">(</span><span class="o">||</span><span class="w"> </span><span class="k">match</span><span class="w"> </span><span class="n">this</span><span class="p">.</span><span class="n">init</span><span class="p">.</span><span class="n">take</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="nb">Some</span><span class="p">(</span><span class="n">f</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">f</span><span class="p">(),</span><span class="w">
+</span><span class="w">            </span><span class="nb">None</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">panic</span><span class="o">!</span><span class="p">(</span><span class="s">&#34;Lazy instance has previously been poisoned&#34;</span><span class="p">),</span><span class="w">
+</span><span class="w">        </span><span class="p">})</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="cp">#[unstable(feature = </span><span class="s">&#34;once_cell&#34;</span><span class="cp">, issue = </span><span class="s">&#34;74465&#34;</span><span class="cp">)]</span><span class="w">
+</span><span class="w"></span><span class="k">impl</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="n">F</span>: <span class="nb">FnOnce</span><span class="p">()</span><span class="w"> </span>-&gt; <span class="nc">T</span><span class="o">&gt;</span><span class="w"> </span><span class="n">Deref</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">SyncLazy</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="n">F</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">type</span> <span class="nc">Target</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">T</span><span class="p">;</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">deref</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="kp">&amp;</span><span class="nc">T</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="n">SyncLazy</span>::<span class="n">force</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>在<code>deref</code>方法内调用了<code>force</code>方法，因此关键的部分就是<code>SyncOnceCell</code>的<code>get_or_init</code>方法实现了：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[unstable(feature = </span><span class="s">&#34;once_cell&#34;</span><span class="cp">, issue = </span><span class="s">&#34;74465&#34;</span><span class="cp">)]</span><span class="w">
+</span><span class="w"></span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">get_or_init</span><span class="o">&lt;</span><span class="n">F</span><span class="o">&gt;</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">f</span>: <span class="nc">F</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="kp">&amp;</span><span class="nc">T</span><span class="w">
+</span><span class="w"></span><span class="k">where</span><span class="w">
+</span><span class="w">	</span><span class="n">F</span>: <span class="nb">FnOnce</span><span class="p">()</span><span class="w"> </span>-&gt; <span class="nc">T</span><span class="p">,</span><span class="w">
+</span><span class="w"></span><span class="p">{</span><span class="w">
+</span><span class="w">	</span><span class="k">match</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">get_or_try_init</span><span class="p">(</span><span class="o">||</span><span class="w"> </span><span class="nb">Ok</span>::<span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="o">!&gt;</span><span class="p">(</span><span class="n">f</span><span class="p">()))</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">		</span><span class="nb">Ok</span><span class="p">(</span><span class="n">val</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">val</span><span class="p">,</span><span class="w">
+</span><span class="w">	</span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="cp">#[unstable(feature = </span><span class="s">&#34;once_cell&#34;</span><span class="cp">, issue = </span><span class="s">&#34;74465&#34;</span><span class="cp">)]</span><span class="w">
+</span><span class="w"></span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">get_or_try_init</span><span class="o">&lt;</span><span class="n">F</span><span class="p">,</span><span class="w"> </span><span class="n">E</span><span class="o">&gt;</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">f</span>: <span class="nc">F</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nb">Result</span><span class="o">&lt;&amp;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="n">E</span><span class="o">&gt;</span><span class="w">
+</span><span class="w"></span><span class="k">where</span><span class="w">
+</span><span class="w">	</span><span class="n">F</span>: <span class="nb">FnOnce</span><span class="p">()</span><span class="w"> </span>-&gt; <span class="nb">Result</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="n">E</span><span class="o">&gt;</span><span class="p">,</span><span class="w">
+</span><span class="w"></span><span class="p">{</span><span class="w">
+</span><span class="w">	</span><span class="c1">// Fast path check
+</span><span class="c1"></span><span class="w">	</span><span class="c1">// NOTE: We need to perform an acquire on the state in this method
+</span><span class="c1"></span><span class="w">	</span><span class="c1">// in order to correctly synchronize `SyncLazy::force`. This is
+</span><span class="c1"></span><span class="w">	</span><span class="c1">// currently done by calling `self.get()`, which in turn calls
+</span><span class="c1"></span><span class="w">	</span><span class="c1">// `self.is_initialized()`, which in turn performs the acquire.
+</span><span class="c1"></span><span class="w">	</span><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">get</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">		</span><span class="k">return</span><span class="w"> </span><span class="nb">Ok</span><span class="p">(</span><span class="n">value</span><span class="p">);</span><span class="w">
+</span><span class="w">	</span><span class="p">}</span><span class="w">
+</span><span class="w">	</span><span class="bp">self</span><span class="p">.</span><span class="n">initialize</span><span class="p">(</span><span class="n">f</span><span class="p">)</span><span class="o">?</span><span class="p">;</span><span class="w">
+</span><span class="w">
+</span><span class="w">	</span><span class="n">debug_assert</span><span class="o">!</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">is_initialized</span><span class="p">());</span><span class="w">
+</span><span class="w">
+</span><span class="w">	</span><span class="c1">// Safety: The inner value has been initialized
+</span><span class="c1"></span><span class="w">	</span><span class="nb">Ok</span><span class="p">(</span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">get_unchecked</span><span class="p">()</span><span class="w"> </span><span class="p">})</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>到这里还是比较常规的操作，先看数据是否已经初始化，如果是就直接返回，否则执行初始化。</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[cold]</span><span class="w">
+</span><span class="w"></span><span class="k">fn</span> <span class="nf">initialize</span><span class="o">&lt;</span><span class="n">F</span><span class="p">,</span><span class="w"> </span><span class="n">E</span><span class="o">&gt;</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">f</span>: <span class="nc">F</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">E</span><span class="o">&gt;</span><span class="w">
+</span><span class="w"></span><span class="k">where</span><span class="w">
+</span><span class="w">	</span><span class="n">F</span>: <span class="nb">FnOnce</span><span class="p">()</span><span class="w"> </span>-&gt; <span class="nb">Result</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="n">E</span><span class="o">&gt;</span><span class="p">,</span><span class="w">
+</span><span class="w"></span><span class="p">{</span><span class="w">
+</span><span class="w">	</span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">res</span>: <span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">E</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Ok</span><span class="p">(());</span><span class="w">
+</span><span class="w">	</span><span class="kd">let</span><span class="w"> </span><span class="n">slot</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="bp">self</span><span class="p">.</span><span class="n">value</span><span class="p">;</span><span class="w">
+</span><span class="w">
+</span><span class="w">	</span><span class="c1">// Ignore poisoning from other threads
+</span><span class="c1"></span><span class="w">	</span><span class="c1">// If another thread panics, then we&#39;ll be able to run our closure
+</span><span class="c1"></span><span class="w">	</span><span class="bp">self</span><span class="p">.</span><span class="n">once</span><span class="p">.</span><span class="n">call_once_force</span><span class="p">(</span><span class="o">|</span><span class="n">p</span><span class="o">|</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">		</span><span class="k">match</span><span class="w"> </span><span class="n">f</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">			</span><span class="nb">Ok</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">				</span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="o">*</span><span class="n">slot</span><span class="p">.</span><span class="n">get</span><span class="p">()).</span><span class="n">write</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="w"> </span><span class="p">};</span><span class="w">
+</span><span class="w">			</span><span class="p">}</span><span class="w">
+</span><span class="w">			</span><span class="nb">Err</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">				</span><span class="n">res</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Err</span><span class="p">(</span><span class="n">e</span><span class="p">);</span><span class="w">
+</span><span class="w">
+</span><span class="w">				</span><span class="c1">// Treat the underlying `Once` as poisoned since we
+</span><span class="c1"></span><span class="w">				</span><span class="c1">// failed to initialize our value. Calls
+</span><span class="c1"></span><span class="w">				</span><span class="n">p</span><span class="p">.</span><span class="n">poison</span><span class="p">();</span><span class="w">
+</span><span class="w">			</span><span class="p">}</span><span class="w">
+</span><span class="w">		</span><span class="p">}</span><span class="w">
+</span><span class="w">	</span><span class="p">});</span><span class="w">
+</span><span class="w">	</span><span class="n">res</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p><code>initialize</code>方法内会执行once的<code>call_once_force</code>方法，闭包的参数p类型是<code>OnceState</code>，这个类型描述了初始化的状态，如果闭包f执行失败，则会调用<code>poison</code>
+方法将状态置为<code>POISONED</code>，代表数据没有完全初始化完成。</p>
+<p><strong>NOTE:</strong> 不过从<code>get_or_init</code>方法中可以看到，闭包f的Err类型为<code>never</code>（<code>!</code>），因此永远不会失败。但是<code>OnceState</code>的状态在初始化线程panic后也会置为
+<code>POISONED</code>，可以从后面的代码里看到。</p>
+<p><strong>NOTE:</strong> <code>#[cold]</code>这个attr告诉编译器这个方法会很少调用（因为一旦初始化完成，后面就不会再执行了），这个参数会传递给llvm用于代码优化。</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[unstable(feature = </span><span class="s">&#34;once_poison&#34;</span><span class="cp">, issue = </span><span class="s">&#34;33577&#34;</span><span class="cp">)]</span><span class="w">
+</span><span class="w"></span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">call_once_force</span><span class="o">&lt;</span><span class="n">F</span><span class="o">&gt;</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">f</span>: <span class="nc">F</span><span class="p">)</span><span class="w">
+</span><span class="w"></span><span class="k">where</span><span class="w">
+</span><span class="w">	</span><span class="n">F</span>: <span class="nb">FnOnce</span><span class="p">(</span><span class="o">&amp;</span><span class="n">OnceState</span><span class="p">),</span><span class="w">
+</span><span class="w"></span><span class="p">{</span><span class="w">
+</span><span class="w">	</span><span class="c1">// Fast path check
+</span><span class="c1"></span><span class="w">	</span><span class="k">if</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">is_completed</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">		</span><span class="k">return</span><span class="p">;</span><span class="w">
+</span><span class="w">	</span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w">	</span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">f</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">f</span><span class="p">);</span><span class="w">
+</span><span class="w">	</span><span class="bp">self</span><span class="p">.</span><span class="n">call_inner</span><span class="p">(</span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="o">|</span><span class="n">p</span><span class="o">|</span><span class="w"> </span><span class="n">f</span><span class="p">.</span><span class="n">take</span><span class="p">().</span><span class="n">unwrap</span><span class="p">()(</span><span class="n">p</span><span class="p">));</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="cp">#[cold]</span><span class="w">
+</span><span class="w"></span><span class="k">fn</span> <span class="nf">call_inner</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">ignore_poisoning</span>: <span class="kt">bool</span><span class="p">,</span><span class="w"> </span><span class="n">init</span>: <span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">dyn</span><span class="w"> </span><span class="nb">FnMut</span><span class="p">(</span><span class="o">&amp;</span><span class="n">OnceState</span><span class="p">))</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">	</span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">state_and_queue</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">state_and_queue</span><span class="p">.</span><span class="n">load</span><span class="p">(</span><span class="n">Ordering</span>::<span class="n">Acquire</span><span class="p">);</span><span class="w">
+</span><span class="w">	</span><span class="k">loop</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">		</span><span class="k">match</span><span class="w"> </span><span class="n">state_and_queue</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">			</span><span class="n">COMPLETE</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="k">break</span><span class="p">,</span><span class="w">
+</span><span class="w">			</span><span class="n">POISONED</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="o">!</span><span class="n">ignore_poisoning</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">				</span><span class="c1">// Panic to propagate the poison.
+</span><span class="c1"></span><span class="w">				</span><span class="n">panic</span><span class="o">!</span><span class="p">(</span><span class="s">&#34;Once instance has previously been poisoned&#34;</span><span class="p">);</span><span class="w">
+</span><span class="w">			</span><span class="p">}</span><span class="w">
+</span><span class="w">			</span><span class="n">POISONED</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">INCOMPLETE</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">				</span><span class="c1">// Try to register this thread as the one RUNNING.
+</span><span class="c1"></span><span class="w">				</span><span class="kd">let</span><span class="w"> </span><span class="n">old</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">state_and_queue</span><span class="p">.</span><span class="n">compare_and_swap</span><span class="p">(</span><span class="w">
+</span><span class="w">					</span><span class="n">state_and_queue</span><span class="p">,</span><span class="w">
+</span><span class="w">					</span><span class="n">RUNNING</span><span class="p">,</span><span class="w">
+</span><span class="w">					</span><span class="n">Ordering</span>::<span class="n">Acquire</span><span class="p">,</span><span class="w">
+</span><span class="w">				</span><span class="p">);</span><span class="w">
+</span><span class="w">				</span><span class="k">if</span><span class="w"> </span><span class="n">old</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">state_and_queue</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">					</span><span class="n">state_and_queue</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">old</span><span class="p">;</span><span class="w">
+</span><span class="w">					</span><span class="k">continue</span><span class="p">;</span><span class="w">
+</span><span class="w">				</span><span class="p">}</span><span class="w">
+</span><span class="w">				</span><span class="c1">// `waiter_queue` will manage other waiting threads, and
+</span><span class="c1"></span><span class="w">				</span><span class="c1">// wake them up on drop.
+</span><span class="c1"></span><span class="w">				</span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">waiter_queue</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">WaiterQueue</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">					</span><span class="n">state_and_queue</span>: <span class="kp">&amp;</span><span class="nc">self</span><span class="p">.</span><span class="n">state_and_queue</span><span class="p">,</span><span class="w">
+</span><span class="w">					</span><span class="n">set_state_on_drop_to</span>: <span class="nc">POISONED</span><span class="p">,</span><span class="w">
+</span><span class="w">				</span><span class="p">};</span><span class="w">
+</span><span class="w">				</span><span class="c1">// Run the initialization function, letting it know if we&#39;re
+</span><span class="c1"></span><span class="w">				</span><span class="c1">// poisoned or not.
+</span><span class="c1"></span><span class="w">				</span><span class="kd">let</span><span class="w"> </span><span class="n">init_state</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">OnceState</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">					</span><span class="n">poisoned</span>: <span class="nc">state_and_queue</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">POISONED</span><span class="p">,</span><span class="w">
+</span><span class="w">					</span><span class="n">set_state_on_drop_to</span>: <span class="nc">Cell</span>::<span class="n">new</span><span class="p">(</span><span class="n">COMPLETE</span><span class="p">),</span><span class="w">
+</span><span class="w">				</span><span class="p">};</span><span class="w">
+</span><span class="w">				</span><span class="n">init</span><span class="p">(</span><span class="o">&amp;</span><span class="n">init_state</span><span class="p">);</span><span class="w">
+</span><span class="w">				</span><span class="n">waiter_queue</span><span class="p">.</span><span class="n">set_state_on_drop_to</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">init_state</span><span class="p">.</span><span class="n">set_state_on_drop_to</span><span class="p">.</span><span class="n">get</span><span class="p">();</span><span class="w">
+</span><span class="w">				</span><span class="k">break</span><span class="p">;</span><span class="w">
+</span><span class="w">			</span><span class="p">}</span><span class="w">
+</span><span class="w">			</span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">				</span><span class="c1">// All other values must be RUNNING with possibly a
+</span><span class="c1"></span><span class="w">				</span><span class="c1">// pointer to the waiter queue in the more significant bits.
+</span><span class="c1"></span><span class="w">				</span><span class="n">assert</span><span class="o">!</span><span class="p">(</span><span class="n">state_and_queue</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">STATE_MASK</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">RUNNING</span><span class="p">);</span><span class="w">
+</span><span class="w">				</span><span class="n">wait</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">.</span><span class="n">state_and_queue</span><span class="p">,</span><span class="w"> </span><span class="n">state_and_queue</span><span class="p">);</span><span class="w">
+</span><span class="w">				</span><span class="n">state_and_queue</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">state_and_queue</span><span class="p">.</span><span class="n">load</span><span class="p">(</span><span class="n">Ordering</span>::<span class="n">Acquire</span><span class="p">);</span><span class="w">
+</span><span class="w">			</span><span class="p">}</span><span class="w">
+</span><span class="w">		</span><span class="p">}</span><span class="w">
+</span><span class="w">	</span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p><code>call_once_force</code>方法又会调用<code>call_inner</code>，而这个<code>call_inner</code>就是once最核心的方法了。</p>
+<p>这个方法首先会先获取<code>state_and_queue</code>属性，这个类型本身看定义的话是个<code>AtomicUsize</code>：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[stable(feature = </span><span class="s">&#34;rust1&#34;</span><span class="cp">, since = </span><span class="s">&#34;1.0.0&#34;</span><span class="cp">)]</span><span class="w">
+</span><span class="w"></span><span class="k">pub</span><span class="w"> </span><span class="k">struct</span> <span class="nc">Once</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="c1">// `state_and_queue` is actually an a pointer to a `Waiter` with extra state
+</span><span class="c1"></span><span class="w">    </span><span class="c1">// bits, so we add the `PhantomData` appropriately.
+</span><span class="c1"></span><span class="w">    </span><span class="n">state_and_queue</span>: <span class="nc">AtomicUsize</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="n">_marker</span>: <span class="nc">marker</span>::<span class="n">PhantomData</span><span class="o">&lt;*</span><span class="k">const</span><span class="w"> </span><span class="n">Waiter</span><span class="o">&gt;</span><span class="p">,</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>但其实<code>state_and_queue</code>是一个<code>Waiter</code>链表指针和初始化状态的复合，其中低2bit为状态位。之所以能这么实现，是因为<code>Waiter</code>类型的对齐属性：</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[repr(align(4))]</span><span class="w"> </span><span class="c1">// Ensure the two lower bits are free to use as state bits.
+</span><span class="c1"></span><span class="k">struct</span> <span class="nc">Waiter</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="n">thread</span>: <span class="nc">Cell</span><span class="o">&lt;</span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">Thread</span><span class="o">&gt;&gt;</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="n">signaled</span>: <span class="nc">AtomicBool</span><span class="p">,</span><span class="w">
+</span><span class="w">    </span><span class="n">next</span>: <span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">Waiter</span><span class="p">,</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p><code>#[repr(align(4))]</code>的对齐属性保证了<code>Waiter</code>指针的低2bit一定是0。</p>
+<p>在<code>call_inner</code>中最重要的2个分支是<code>POISONED | INCOMPLETE</code>和<code>_</code>，其中<code>POISONED | INCOMPLETE</code>分支说明初始化还未执行过或者执行了初始化函数的线程panic了，
+导致数据依然是不可用的，因此这个分支需要执行初始化函数。而<code>_</code>分支说明另一个线程正在执行初始化函数的过程中，因此这个分支需要将当前线程注册到
+等待队列里，等待被唤醒。</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">fn</span> <span class="nf">wait</span><span class="p">(</span><span class="n">state_and_queue</span>: <span class="kp">&amp;</span><span class="nc">AtomicUsize</span><span class="p">,</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">current_state</span>: <span class="kt">usize</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="c1">// Note: the following code was carefully written to avoid creating a
+</span><span class="c1"></span><span class="w">    </span><span class="c1">// mutable reference to `node` that gets aliased.
+</span><span class="c1"></span><span class="w">    </span><span class="k">loop</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="c1">// Don&#39;t queue this thread if the status is no longer running,
+</span><span class="c1"></span><span class="w">        </span><span class="c1">// otherwise we will not be woken up.
+</span><span class="c1"></span><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="n">current_state</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">STATE_MASK</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">RUNNING</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="k">return</span><span class="p">;</span><span class="w">
+</span><span class="w">        </span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w">        </span><span class="c1">// Create the node for our current thread.
+</span><span class="c1"></span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">node</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Waiter</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="n">thread</span>: <span class="nc">Cell</span>::<span class="n">new</span><span class="p">(</span><span class="nb">Some</span><span class="p">(</span><span class="n">thread</span>::<span class="n">current</span><span class="p">())),</span><span class="w">
+</span><span class="w">            </span><span class="n">signaled</span>: <span class="nc">AtomicBool</span>::<span class="n">new</span><span class="p">(</span><span class="kc">false</span><span class="p">),</span><span class="w">
+</span><span class="w">            </span><span class="n">next</span>: <span class="p">(</span><span class="n">current_state</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="o">!</span><span class="n">STATE_MASK</span><span class="p">)</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">Waiter</span><span class="p">,</span><span class="w">
+</span><span class="w">        </span><span class="p">};</span><span class="w">
+</span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">me</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">node</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">Waiter</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">usize</span><span class="p">;</span><span class="w">
+</span><span class="w">
+</span><span class="w">        </span><span class="c1">// Try to slide in the node at the head of the linked list, making sure
+</span><span class="c1"></span><span class="w">        </span><span class="c1">// that another thread didn&#39;t just replace the head of the linked list.
+</span><span class="c1"></span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">old</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">state_and_queue</span><span class="p">.</span><span class="n">compare_and_swap</span><span class="p">(</span><span class="n">current_state</span><span class="p">,</span><span class="w"> </span><span class="n">me</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">RUNNING</span><span class="p">,</span><span class="w"> </span><span class="n">Ordering</span>::<span class="n">Release</span><span class="p">);</span><span class="w">
+</span><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="n">old</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">current_state</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="n">current_state</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">old</span><span class="p">;</span><span class="w">
+</span><span class="w">            </span><span class="k">continue</span><span class="p">;</span><span class="w">
+</span><span class="w">        </span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w">        </span><span class="c1">// We have enqueued ourselves, now lets wait.
+</span><span class="c1"></span><span class="w">        </span><span class="c1">// It is important not to return before being signaled, otherwise we
+</span><span class="c1"></span><span class="w">        </span><span class="c1">// would drop our `Waiter` node and leave a hole in the linked list
+</span><span class="c1"></span><span class="w">        </span><span class="c1">// (and a dangling reference). Guard against spurious wakeups by
+</span><span class="c1"></span><span class="w">        </span><span class="c1">// reparking ourselves until we are signaled.
+</span><span class="c1"></span><span class="w">        </span><span class="k">while</span><span class="w"> </span><span class="o">!</span><span class="n">node</span><span class="p">.</span><span class="n">signaled</span><span class="p">.</span><span class="n">load</span><span class="p">(</span><span class="n">Ordering</span>::<span class="n">Acquire</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="c1">// If the managing thread happens to signal and unpark us before we
+</span><span class="c1"></span><span class="w">            </span><span class="c1">// can park ourselves, the result could be this thread never gets
+</span><span class="c1"></span><span class="w">            </span><span class="c1">// unparked. Luckily `park` comes with the guarantee that if it got
+</span><span class="c1"></span><span class="w">            </span><span class="c1">// an `unpark` just before on an unparked thread is does not park.
+</span><span class="c1"></span><span class="w">            </span><span class="n">thread</span>::<span class="n">park</span><span class="p">();</span><span class="w">
+</span><span class="w">        </span><span class="p">}</span><span class="w">
+</span><span class="w">        </span><span class="k">break</span><span class="p">;</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>把当前线程添加到等待队列的实现方式是把当前<code>Waiter</code>添加到链表表头。</p>
+<p>而执行初始化的线程首先需要将初始化状态置为<code>RUNNING</code>，随后创建<code>WaiterQueue</code>对象，<code>WaiterQueue</code>对象上保存了等待队列，同时初始化<code>set_state_on_drop_to</code>
+值为<code>POISONED</code>，这个属性是指当<code>WaiterQueue</code>对象析构后，once的状态需要置为对应的值，因此如果发生了panic，则once的状态就是
+<code>POISONED</code>。当初始化函数执行完，则<code>set_state_on_drop_to</code>会设置为<code>init_state</code>中的<code>set_state_on_drop_to</code>。而<code>init_state</code>会作为参数传递到初始化函数中，
+也就是说初始化函数中可以修改<code>set_state_on_drop_to</code>。</p>
+<p><strong>NOTE:</strong> 上面所说的初始化函数是指被包装过的，而不是用户的初始化函数。</p>
+<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">impl</span><span class="w"> </span><span class="nb">Drop</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">WaiterQueue</span><span class="o">&lt;</span><span class="na">&#39;_</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="k">fn</span> <span class="nf">drop</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">        </span><span class="c1">// Swap out our state with however we finished.
+</span><span class="c1"></span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">state_and_queue</span><span class="w"> </span><span class="o">=</span><span class="w">
+</span><span class="w">            </span><span class="bp">self</span><span class="p">.</span><span class="n">state_and_queue</span><span class="p">.</span><span class="n">swap</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">set_state_on_drop_to</span><span class="p">,</span><span class="w"> </span><span class="n">Ordering</span>::<span class="n">AcqRel</span><span class="p">);</span><span class="w">
+</span><span class="w">
+</span><span class="w">        </span><span class="c1">// We should only ever see an old state which was RUNNING.
+</span><span class="c1"></span><span class="w">        </span><span class="n">assert_eq</span><span class="o">!</span><span class="p">(</span><span class="n">state_and_queue</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">STATE_MASK</span><span class="p">,</span><span class="w"> </span><span class="n">RUNNING</span><span class="p">);</span><span class="w">
+</span><span class="w">
+</span><span class="w">        </span><span class="c1">// Walk the entire linked list of waiters and wake them up (in lifo
+</span><span class="c1"></span><span class="w">        </span><span class="c1">// order, last to register is first to wake up).
+</span><span class="c1"></span><span class="w">        </span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">            </span><span class="c1">// Right after setting `node.signaled = true` the other thread may
+</span><span class="c1"></span><span class="w">            </span><span class="c1">// free `node` if there happens to be has a spurious wakeup.
+</span><span class="c1"></span><span class="w">            </span><span class="c1">// So we have to take out the `thread` field and copy the pointer to
+</span><span class="c1"></span><span class="w">            </span><span class="c1">// `next` first.
+</span><span class="c1"></span><span class="w">            </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">queue</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">state_and_queue</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="o">!</span><span class="n">STATE_MASK</span><span class="p">)</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">Waiter</span><span class="p">;</span><span class="w">
+</span><span class="w">            </span><span class="k">while</span><span class="w"> </span><span class="o">!</span><span class="n">queue</span><span class="p">.</span><span class="n">is_null</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">                </span><span class="kd">let</span><span class="w"> </span><span class="n">next</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">queue</span><span class="p">).</span><span class="n">next</span><span class="p">;</span><span class="w">
+</span><span class="w">                </span><span class="kd">let</span><span class="w"> </span><span class="n">thread</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="n">queue</span><span class="p">).</span><span class="n">thread</span><span class="p">.</span><span class="n">take</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span><span class="w">
+</span><span class="w">                </span><span class="p">(</span><span class="o">*</span><span class="n">queue</span><span class="p">).</span><span class="n">signaled</span><span class="p">.</span><span class="n">store</span><span class="p">(</span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="n">Ordering</span>::<span class="n">Release</span><span class="p">);</span><span class="w">
+</span><span class="w">                </span><span class="c1">// ^- FIXME (maybe): This is another case of issue #55005
+</span><span class="c1"></span><span class="w">                </span><span class="c1">// `store()` has a potentially dangling ref to `signaled`.
+</span><span class="c1"></span><span class="w">                </span><span class="n">queue</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">next</span><span class="p">;</span><span class="w">
+</span><span class="w">                </span><span class="n">thread</span><span class="p">.</span><span class="n">unpark</span><span class="p">();</span><span class="w">
+</span><span class="w">            </span><span class="p">}</span><span class="w">
+</span><span class="w">        </span><span class="p">}</span><span class="w">
+</span><span class="w">    </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p><code>WaiterQueue</code>的析构方法会先设置once的状态，随后依次唤醒等待队列里的线程。</p>
+<h2 id="参考资料">参考资料<a href="#参考资料" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h2>
+<ol>
+<li><a href="https://github.com/matklad/rfcs/blob/std-lazy/text/0000-standard-lazy-types.md">0000-standard-lazy-types.md</a></li>
+</ol>
+			</div>
+			<hr class="post-end">
+			<footer class="post-info">
+				<p>
+					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-tag meta-icon"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7" y2="7"></line></svg><span class="tag"><a href="https://xiaopengli89.github.io/tags/rust">rust</a></span><span class="tag"><a href="https://xiaopengli89.github.io/tags/lazy">lazy</a></span>
+				</p>
+				<p><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-file-text"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>2893 Words</p>
+				<p><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-calendar"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>2020-08-18 00:50 &#43;0800</p>
+			</footer>
+		</article>
+		<div class="post-nav thin">
+			<a class="prev-post" href="https://xiaopengli89.github.io/posts/crossbeam-channel/">
+				<span class="post-nav-label">Older&nbsp;<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-right"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></span><br><span>Crossbeam的无锁并发Channel解析</span>
+			</a>
+		</div>
+		<div id="comments" class="thin">
+</div>
+	</main>
+
+	<footer id="site-footer" class="section-inner thin animated fadeIn faster">
+		<p>&copy; 2020 <a href="https://xiaopengli89.github.io">Xiaopeng Li</a> &#183; <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a></p>
+		<p>
+			Made with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> &#183; Theme <a href="https://github.com/Track3/hermit" target="_blank" rel="noopener">Hermit</a> &#183; <a href="https://xiaopengli89.github.io/posts/index.xml" target="_blank" title="rss"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-rss"><path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle></svg></a>
+		</p>
+	</footer>
+
+
+
+	<script src="https://xiaopengli89.github.io/js/bundle.min.4a9a0ac3d2217822c7865b4161e6c2a71de1d70492264337755427898dd718f6.js" integrity="sha256-SpoKw9IheCLHhltBYebCpx3h1wSSJkM3dVQniY3XGPY=" crossorigin="anonymous"></script>
+	
+<script src="https://cdn.bootcdn.net/ajax/libs/prism/1.20.0/prism.min.js"></script>
+<script src="https://cdn.bootcdn.net/ajax/libs/prism/1.20.0/plugins/autoloader/prism-autoloader.min.js"></script>
+<script>Prism.plugins.autoloader.languages_path = 'https://cdn.bootcdn.net/ajax/libs/prism/1.20.0/components/'</script>
+
+
+
+</body>
+
+</html>

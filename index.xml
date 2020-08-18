@@ -7,10 +7,28 @@
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright>
-    <lastBuildDate>Sat, 08 Aug 2020 20:13:04 +0800</lastBuildDate>
+    <lastBuildDate>Tue, 18 Aug 2020 00:50:39 +0800</lastBuildDate>
     
 	<atom:link href="https://xiaopengli89.github.io/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>Lazy原生类型</title>
+      <link>https://xiaopengli89.github.io/posts/lazy-primitives/</link>
+      <pubDate>Tue, 18 Aug 2020 00:50:39 +0800</pubDate>
+      
+      <guid>https://xiaopengli89.github.io/posts/lazy-primitives/</guid>
+      <description>&lt;p&gt;最近 &lt;a href=&#34;https://github.com/rust-lang/rust/pull/72414&#34;&gt;Add lazy initialization primitives to std #72414&lt;/a&gt; 合并进标准库，以前为了实现全局变量的初始化，
+一般有2种方式：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;code&gt;const fn&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;第三方crate，比如&lt;a href=&#34;https://crates.io/crates/once_cell&#34;&gt;once_cell&lt;/a&gt; 和 &lt;a href=&#34;https://crates.io/crates/lazy_static&#34;&gt;lazy_static&lt;/a&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;由于&lt;code&gt;const fn&lt;/code&gt;同常量表达式一样，是在&lt;code&gt;const context&lt;/code&gt;上下文中执行，即在编译时计算函数（或表达式）结果，因此在使用上有诸多限制，比如类型参数只能绑定
+生命周期和Sized（?Sized），只能调用其他&lt;code&gt;const fn&lt;/code&gt;等。&lt;/p&gt;
+&lt;p&gt;Lazy类型实现的是延迟初始化，因此不必受到&lt;code&gt;const fn&lt;/code&gt;的限制，同时能加快某些组件的启动，未使用到的功能甚至可以不初始化。&lt;/p&gt;
+&lt;p&gt;延迟初始化应用广泛，比如配置文件的读取，异步运行时需要初始化全局的Executor等，因此合并进标准库可以方便不少。&lt;/p&gt;</description>
+    </item>
     
     <item>
       <title>Crossbeam的无锁并发Channel解析</title>
@@ -126,16 +144,6 @@
 &lt;/span&gt;&lt;span class=&#34;w&#34;&gt;	&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;foo&lt;/span&gt;::&lt;span class=&#34;o&#34;&gt;&amp;lt;&lt;/span&gt;&lt;span class=&#34;na&#34;&gt;&amp;#39;a&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;&amp;gt;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;o&#34;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;x&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;);&lt;/span&gt;&lt;span class=&#34;w&#34;&gt;
 &lt;/span&gt;&lt;span class=&#34;w&#34;&gt;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;&lt;span class=&#34;w&#34;&gt;
 &lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;上面的 &lt;code&gt;&#39;a&lt;/code&gt; 生命周期其实就是变量 &lt;code&gt;x&lt;/code&gt; 所在的block。&lt;/p&gt;</description>
-    </item>
-    
-    <item>
-      <title>Rust动态内存分配</title>
-      <link>https://xiaopengli89.github.io/posts/rust-box-heap/</link>
-      <pubDate>Wed, 01 Jul 2020 16:57:56 +0800</pubDate>
-      
-      <guid>https://xiaopengli89.github.io/posts/rust-box-heap/</guid>
-      <description>&lt;p&gt;&lt;a href=&#34;https://doc.rust-lang.org/std/boxed/index.html&#34;&gt;Box&lt;/a&gt; 是一个在Rust中经常被用到的智能指针，它的作用是实现堆内存分配，并且管理该块内存的生命周期。尤其在实现递归数据结构时，通过 &lt;a href=&#34;https://doc.rust-lang.org/std/boxed/index.html&#34;&gt;Box&lt;/a&gt; 才能让一个类型大小不会无限膨胀。同时 &lt;a href=&#34;https://doc.rust-lang.org/std/boxed/index.html&#34;&gt;Box&lt;/a&gt; 的内存布局同 &lt;code&gt;C&lt;/code&gt; 二进制兼容，也就是说在使用 &lt;code&gt;FFI&lt;/code&gt; 时，可以直接在参数或返回值中使用 &lt;a href=&#34;https://doc.rust-lang.org/std/boxed/index.html&#34;&gt;Box&lt;/a&gt;。&lt;/p&gt;
-&lt;p&gt;这篇文章将介绍利用Rust的动态内存分配实现一个简单的自定义 &lt;code&gt;Box&lt;/code&gt; 。&lt;/p&gt;</description>
     </item>
     
   </channel>
