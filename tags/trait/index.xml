@@ -7,11 +7,7 @@
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright>
-    <lastBuildDate>Mon, 27 Jul 2020 17:49:22 +0800</lastBuildDate>
-    
-	<atom:link href="https://xiaopengli89.github.io/tags/trait/index.xml" rel="self" type="application/rss+xml" />
-    
-    
+    <lastBuildDate>Mon, 27 Jul 2020 17:49:22 +0800</lastBuildDate><atom:link href="https://xiaopengli89.github.io/tags/trait/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>Rust中的多态 - Trait Object</title>
       <link>https://xiaopengli89.github.io/posts/rust-trait-object/</link>

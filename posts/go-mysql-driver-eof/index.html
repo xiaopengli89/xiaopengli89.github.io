@@ -8,19 +8,16 @@
 	<meta name="theme-color" content="#494f5c">
 	<meta name="msapplication-TileColor" content="#494f5c">
 <meta itemprop="name" content="关于Go Mysql Driver的unexpected EOF错误">
-<meta itemprop="description" content="应该是大多数Golang开发者日志里的东西了。">
-<meta itemprop="datePublished" content="2020-05-23T11:55:30&#43;08:00" />
-<meta itemprop="dateModified" content="2020-05-23T11:55:30&#43;08:00" />
+<meta itemprop="description" content="应该是大多数Golang开发者日志里的东西了。"><meta itemprop="datePublished" content="2020-05-23T11:55:30+08:00" />
+<meta itemprop="dateModified" content="2020-05-23T11:55:30+08:00" />
 <meta itemprop="wordCount" content="1796">
-
-
-
 <meta itemprop="keywords" content="golang,mysql,database,tcp," /><meta property="og:title" content="关于Go Mysql Driver的unexpected EOF错误" />
 <meta property="og:description" content="应该是大多数Golang开发者日志里的东西了。" />
 <meta property="og:type" content="article" />
-<meta property="og:url" content="https://xiaopengli89.github.io/posts/go-mysql-driver-eof/" />
+<meta property="og:url" content="https://xiaopengli89.github.io/posts/go-mysql-driver-eof/" /><meta property="article:section" content="posts" />
 <meta property="article:published_time" content="2020-05-23T11:55:30+08:00" />
 <meta property="article:modified_time" content="2020-05-23T11:55:30+08:00" />
+
 <meta name="twitter:card" content="summary"/>
 <meta name="twitter:title" content="关于Go Mysql Driver的unexpected EOF错误"/>
 <meta name="twitter:description" content="应该是大多数Golang开发者日志里的东西了。"/>
@@ -33,7 +30,7 @@
 	<link rel="shortcut icon" href="/favicon.ico">
 
 	<title>关于Go Mysql Driver的unexpected EOF错误</title>
-	<link rel="stylesheet" href="https://xiaopengli89.github.io/css/style.min.eac77496566fd7d5768fd650ddb0b2b181ca6a2d7c5fdd6fe6b8ba4bf47e566f.css" integrity="sha256-6sd0llZv19V2j9ZQ3bCysYHKai18X91v5ri6S/R+Vm8=" crossorigin="anonymous">
+	<link rel="stylesheet" href="https://xiaopengli89.github.io/css/style.min.037b6ee8f8c1baab6a3d0a9da11c3ff18a7552471f16c59fd98538d5ce99208b.css" integrity="sha256-A3tu6PjBuqtqPQqdoRw/8Yp1UkcfFsWf2YU41c6ZIIs=" crossorigin="anonymous">
 	
 	<link rel="stylesheet" href="https://atelierbram.github.io/syntax-highlighting/archive/assets/css/prism/prism-base16-railscasts.dark.css">
 	<link rel="stylesheet" href="https://xiaopengli89.github.io/css/site.css">
@@ -81,8 +78,7 @@
 </code></pre><p><a href="https://pkg.go.dev/github.com/go-sql-driver/mysql?tab=doc">github.com/go-sql-driver/mysql</a> 为了复用TCP连接以提高性能，内部实现了连接池。当需要一次SQL操作时，会先从连接池中拿出一条可用的空闲连接去执行操作。如果没有空闲的连接，或者连接已经失效，就打开一条新的TCP连接、SSL认证（如果使用SSL连接的话）、协议握手、认证等，完成初始化连接，再使用这条连接执行操作，使用完后再放回连接池。连接失效的标记可以在上一次使用连接后根据对应的错误来完成，或者本次操作指令发送失败也标记为连接失效，driver会重新执行上面的步骤来进行重试，应用层不会感知。</p>
 <p>到这里，好像一切都没有什么问题，可是上面的错误是怎么回事？如果是连接失效的话，应该会进行重试，对应用透明。</p>
 <p>其实上面的错误来源于服务器主动关闭超时连接造成的TCP半关闭状态，错误的形成原因可以用下面的图简单解释：</p>
-<figure>
-    <img src="/img/go-mysql-driver-eof.svg"/> <figcaption>
+<figure><img src="/img/go-mysql-driver-eof.svg"/><figcaption>
             <h4>TCP半连接状态</h4>
         </figcaption>
 </figure>
@@ -93,7 +89,7 @@
 <p>另一种办法是，每次从连接池中拿出连接，在发送第一条指令前发送一个 <code>PING</code> 包来检查连接是否健康，由于 <code>PING</code> 包不会产生副作用，因此后续的操作都是安全的。这种办法的坏处也显而易见，由于从连接池中取出连接是个非常频繁的操作，而每次都会增加至少一次RTT延迟。</p>
 <p>好在 <a href="https://github.com/go-sql-driver/mysql/pull/934">PR#934</a> 通过非常巧妙的方式解决了这一问题。作者的解决思路如下：</p>
 <p>首先需要提到一个Go 1.10后 <code>sql/driver</code> 增加的一个接口：<a href="https://golang.org/pkg/database/sql/driver/#SessionResetter">driver.SessionResetter</a> ，其中 <code>ResetSession</code> 方法会在每次连接放入连接池时执行，这里作者先简单地添加了一个 <code>reset</code> 标记。</p>
-<div class="highlight"><pre class="chroma"><code class="language-go" data-lang="go"><span class="kd">type</span> <span class="nx">mysqlConn</span> <span class="kd">struct</span> <span class="p">{</span>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="kd">type</span> <span class="nx">mysqlConn</span> <span class="kd">struct</span> <span class="p">{</span>
     <span class="c1">// ...
 </span><span class="c1"></span>    <span class="nx">reset</span>            <span class="kt">bool</span> <span class="c1">// set when the Go SQL package calls ResetSession
 </span><span class="c1"></span>    <span class="c1">// ...
@@ -109,7 +105,7 @@
     <span class="k">return</span> <span class="kc">nil</span>
 <span class="p">}</span>
 </code></pre></div><p>之后连接被拿出来，在执行发送第一条指令前，会先根据之前添加的 <code>reset</code> 标记检查连接是否可用（liveness check），由于前面的标记是连接在放入连接池时加上的，因此可以做到只在第一次取出后检查（检查后把 <code>reset</code> 取消就行），后续在使用过程中无需再检查，除非再次被放回了连接池。</p>
-<div class="highlight"><pre class="chroma"><code class="language-go" data-lang="go"><span class="c1">// Write packet buffer &#39;data&#39;
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="c1">// Write packet buffer &#39;data&#39;
 </span><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">mc</span> <span class="o">*</span><span class="nx">mysqlConn</span><span class="p">)</span> <span class="nf">writePacket</span><span class="p">(</span><span class="nx">data</span> <span class="p">[]</span><span class="kt">byte</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
     <span class="c1">// ...
 </span><span class="c1"></span>    <span class="c1">// Perform a stale connection check. We only perform this check for
@@ -133,7 +129,7 @@
      <span class="c1">// ...
 </span><span class="c1"></span><span class="p">}</span>
 </code></pre></div><p>而检查连接是否可用的方法用到了Go 1.9后 <code>net.Conn</code> 增加的 <code>syscall.Conn</code> 接口，这个接口可以获取原始连接的文件描述符。先调用 <code>syscall.Read</code> ，传入1个字节的缓冲区，由于还没有发送任何指令，并且由Go runtime创建的Socket都设置了非阻塞（O_NONBLOCK）模式，所以方法会立即返回。如果没有返回错误（或者 <code>EAGAIN</code> / <code>EWOULDBLOCK</code> 这2种错误）且读取的数据长度为0，则说明连接依然有效，反之连接已经失效。之所以不直接使用Go的原生接口 <code>net.Conn.Read</code> ，是因为Go的调度器会立即使当前Goroutine睡眠，导致多次Goroutine上下文切换，影响性能。</p>
-<div class="highlight"><pre class="chroma"><code class="language-go" data-lang="go"><span class="kd">func</span> <span class="nf">connCheck</span><span class="p">(</span><span class="nx">c</span> <span class="nx">net</span><span class="p">.</span><span class="nx">Conn</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="kd">func</span> <span class="nf">connCheck</span><span class="p">(</span><span class="nx">c</span> <span class="nx">net</span><span class="p">.</span><span class="nx">Conn</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
  	<span class="kd">var</span> <span class="p">(</span>
  		<span class="nx">n</span>    <span class="kt">int</span>
  		<span class="nx">err</span>  <span class="kt">error</span>
@@ -190,7 +186,7 @@
 	</main>
 
 	<footer id="site-footer" class="section-inner thin animated fadeIn faster">
-		<p>&copy; 2020 <a href="https://xiaopengli89.github.io">Xiaopeng Li</a> &#183; <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a></p>
+		<p>&copy; 2021 <a href="https://xiaopengli89.github.io">Xiaopeng Li</a> &#183; <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a></p>
 		<p>
 			Made with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> &#183; Theme <a href="https://github.com/Track3/hermit" target="_blank" rel="noopener">Hermit</a> &#183; <a href="https://xiaopengli89.github.io/posts/index.xml" target="_blank" title="rss"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-rss"><path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle></svg></a>
 		</p>
@@ -198,7 +194,7 @@
 
 
 
-	<script src="https://xiaopengli89.github.io/js/bundle.min.4a9a0ac3d2217822c7865b4161e6c2a71de1d70492264337755427898dd718f6.js" integrity="sha256-SpoKw9IheCLHhltBYebCpx3h1wSSJkM3dVQniY3XGPY=" crossorigin="anonymous"></script>
+	<script src="https://xiaopengli89.github.io/js/bundle.min.7d8545daa55d62427355498dd8da13f98ff79a7938ce7d2a5e2ae1ec0de3beb8.js" integrity="sha256-fYVF2qVdYkJzVUmN2NoT+Y/3mnk4zn0qXirh7A3jvrg=" crossorigin="anonymous"></script>
 	
 <script src="https://cdn.bootcdn.net/ajax/libs/prism/1.20.0/prism.min.js"></script>
 <script src="https://cdn.bootcdn.net/ajax/libs/prism/1.20.0/plugins/autoloader/prism-autoloader.min.js"></script>

@@ -8,19 +8,16 @@
 	<meta name="theme-color" content="#494f5c">
 	<meta name="msapplication-TileColor" content="#494f5c">
 <meta itemprop="name" content="Rust高阶生命周期绑定">
-<meta itemprop="description" content="有时无法静态描述一个生命周期，Rust中提供了一种&#34;动态&#34;绑定生命周期的方式。">
-<meta itemprop="datePublished" content="2020-07-03T23:40:45&#43;08:00" />
-<meta itemprop="dateModified" content="2020-07-03T23:40:45&#43;08:00" />
+<meta itemprop="description" content="有时无法静态描述一个生命周期，Rust中提供了一种&#34;动态&#34;绑定生命周期的方式。"><meta itemprop="datePublished" content="2020-07-03T23:40:45+08:00" />
+<meta itemprop="dateModified" content="2020-07-03T23:40:45+08:00" />
 <meta itemprop="wordCount" content="758">
-
-
-
 <meta itemprop="keywords" content="rust,lifetime,hrtbs," /><meta property="og:title" content="Rust高阶生命周期绑定" />
 <meta property="og:description" content="有时无法静态描述一个生命周期，Rust中提供了一种&#34;动态&#34;绑定生命周期的方式。" />
 <meta property="og:type" content="article" />
-<meta property="og:url" content="https://xiaopengli89.github.io/posts/rust-hrtbs/" />
+<meta property="og:url" content="https://xiaopengli89.github.io/posts/rust-hrtbs/" /><meta property="article:section" content="posts" />
 <meta property="article:published_time" content="2020-07-03T23:40:45+08:00" />
 <meta property="article:modified_time" content="2020-07-03T23:40:45+08:00" />
+
 <meta name="twitter:card" content="summary"/>
 <meta name="twitter:title" content="Rust高阶生命周期绑定"/>
 <meta name="twitter:description" content="有时无法静态描述一个生命周期，Rust中提供了一种&#34;动态&#34;绑定生命周期的方式。"/>
@@ -33,7 +30,7 @@
 	<link rel="shortcut icon" href="/favicon.ico">
 
 	<title>Rust高阶生命周期绑定</title>
-	<link rel="stylesheet" href="https://xiaopengli89.github.io/css/style.min.eac77496566fd7d5768fd650ddb0b2b181ca6a2d7c5fdd6fe6b8ba4bf47e566f.css" integrity="sha256-6sd0llZv19V2j9ZQ3bCysYHKai18X91v5ri6S/R+Vm8=" crossorigin="anonymous">
+	<link rel="stylesheet" href="https://xiaopengli89.github.io/css/style.min.037b6ee8f8c1baab6a3d0a9da11c3ff18a7552471f16c59fd98538d5ce99208b.css" integrity="sha256-A3tu6PjBuqtqPQqdoRw/8Yp1UkcfFsWf2YU41c6ZIIs=" crossorigin="anonymous">
 	
 	<link rel="stylesheet" href="https://atelierbram.github.io/syntax-highlighting/archive/assets/css/prism/prism-base16-railscasts.dark.css">
 	<link rel="stylesheet" href="https://xiaopengli89.github.io/css/site.css">
@@ -77,7 +74,7 @@
 			</header>
 			<div class="content">
 				<p>Rust中，<code>lifetime</code> 其实也是一种类型参数，可以看成范型的一种特殊形式。编译时需要将所有类型（包括 <code>lifetime</code> ）确定下来，比如：</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">fn</span> <span class="nf">foo</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="o">&gt;</span><span class="p">(</span><span class="n">x</span>: <span class="kp">&amp;</span><span class="na">&#39;a</span><span class="w"> </span><span class="kt">i32</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">fn</span> <span class="nf">foo</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="o">&gt;</span><span class="p">(</span><span class="n">x</span>: <span class="kp">&amp;</span><span class="na">&#39;a</span><span class="w"> </span><span class="kt">i32</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">	</span><span class="c1">// ...
 </span><span class="c1"></span><span class="p">}</span><span class="w">
 </span><span class="w">
@@ -87,7 +84,7 @@
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span></code></pre></div><p>上面的 <code>'a</code> 生命周期其实就是变量 <code>x</code> 所在的block。</p>
 <p>这个例子很简单，但如果我们换个闭包类型看看：</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">fn</span> <span class="nf">foo</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="o">&gt;</span><span class="p">(</span><span class="n">f</span>: <span class="nb">Box</span><span class="o">&lt;</span><span class="n">dyn</span><span class="w"> </span><span class="nb">Fn</span><span class="p">(</span><span class="o">&amp;</span><span class="na">&#39;a</span><span class="w"> </span><span class="kt">i32</span><span class="p">)</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">fn</span> <span class="nf">foo</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="o">&gt;</span><span class="p">(</span><span class="n">f</span>: <span class="nb">Box</span><span class="o">&lt;</span><span class="n">dyn</span><span class="w"> </span><span class="nb">Fn</span><span class="p">(</span><span class="o">&amp;</span><span class="na">&#39;a</span><span class="w"> </span><span class="kt">i32</span><span class="p">)</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w">
 </span><span class="w">    </span><span class="n">f</span><span class="p">(</span><span class="o">&amp;</span><span class="n">x</span><span class="p">);</span><span class="w">
 </span><span class="w">	</span><span class="p">{</span><span class="w">
@@ -97,9 +94,9 @@
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span></code></pre></div><p>第一次调用 <code>f(&amp;x)</code> 时生命周期 <code>'a</code> 等于变量 <code>x</code> 的生命周期；而在第二次调用 <code>f(&amp;y)</code> 时，生命周期 <code>'a</code> 又等于了变量 <code>y</code> 的生命周期；而变量 <code>x</code> 和变量 <code>y</code> 的生命周期显然是不同的。因此无法用一个静态的生命周期来描述 <code>'a</code> ，我们希望的是，闭包 <code>f</code> 在具体调用时绑定具体的生命周期，比如调用 <code>f(&amp;x)</code> 时绑定的是 <code>x</code> 的生命周期，而调用 <code>f(&amp;y)</code> 时绑定的是 <code>y</code> 的生命周期。</p>
 <p>Rust中可以用 <code>高阶生命周期绑定（HRTBs）</code> 来实现&quot;动态&quot;生命周期绑定，其语法如下：</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">for</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="o">&gt;</span><span class="w"> </span><span class="n">Trait</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">for</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="o">&gt;</span><span class="w"> </span><span class="n">Trait</span><span class="w">
 </span></code></pre></div><p>比如上面的例子就可以写成：</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">fn</span> <span class="nf">foo</span><span class="p">(</span><span class="n">f</span>: <span class="nb">Box</span><span class="o">&lt;</span><span class="n">dyn</span><span class="w"> </span><span class="k">for</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="o">&gt;</span><span class="w"> </span><span class="nb">Fn</span><span class="p">(</span><span class="o">&amp;</span><span class="na">&#39;a</span><span class="w"> </span><span class="kt">i32</span><span class="p">)</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">fn</span> <span class="nf">foo</span><span class="p">(</span><span class="n">f</span>: <span class="nb">Box</span><span class="o">&lt;</span><span class="n">dyn</span><span class="w"> </span><span class="k">for</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="o">&gt;</span><span class="w"> </span><span class="nb">Fn</span><span class="p">(</span><span class="o">&amp;</span><span class="na">&#39;a</span><span class="w"> </span><span class="kt">i32</span><span class="p">)</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w">
 </span><span class="w">    </span><span class="n">f</span><span class="p">(</span><span class="o">&amp;</span><span class="n">x</span><span class="p">);</span><span class="w">
 </span><span class="w">	</span><span class="p">{</span><span class="w">
@@ -134,7 +131,7 @@
 	</main>
 
 	<footer id="site-footer" class="section-inner thin animated fadeIn faster">
-		<p>&copy; 2020 <a href="https://xiaopengli89.github.io">Xiaopeng Li</a> &#183; <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a></p>
+		<p>&copy; 2021 <a href="https://xiaopengli89.github.io">Xiaopeng Li</a> &#183; <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a></p>
 		<p>
 			Made with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> &#183; Theme <a href="https://github.com/Track3/hermit" target="_blank" rel="noopener">Hermit</a> &#183; <a href="https://xiaopengli89.github.io/posts/index.xml" target="_blank" title="rss"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-rss"><path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle></svg></a>
 		</p>
@@ -142,7 +139,7 @@
 
 
 
-	<script src="https://xiaopengli89.github.io/js/bundle.min.4a9a0ac3d2217822c7865b4161e6c2a71de1d70492264337755427898dd718f6.js" integrity="sha256-SpoKw9IheCLHhltBYebCpx3h1wSSJkM3dVQniY3XGPY=" crossorigin="anonymous"></script>
+	<script src="https://xiaopengli89.github.io/js/bundle.min.7d8545daa55d62427355498dd8da13f98ff79a7938ce7d2a5e2ae1ec0de3beb8.js" integrity="sha256-fYVF2qVdYkJzVUmN2NoT+Y/3mnk4zn0qXirh7A3jvrg=" crossorigin="anonymous"></script>
 	
 <script src="https://cdn.bootcdn.net/ajax/libs/prism/1.20.0/prism.min.js"></script>
 <script src="https://cdn.bootcdn.net/ajax/libs/prism/1.20.0/plugins/autoloader/prism-autoloader.min.js"></script>

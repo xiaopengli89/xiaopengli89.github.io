@@ -8,19 +8,16 @@
 	<meta name="theme-color" content="#494f5c">
 	<meta name="msapplication-TileColor" content="#494f5c">
 <meta itemprop="name" content="Rust中的多态 - Trait Object">
-<meta itemprop="description" content="Rust是一门静态类型语言，变量的类型一旦确定就不能更改。如果使用一个容器，则容器内部数据类型也必须完全一致，这会少一些灵活性。Rust中的 Trait 不但可以用作范型约束（Trait Bounds），也可以单独使用，我们叫 Trait Object，用它可以间接地实现动态类型。">
-<meta itemprop="datePublished" content="2020-07-27T17:49:22&#43;08:00" />
-<meta itemprop="dateModified" content="2020-07-27T17:49:22&#43;08:00" />
-<meta itemprop="wordCount" content="2531">
-
-
-
+<meta itemprop="description" content="Rust是一门静态类型语言，变量的类型一旦确定就不能更改。如果使用一个容器，则容器内部数据类型也必须完全一致，这会少一些灵活性。Rust中的 Trait 不但可以用作范型约束（Trait Bounds），也可以单独使用，我们叫 Trait Object，用它可以间接地实现动态类型。"><meta itemprop="datePublished" content="2020-07-27T17:49:22+08:00" />
+<meta itemprop="dateModified" content="2020-07-27T17:49:22+08:00" />
+<meta itemprop="wordCount" content="2550">
 <meta itemprop="keywords" content="rust,trait,heterogeneous," /><meta property="og:title" content="Rust中的多态 - Trait Object" />
 <meta property="og:description" content="Rust是一门静态类型语言，变量的类型一旦确定就不能更改。如果使用一个容器，则容器内部数据类型也必须完全一致，这会少一些灵活性。Rust中的 Trait 不但可以用作范型约束（Trait Bounds），也可以单独使用，我们叫 Trait Object，用它可以间接地实现动态类型。" />
 <meta property="og:type" content="article" />
-<meta property="og:url" content="https://xiaopengli89.github.io/posts/rust-trait-object/" />
+<meta property="og:url" content="https://xiaopengli89.github.io/posts/rust-trait-object/" /><meta property="article:section" content="posts" />
 <meta property="article:published_time" content="2020-07-27T17:49:22+08:00" />
 <meta property="article:modified_time" content="2020-07-27T17:49:22+08:00" />
+
 <meta name="twitter:card" content="summary"/>
 <meta name="twitter:title" content="Rust中的多态 - Trait Object"/>
 <meta name="twitter:description" content="Rust是一门静态类型语言，变量的类型一旦确定就不能更改。如果使用一个容器，则容器内部数据类型也必须完全一致，这会少一些灵活性。Rust中的 Trait 不但可以用作范型约束（Trait Bounds），也可以单独使用，我们叫 Trait Object，用它可以间接地实现动态类型。"/>
@@ -33,7 +30,7 @@
 	<link rel="shortcut icon" href="/favicon.ico">
 
 	<title>Rust中的多态 - Trait Object</title>
-	<link rel="stylesheet" href="https://xiaopengli89.github.io/css/style.min.eac77496566fd7d5768fd650ddb0b2b181ca6a2d7c5fdd6fe6b8ba4bf47e566f.css" integrity="sha256-6sd0llZv19V2j9ZQ3bCysYHKai18X91v5ri6S/R+Vm8=" crossorigin="anonymous">
+	<link rel="stylesheet" href="https://xiaopengli89.github.io/css/style.min.037b6ee8f8c1baab6a3d0a9da11c3ff18a7552471f16c59fd98538d5ce99208b.css" integrity="sha256-A3tu6PjBuqtqPQqdoRw/8Yp1UkcfFsWf2YU41c6ZIIs=" crossorigin="anonymous">
 	
 	<link rel="stylesheet" href="https://atelierbram.github.io/syntax-highlighting/archive/assets/css/prism/prism-base16-railscasts.dark.css">
 	<link rel="stylesheet" href="https://xiaopengli89.github.io/css/site.css">
@@ -86,7 +83,7 @@
 </ol>
 <p>这3种情况下，类型大小将不确定，我们将这些类型叫做动态大小类型（DST）。由于DST的类型大小无法确定，因此无法在栈上直接分配内存空间，变量必须通过指针间接引用。</p>
 <p>切片是数组的部分连续引用，由头指针和长度构成。</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">struct</span> <span class="nc">Slice</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">struct</span> <span class="nc">Slice</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">	</span><span class="n">head</span>: <span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">T</span><span class="p">,</span><span class="w">
 </span><span class="w">	</span><span class="n">size</span>: <span class="kt">usize</span><span class="p">,</span><span class="w">
 </span><span class="w"></span><span class="p">}</span><span class="w">
@@ -99,10 +96,10 @@
 6: E
 7: E
 </code></pre><p>切片由 <code>Range</code> 运算符和中括号构造，利用 <code>Range</code> 中的 <code>starting_index</code> 和 <code>ending_index</code> 确定头指针和长度信息：</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="kd">let</span><span class="w"> </span><span class="n">arr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">];</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="kd">let</span><span class="w"> </span><span class="n">arr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">];</span><span class="w">
 </span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">sli</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">arr</span><span class="p">[</span><span class="mi">1</span><span class="p">..</span><span class="o">=</span><span class="mi">3</span><span class="p">];</span><span class="w">
 </span></code></pre></div><p>自定义DST结构体的话，只需要在结构中内嵌唯一一个DST类型，并且是在最后一个字段，而目前唯一能构造这种结构体的方式是通过范型：</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">struct</span> <span class="nc">Foo</span><span class="o">&lt;</span><span class="n">T</span>: <span class="o">?</span><span class="nb">Sized</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">struct</span> <span class="nc">Foo</span><span class="o">&lt;</span><span class="n">T</span>: <span class="o">?</span><span class="nb">Sized</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="n">f1</span>: <span class="kt">bool</span><span class="p">,</span><span class="w">
 </span><span class="w">    </span><span class="n">f2</span>: <span class="kt">u8</span><span class="p">,</span><span class="w">
 </span><span class="w">    </span><span class="n">f3</span>: <span class="nc">T</span><span class="p">,</span><span class="w">
@@ -122,12 +119,12 @@
 </span></code></pre></div><p><code>Trait Object</code> 则是实现了固定 <code>Trait</code> 集合的不同类型的实例，并且通过胖指针隐藏了具体的类型和方法实现信息。通过 <code>Trait Object</code> 可以实现动态地修改变量类型，动态地调用不同方法实现（动态分发），即其他编程语言里的多态性。</p>
 <h2 id="trait-object-的实现"><code>Trait Object</code> 的实现<a href="#trait-object-的实现" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h2>
 <p>为了实现不同的类型能被一个变量或容器持有，<code>Trait Object</code> 内部本身只有 <code>data</code> 和 <code>vtable</code> 字段构成，并且2个字段都是指针，直接类型大小其实也是确定的。其中 <code>data</code> 指向具体的类型实例，而 <code>vtable</code> 则是指向实现了 <code>Trait</code> 的方法集合：</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">pub</span><span class="w"> </span><span class="k">struct</span> <span class="nc">TraitObject</span><span class="w"> </span><span class="p">{</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">pub</span><span class="w"> </span><span class="k">struct</span> <span class="nc">TraitObject</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">data</span>: <span class="o">*</span><span class="k">mut</span><span class="w"> </span><span class="p">(),</span><span class="w">
 </span><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">vtable</span>: <span class="o">*</span><span class="k">mut</span><span class="w"> </span><span class="p">(),</span><span class="w">
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span></code></pre></div><p>由于 <code>Trait Object</code> 属于DST的一种，因此构造时必须通过指针间接引用，并且需要在 <code>Trait</code> 前附加 <code>dyn</code> 关键字，通常可以由 <code>&amp;dyn SomeTrait</code> 或 <code>Box&lt;dyn SomeTrait&gt;</code> 2种方式来构造：</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">trait</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="p">{}</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">trait</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="p">{}</span><span class="w">
 </span><span class="w">
 </span><span class="w"></span><span class="k">struct</span> <span class="nc">Foo1</span><span class="p">;</span><span class="w">
 </span><span class="w">
@@ -140,7 +137,7 @@
 </span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">bar</span>: <span class="kp">&amp;</span><span class="nc">dyn</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">Foo1</span><span class="p">;</span><span class="w">
 </span><span class="w"></span><span class="n">bar</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">Foo2</span><span class="p">;</span><span class="w">
 </span></code></pre></div><p>可以构造一个 <code>Trait Object</code> 实例查看内部的数据构成：</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">use</span><span class="w"> </span><span class="n">std</span>::<span class="n">mem</span><span class="p">;</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">use</span><span class="w"> </span><span class="n">std</span>::<span class="n">mem</span><span class="p">;</span><span class="w">
 </span><span class="w">
 </span><span class="w"></span><span class="k">trait</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="k">fn</span> <span class="nf">f1</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">);</span><span class="w">
@@ -189,11 +186,11 @@ data = 140729104675248, vtable = 94428357017888
 <ol>
 <li>只能绑定一个 <code>Trait</code>， 除了 <a href="https://doc.rust-lang.org/reference/special-types-and-traits.html#auto-traits">auto traits</a> 和 <a href="https://doc.rust-lang.org/reference/items/traits.html#supertraits">supertraits</a> 外，不能附加其他 <code>Trait</code>，比如不能如下定义一个 <code>Trait Object</code>：</li>
 </ol>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">type</span> <span class="nc">SomeType</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">dyn</span><span class="w"> </span><span class="n">TraitA</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">TraitB</span><span class="o">&gt;</span><span class="p">;</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">type</span> <span class="nc">SomeType</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">dyn</span><span class="w"> </span><span class="n">TraitA</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">TraitB</span><span class="o">&gt;</span><span class="p">;</span><span class="w">
 </span></code></pre></div><ol start="2">
 <li>无法定义范型方法（<code>object safe</code> <sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup> 条件之一）：</li>
 </ol>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">trait</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="p">{</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">trait</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="k">fn</span> <span class="nf">say</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">p</span>: <span class="nc">T</span><span class="p">);</span><span class="w">
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span><span class="w">
@@ -208,7 +205,7 @@ data = 140729104675248, vtable = 94428357017888
 </span></code></pre></div><ol start="3">
 <li>除 <code>receiver</code> 外的 <code>Self</code> 类型声明（<code>object safe</code> <sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup> 条件之一）：</li>
 </ol>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">trait</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="p">{</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">trait</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="k">fn</span> <span class="nf">say</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="kp">&amp;</span><span class="nc">Self</span><span class="p">;</span><span class="w">
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span><span class="w">
@@ -224,7 +221,7 @@ data = 140729104675248, vtable = 94428357017888
 </span></code></pre></div><ol start="4">
 <li>无法定义关联函数（<code>Associated Functions</code>）（<code>object safe</code> <sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup> 条件之一）：</li>
 </ol>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">trait</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="p">{</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">trait</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="k">fn</span> <span class="nf">hello</span><span class="p">();</span><span class="w">
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span><span class="w">
@@ -238,11 +235,11 @@ data = 140729104675248, vtable = 94428357017888
 </span></code></pre></div><ol start="5">
 <li>只能定义一个生命周期：</li>
 </ol>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">type</span> <span class="nc">SomeType</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="p">,</span><span class="w"> </span><span class="na">&#39;b</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">dyn</span><span class="w"> </span><span class="n">TraitA</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="na">&#39;a</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="na">&#39;b</span><span class="o">&gt;</span><span class="p">;</span><span class="w"> </span><span class="c1">// 无法编译通过
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">type</span> <span class="nc">SomeType</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="p">,</span><span class="w"> </span><span class="na">&#39;b</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">dyn</span><span class="w"> </span><span class="n">TraitA</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="na">&#39;a</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="na">&#39;b</span><span class="o">&gt;</span><span class="p">;</span><span class="w"> </span><span class="c1">// 无法编译通过
 </span></code></pre></div><ol start="6">
 <li><code>Trait</code> 本身不能附加 <code>Self: Sized</code> 约束（<code>object safe</code> <sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup> 条件之一）：</li>
 </ol>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">trait</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="k">where</span><span class="w"> </span><span class="n">Self</span>: <span class="nb">Sized</span> <span class="p">{</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">trait</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="k">where</span><span class="w"> </span><span class="n">Self</span>: <span class="nb">Sized</span> <span class="p">{</span><span class="w">
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span><span class="w">
 </span><span class="w"></span><span class="k">struct</span> <span class="nc">Foo</span><span class="p">;</span><span class="w">
@@ -254,7 +251,7 @@ data = 140729104675248, vtable = 94428357017888
 </span></code></pre></div><ol start="7">
 <li>不能定义关联常量（<code>object safe</code> <sup id="fnref:2"><a href="#fn:2" class="footnote-ref" role="doc-noteref">2</a></sup> 条件之一）：</li>
 </ol>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">trait</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="p">{</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">trait</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">ID</span>: <span class="kt">u32</span><span class="p">;</span><span class="w">
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span><span class="w">
@@ -268,10 +265,10 @@ data = 140729104675248, vtable = 94428357017888
 </span></code></pre></div><ol start="8">
 <li>不允许 <code>opt-out bounds</code>：</li>
 </ol>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">type</span> <span class="nc">SomeType</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">dyn</span><span class="w"> </span><span class="n">TraitA</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="o">?</span><span class="nb">Sized</span><span class="o">&gt;</span><span class="p">;</span><span class="w"> </span><span class="c1">// 无法编译通过
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">type</span> <span class="nc">SomeType</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">dyn</span><span class="w"> </span><span class="n">TraitA</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="o">?</span><span class="nb">Sized</span><span class="o">&gt;</span><span class="p">;</span><span class="w"> </span><span class="c1">// 无法编译通过
 </span></code></pre></div><h2 id="通过-self-sized-约束将特定方法排除在-vtable-外">通过 <code>Self: Sized</code> 约束将特定方法排除在 <code>vtable</code> 外<a href="#通过-self-sized-约束将特定方法排除在-vtable-外" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h2>
 <p>有时候我们希望把某些不具备 <code>object-safe</code> 条件的方法排除在 <code>vtable</code> 外，比如范型方法、除了 <code>receiver</code> 外的 <code>Self</code> 类型声明、关联函数，相当于生成一个具备 <code>object-safe</code> 的子集。这时候只需要在方法上附加 <code>where Self: Sized</code> 约束即可：</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">trait</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="p">{</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">trait</span><span class="w"> </span><span class="n">Bar</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="k">fn</span> <span class="nf">say</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">(</span><span class="n">p</span>: <span class="nc">T</span><span class="p">)</span><span class="w"> </span><span class="k">where</span><span class="w"> </span><span class="n">Self</span>: <span class="nb">Sized</span><span class="p">;</span><span class="w">
 </span><span class="w">    
 </span><span class="w">    </span><span class="k">fn</span> <span class="nf">hello</span><span class="p">()</span><span class="w"> </span><span class="k">where</span><span class="w"> </span><span class="n">Self</span>: <span class="nb">Sized</span><span class="p">;</span><span class="w">
@@ -312,7 +309,7 @@ data = 140729104675248, vtable = 94428357017888
 <li>如果trait没有生命周期约束，那么它的生命周期将会从表达式中推断，如果不在表达式中，那么就是 &lsquo;static 的</li>
 </ol>
 </blockquote>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// For the following trait...
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// For the following trait...
 </span><span class="c1"></span><span class="k">trait</span><span class="w"> </span><span class="n">Foo</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">}</span><span class="w">
 </span><span class="w">
 </span><span class="w"></span><span class="c1">// These two are the same as Box&lt;T&gt; has no lifetime bound on T
@@ -330,7 +327,7 @@ data = 140729104675248, vtable = 94428357017888
 </span><span class="w"></span><span class="c1">// std::cell::Ref&lt;&#39;a, T&gt; also requires T: &#39;a, so these are the same
 </span><span class="c1"></span><span class="k">type</span> <span class="nc">T5</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span>::<span class="n">cell</span>::<span class="n">Ref</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="p">,</span><span class="w"> </span><span class="n">dyn</span><span class="w"> </span><span class="n">Foo</span><span class="o">&gt;</span><span class="p">;</span><span class="w">
 </span><span class="w"></span><span class="k">type</span> <span class="nc">T6</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span>::<span class="n">cell</span>::<span class="n">Ref</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="p">,</span><span class="w"> </span><span class="n">dyn</span><span class="w"> </span><span class="n">Foo</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="na">&#39;a</span><span class="o">&gt;</span><span class="p">;</span><span class="w">
-</span></code></pre></div><div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// This is an example of an error.
+</span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// This is an example of an error.
 </span><span class="c1"></span><span class="k">trait</span><span class="w"> </span><span class="n">Foo</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">}</span><span class="w">
 </span><span class="w"></span><span class="k">struct</span> <span class="nc">TwoBounds</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="p">,</span><span class="w"> </span><span class="na">&#39;b</span><span class="p">,</span><span class="w"> </span><span class="n">T</span>: <span class="o">?</span><span class="nb">Sized</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="na">&#39;a</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="na">&#39;b</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="n">f1</span>: <span class="kp">&amp;</span><span class="na">&#39;a</span><span class="w"> </span><span class="kt">i32</span><span class="p">,</span><span class="w">
@@ -340,7 +337,7 @@ data = 140729104675248, vtable = 94428357017888
 </span><span class="w"></span><span class="k">type</span> <span class="nc">T7</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="p">,</span><span class="w"> </span><span class="na">&#39;b</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">TwoBounds</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="p">,</span><span class="w"> </span><span class="na">&#39;b</span><span class="p">,</span><span class="w"> </span><span class="n">dyn</span><span class="w"> </span><span class="n">Foo</span><span class="o">&gt;</span><span class="p">;</span><span class="w">
 </span><span class="w"></span><span class="c1">//                                  ^^^^^^^
 </span><span class="c1">// Error: the lifetime bound for this object type cannot be deduced from context
-</span></code></pre></div><div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// For the following trait...
+</span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// For the following trait...
 </span><span class="c1"></span><span class="k">trait</span><span class="w"> </span><span class="n">Bar</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="o">&gt;</span>: <span class="na">&#39;a</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">}</span><span class="w">
 </span><span class="w">
 </span><span class="w"></span><span class="c1">// ...these two are the same:
@@ -366,13 +363,13 @@ data = 140729104675248, vtable = 94428357017888
 <hr>
 <ol>
 <li id="fn:1" role="doc-endnote">
-<p>空元组（<code>()</code>）和零尺寸类型的类型大小为0，内存对齐大小为1。- <a href="https://doc.rust-lang.org/reference/type-layout.html#tuple-layout">Type Layout</a> <a href="#fnref:1" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+<p>空元组（<code>()</code>）和零尺寸类型的类型大小为0，内存对齐大小为1。- <a href="https://doc.rust-lang.org/reference/type-layout.html#tuple-layout">Type Layout</a>&#160;<a href="#fnref:1" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:2" role="doc-endnote">
-<p>即对象安全。- <a href="https://doc.rust-lang.org/reference/items/traits.html#object-safety">Object Safety</a> <a href="#fnref:2" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+<p>即对象安全。- <a href="https://doc.rust-lang.org/reference/items/traits.html#object-safety">Object Safety</a>&#160;<a href="#fnref:2" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 <li id="fn:3" role="doc-endnote">
-<p><a href="https://doc.rust-lang.org/reference/lifetime-elision.html#default-trait-object-lifetimes">Default trait object lifetimes</a> 和 <a href="https://github.com/whfuyn/rust-blog/blob/master/posts/Rust%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F%E7%9A%84%E5%B8%B8%E8%A7%81%E8%AF%AF%E8%A7%A3.md#6-%E8%A3%85%E7%AE%B1%E7%9A%84trait%E5%AF%B9%E8%B1%A1%E6%B2%A1%E6%9C%89%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F">Rust生命周期的常见误解</a> <a href="#fnref:3" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+<p><a href="https://doc.rust-lang.org/reference/lifetime-elision.html#default-trait-object-lifetimes">Default trait object lifetimes</a> 和 <a href="https://github.com/whfuyn/rust-blog/blob/master/posts/Rust%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F%E7%9A%84%E5%B8%B8%E8%A7%81%E8%AF%AF%E8%A7%A3.md#6-%E8%A3%85%E7%AE%B1%E7%9A%84trait%E5%AF%B9%E8%B1%A1%E6%B2%A1%E6%9C%89%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F">Rust生命周期的常见误解</a>&#160;<a href="#fnref:3" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 </ol>
 </section>
@@ -382,7 +379,7 @@ data = 140729104675248, vtable = 94428357017888
 				<p>
 					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-tag meta-icon"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7" y2="7"></line></svg><span class="tag"><a href="https://xiaopengli89.github.io/tags/rust">rust</a></span><span class="tag"><a href="https://xiaopengli89.github.io/tags/trait">trait</a></span><span class="tag"><a href="https://xiaopengli89.github.io/tags/heterogeneous">heterogeneous</a></span>
 				</p>
-				<p><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-file-text"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>2531 Words</p>
+				<p><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-file-text"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>2550 Words</p>
 				<p><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-calendar"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>2020-07-27 17:49 &#43;0800</p>
 			</footer>
 		</article>
@@ -399,7 +396,7 @@ data = 140729104675248, vtable = 94428357017888
 	</main>
 
 	<footer id="site-footer" class="section-inner thin animated fadeIn faster">
-		<p>&copy; 2020 <a href="https://xiaopengli89.github.io">Xiaopeng Li</a> &#183; <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a></p>
+		<p>&copy; 2021 <a href="https://xiaopengli89.github.io">Xiaopeng Li</a> &#183; <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a></p>
 		<p>
 			Made with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> &#183; Theme <a href="https://github.com/Track3/hermit" target="_blank" rel="noopener">Hermit</a> &#183; <a href="https://xiaopengli89.github.io/posts/index.xml" target="_blank" title="rss"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-rss"><path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle></svg></a>
 		</p>
@@ -407,7 +404,7 @@ data = 140729104675248, vtable = 94428357017888
 
 
 
-	<script src="https://xiaopengli89.github.io/js/bundle.min.4a9a0ac3d2217822c7865b4161e6c2a71de1d70492264337755427898dd718f6.js" integrity="sha256-SpoKw9IheCLHhltBYebCpx3h1wSSJkM3dVQniY3XGPY=" crossorigin="anonymous"></script>
+	<script src="https://xiaopengli89.github.io/js/bundle.min.7d8545daa55d62427355498dd8da13f98ff79a7938ce7d2a5e2ae1ec0de3beb8.js" integrity="sha256-fYVF2qVdYkJzVUmN2NoT+Y/3mnk4zn0qXirh7A3jvrg=" crossorigin="anonymous"></script>
 	
 <script src="https://cdn.bootcdn.net/ajax/libs/prism/1.20.0/prism.min.js"></script>
 <script src="https://cdn.bootcdn.net/ajax/libs/prism/1.20.0/plugins/autoloader/prism-autoloader.min.js"></script>

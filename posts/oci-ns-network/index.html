@@ -18,13 +18,9 @@
 分别将虚拟设备对添加进子进程网络命名空间和连接到网桥
 分配虚拟设备ip并启动
 
-NOTE: 由于很多系统调用没有封装，这里将使用宿主机上的命令代替实现。">
-<meta itemprop="datePublished" content="2020-07-20T19:42:00&#43;08:00" />
-<meta itemprop="dateModified" content="2020-07-20T19:42:00&#43;08:00" />
+NOTE: 由于很多系统调用没有封装，这里将使用宿主机上的命令代替实现。"><meta itemprop="datePublished" content="2020-07-20T19:42:00+08:00" />
+<meta itemprop="dateModified" content="2020-07-20T19:42:00+08:00" />
 <meta itemprop="wordCount" content="2398">
-
-
-
 <meta itemprop="keywords" content="rust,oci,container,namespace,network," /><meta property="og:title" content="OCI容器运行时实现（二）" />
 <meta property="og:description" content="本篇文章在之前基础上实现容器的网络互通。
 实现思路：
@@ -38,9 +34,10 @@ NOTE: 由于很多系统调用没有封装，这里将使用宿主机上的命�
 
 NOTE: 由于很多系统调用没有封装，这里将使用宿主机上的命令代替实现。" />
 <meta property="og:type" content="article" />
-<meta property="og:url" content="https://xiaopengli89.github.io/posts/oci-ns-network/" />
+<meta property="og:url" content="https://xiaopengli89.github.io/posts/oci-ns-network/" /><meta property="article:section" content="posts" />
 <meta property="article:published_time" content="2020-07-20T19:42:00+08:00" />
 <meta property="article:modified_time" content="2020-07-20T19:42:00+08:00" />
+
 <meta name="twitter:card" content="summary"/>
 <meta name="twitter:title" content="OCI容器运行时实现（二）"/>
 <meta name="twitter:description" content="本篇文章在之前基础上实现容器的网络互通。
@@ -63,7 +60,7 @@ NOTE: 由于很多系统调用没有封装，这里将使用宿主机上的命�
 	<link rel="shortcut icon" href="/favicon.ico">
 
 	<title>OCI容器运行时实现（二）</title>
-	<link rel="stylesheet" href="https://xiaopengli89.github.io/css/style.min.eac77496566fd7d5768fd650ddb0b2b181ca6a2d7c5fdd6fe6b8ba4bf47e566f.css" integrity="sha256-6sd0llZv19V2j9ZQ3bCysYHKai18X91v5ri6S/R+Vm8=" crossorigin="anonymous">
+	<link rel="stylesheet" href="https://xiaopengli89.github.io/css/style.min.037b6ee8f8c1baab6a3d0a9da11c3ff18a7552471f16c59fd98538d5ce99208b.css" integrity="sha256-A3tu6PjBuqtqPQqdoRw/8Yp1UkcfFsWf2YU41c6ZIIs=" crossorigin="anonymous">
 	
 	<link rel="stylesheet" href="https://atelierbram.github.io/syntax-highlighting/archive/assets/css/prism/prism-base16-railscasts.dark.css">
 	<link rel="stylesheet" href="https://xiaopengli89.github.io/css/site.css">
@@ -118,14 +115,14 @@ NOTE: 由于很多系统调用没有封装，这里将使用宿主机上的命�
 </ol>
 <p><strong>NOTE:</strong> 由于很多系统调用没有封装，这里将使用宿主机上的命令代替实现。</p>
 <h3 id="ip参数解析">IP参数解析<a href="#ip参数解析" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">mod</span> <span class="nn">network</span><span class="p">;</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">mod</span> <span class="nn">network</span><span class="p">;</span><span class="w">
 </span><span class="w">
 </span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">ip</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">args</span><span class="p">.</span><span class="n">next</span><span class="p">().</span><span class="n">unwrap</span><span class="p">();</span><span class="w"> </span><span class="c1">// 容器ip
 </span></code></pre></div><h3 id="初始化网桥">初始化网桥<a href="#初始化网桥" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">pub</span><span class="w"> </span><span class="k">type</span> <span class="nb">Result</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span>::<span class="n">result</span>::<span class="nb">Result</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">dyn</span><span class="w"> </span><span class="n">std</span>::<span class="n">error</span>::<span class="n">Error</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nb">&#39;static</span><span class="o">&gt;&gt;</span><span class="p">;</span><span class="w">
-</span></code></pre></div><div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// 初始化网桥
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">pub</span><span class="w"> </span><span class="k">type</span> <span class="nb">Result</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span>::<span class="n">result</span>::<span class="nb">Result</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="nb">Box</span><span class="o">&lt;</span><span class="n">dyn</span><span class="w"> </span><span class="n">std</span>::<span class="n">error</span>::<span class="n">Error</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nb">&#39;static</span><span class="o">&gt;&gt;</span><span class="p">;</span><span class="w">
+</span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// 初始化网桥
 </span><span class="c1"></span><span class="n">network</span>::<span class="n">init_bridge</span><span class="p">()</span><span class="o">?</span><span class="p">;</span><span class="w">
-</span></code></pre></div><div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">const</span><span class="w"> </span><span class="n">BRIDGE_NAME</span>: <span class="kp">&amp;</span><span class="kt">str</span> <span class="o">=</span><span class="w"> </span><span class="s">&#34;runc-rs&#34;</span><span class="p">;</span><span class="w">
+</span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">const</span><span class="w"> </span><span class="n">BRIDGE_NAME</span>: <span class="kp">&amp;</span><span class="kt">str</span> <span class="o">=</span><span class="w"> </span><span class="s">&#34;runc-rs&#34;</span><span class="p">;</span><span class="w">
 </span><span class="w">
 </span><span class="w"></span><span class="c1">// 启动设备
 </span><span class="c1"></span><span class="k">fn</span> <span class="nf">up_dev</span><span class="p">(</span><span class="n">dev</span>: <span class="kp">&amp;</span><span class="kt">str</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nb">Result</span><span class="o">&lt;</span><span class="p">()</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
@@ -175,7 +172,7 @@ NOTE: 由于很多系统调用没有封装，这里将使用宿主机上的命�
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span></code></pre></div><h3 id="获取子进程命名空间">获取子进程命名空间<a href="#获取子进程命名空间" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
 <p>当子进程命名空间创建后发送同步信号</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// 创建管道通信
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// 创建管道通信
 </span><span class="c1"></span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">pipes</span>: <span class="p">[</span><span class="n">libc</span>::<span class="n">c_int</span><span class="p">;</span><span class="w"> </span><span class="mi">2</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="mi">2</span><span class="p">];</span><span class="w">
 </span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">libc</span>::<span class="n">pipe</span><span class="p">(</span><span class="n">pipes</span><span class="p">.</span><span class="n">as_mut_ptr</span><span class="p">());</span><span class="w">
 </span><span class="w"></span><span class="n">assert_eq</span><span class="o">!</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span><span class="w">
@@ -192,13 +189,13 @@ NOTE: 由于很多系统调用没有封装，这里将使用宿主机上的命�
 </span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">libc</span>::<span class="n">write</span><span class="p">(</span><span class="n">pipe_w</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="k">u8</span><span class="p">].</span><span class="n">as_ptr</span><span class="p">()</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">_</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span><span class="w">
 </span><span class="w"></span><span class="n">assert_eq</span><span class="o">!</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span><span class="w">
 </span></code></pre></div><p>父进程等待同步信号，并获取子进程的命名空间</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// 接收同步信号
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// 接收同步信号
 </span><span class="c1"></span><span class="kd">let</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">libc</span>::<span class="n">read</span><span class="p">(</span><span class="n">pipe_r</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="k">u8</span><span class="p">].</span><span class="n">as_mut_ptr</span><span class="p">()</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="o">*</span><span class="k">mut</span><span class="w"> </span><span class="n">_</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span><span class="w">
 </span><span class="w"></span><span class="n">assert_eq</span><span class="o">!</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span><span class="w">
 </span><span class="w">
 </span><span class="w"></span><span class="c1">// 获取子进程网络命名空间
 </span><span class="c1"></span><span class="kd">let</span><span class="w"> </span><span class="n">sub_net_ns</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">network</span>::<span class="n">find_ns_net</span><span class="p">(</span><span class="n">pid</span><span class="p">)</span><span class="o">?</span><span class="p">;</span><span class="w">
-</span></code></pre></div><div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// 获取某个进程的网络命名空间
+</span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// 获取某个进程的网络命名空间
 </span><span class="c1"></span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">find_ns_net</span><span class="p">(</span><span class="n">pid</span>: <span class="nc">libc</span>::<span class="n">pid_t</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nb">Result</span><span class="o">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">output</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Command</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;lsns&#34;</span><span class="p">)</span><span class="w">
 </span><span class="w">        </span><span class="p">.</span><span class="n">args</span><span class="p">(</span><span class="o">&amp;</span><span class="p">[</span><span class="w">
@@ -223,7 +220,7 @@ NOTE: 由于很多系统调用没有封装，这里将使用宿主机上的命�
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span></code></pre></div><h3 id="创建虚拟设备对">创建虚拟设备对<a href="#创建虚拟设备对" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
 <p>添加进 <code>netns</code> 是为了方便后续操作使用 <code>ip netns exec</code>。</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// 添加进netns
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// 添加进netns
 </span><span class="c1"></span><span class="n">network</span>::<span class="n">put_netns</span><span class="p">(</span><span class="n">pid</span><span class="p">,</span><span class="w"> </span><span class="n">sub_net_ns</span><span class="p">.</span><span class="n">as_str</span><span class="p">())</span><span class="o">?</span><span class="p">;</span><span class="w">
 </span><span class="w"></span><span class="c1">// 创建虚拟设备对
 </span><span class="c1"></span><span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">veth0</span><span class="p">,</span><span class="w"> </span><span class="n">veth1</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">network</span>::<span class="n">create_veth</span><span class="p">()</span><span class="o">?</span><span class="p">;</span><span class="w">
@@ -232,7 +229,7 @@ NOTE: 由于很多系统调用没有封装，这里将使用宿主机上的命�
 </span><span class="c1"></span><span class="w">
 </span><span class="w"></span><span class="c1">// 释放netns
 </span><span class="c1"></span><span class="n">network</span>::<span class="n">release_netns</span><span class="p">(</span><span class="n">sub_net_ns</span><span class="p">.</span><span class="n">as_str</span><span class="p">())</span><span class="o">?</span><span class="p">;</span><span class="w">
-</span></code></pre></div><div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// 添加进netns
+</span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// 添加进netns
 </span><span class="c1"></span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">put_netns</span><span class="p">(</span><span class="n">pid</span>: <span class="nc">libc</span>::<span class="n">pid_t</span><span class="p">,</span><span class="w"> </span><span class="n">ns_id</span>: <span class="kp">&amp;</span><span class="kt">str</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nb">Result</span><span class="o">&lt;</span><span class="p">()</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">output</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Command</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;ln&#34;</span><span class="p">)</span><span class="w">
 </span><span class="w">        </span><span class="p">.</span><span class="n">args</span><span class="p">(</span><span class="o">&amp;</span><span class="p">[</span><span class="w">
@@ -294,11 +291,11 @@ NOTE: 由于很多系统调用没有封装，这里将使用宿主机上的命�
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span></code></pre></div><h3 id="虚拟设备对初始化">虚拟设备对初始化<a href="#虚拟设备对初始化" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
 <p>将虚拟设备一端添加进子进程网络命名空间并配置IP，另一端连接到网桥</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// 添加进子进程网络命名空间
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// 添加进子进程网络命名空间
 </span><span class="c1"></span><span class="n">network</span>::<span class="n">link_veth_to_ns</span><span class="p">(</span><span class="n">veth1</span><span class="p">.</span><span class="n">as_str</span><span class="p">(),</span><span class="w"> </span><span class="n">sub_net_ns</span><span class="p">.</span><span class="n">as_str</span><span class="p">(),</span><span class="w"> </span><span class="n">ip</span><span class="p">.</span><span class="n">as_str</span><span class="p">())</span><span class="o">?</span><span class="p">;</span><span class="w">
 </span><span class="w"></span><span class="c1">// 连接网桥
 </span><span class="c1"></span><span class="n">network</span>::<span class="n">link_veth_to_bridge</span><span class="p">(</span><span class="n">veth0</span><span class="p">.</span><span class="n">as_str</span><span class="p">())</span><span class="o">?</span><span class="p">;</span><span class="w">
-</span></code></pre></div><div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// 将虚拟设备连接到网桥
+</span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// 将虚拟设备连接到网桥
 </span><span class="c1"></span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">link_veth_to_bridge</span><span class="p">(</span><span class="n">veth</span>: <span class="kp">&amp;</span><span class="kt">str</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nb">Result</span><span class="o">&lt;</span><span class="p">()</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">output</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Command</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;ip&#34;</span><span class="p">)</span><span class="w">
 </span><span class="w">        </span><span class="p">.</span><span class="n">args</span><span class="p">(</span><span class="o">&amp;</span><span class="p">[</span><span class="s">&#34;link&#34;</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;set&#34;</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;dev&#34;</span><span class="p">,</span><span class="w"> </span><span class="n">veth</span><span class="p">,</span><span class="w"> </span><span class="s">&#34;master&#34;</span><span class="p">,</span><span class="w"> </span><span class="n">BRIDGE_NAME</span><span class="p">])</span><span class="w">
@@ -347,15 +344,15 @@ NOTE: 由于很多系统调用没有封装，这里将使用宿主机上的命�
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span></code></pre></div><h3 id="测试2个容器的网络互通">测试2个容器的网络互通<a href="#测试2个容器的网络互通" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
 <p><strong>NOTE:</strong> 如果宿主机上安装了 <code>docker</code>，<code>FORWARD</code> 链默认策略会被设置成 <code>DROP</code>，测试时需要将其修改为 <code>ACCEPT</code>：</p>
-<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">$ iptables -P FORWARD ACCEPT
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash">$ iptables -P FORWARD ACCEPT
 </code></pre></div><p>由于目前还未实现文件系统的联合挂载，因此需要2个独立的镜像文件系统拷贝：</p>
-<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">$ <span class="nb">cd</span> workspace
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash">$ <span class="nb">cd</span> workspace
 $ cp -r alpine alpine2
 </code></pre></div><p>编译后运行2个容器</p>
-<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">$ cargo build
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash">$ cargo build
 $ ./target/debug/<span class="k">$(</span>program<span class="k">)</span> <span class="k">$(</span>workspace<span class="k">)</span>/alpine 10.0.1.2/24 /bin/sh
 </code></pre></div><p>新开一个 <code>shell</code> 会话</p>
-<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">$ ./target/debug/<span class="k">$(</span>program<span class="k">)</span> <span class="k">$(</span>workspace<span class="k">)</span>/alpine2 10.0.1.3/24 /bin/sh
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash">$ ./target/debug/<span class="k">$(</span>program<span class="k">)</span> <span class="k">$(</span>workspace<span class="k">)</span>/alpine2 10.0.1.3/24 /bin/sh
 </code></pre></div><p>查看2个容器的网络接口</p>
 <pre><code class="language-none" data-lang="none">/ # ip addr
 1: lo: &lt;LOOPBACK,UP,LOWER_UP&gt; mtu 65536 qdisc noqueue state UNKNOWN qlen 1000
@@ -430,7 +427,7 @@ round-trip min/avg/max = 0.089/0.101/0.107 ms
 	</main>
 
 	<footer id="site-footer" class="section-inner thin animated fadeIn faster">
-		<p>&copy; 2020 <a href="https://xiaopengli89.github.io">Xiaopeng Li</a> &#183; <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a></p>
+		<p>&copy; 2021 <a href="https://xiaopengli89.github.io">Xiaopeng Li</a> &#183; <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a></p>
 		<p>
 			Made with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> &#183; Theme <a href="https://github.com/Track3/hermit" target="_blank" rel="noopener">Hermit</a> &#183; <a href="https://xiaopengli89.github.io/posts/index.xml" target="_blank" title="rss"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-rss"><path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle></svg></a>
 		</p>
@@ -438,7 +435,7 @@ round-trip min/avg/max = 0.089/0.101/0.107 ms
 
 
 
-	<script src="https://xiaopengli89.github.io/js/bundle.min.4a9a0ac3d2217822c7865b4161e6c2a71de1d70492264337755427898dd718f6.js" integrity="sha256-SpoKw9IheCLHhltBYebCpx3h1wSSJkM3dVQniY3XGPY=" crossorigin="anonymous"></script>
+	<script src="https://xiaopengli89.github.io/js/bundle.min.7d8545daa55d62427355498dd8da13f98ff79a7938ce7d2a5e2ae1ec0de3beb8.js" integrity="sha256-fYVF2qVdYkJzVUmN2NoT+Y/3mnk4zn0qXirh7A3jvrg=" crossorigin="anonymous"></script>
 	
 <script src="https://cdn.bootcdn.net/ajax/libs/prism/1.20.0/prism.min.js"></script>
 <script src="https://cdn.bootcdn.net/ajax/libs/prism/1.20.0/plugins/autoloader/prism-autoloader.min.js"></script>

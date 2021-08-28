@@ -1,315 +1,197 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
-  
   <url>
+    <loc>https://xiaopengli89.github.io/tags/cg/</loc>
+    <lastmod>2021-08-28T15:36:19+08:00</lastmod>
+  </url><url>
+    <loc>https://xiaopengli89.github.io/posts/</loc>
+    <lastmod>2021-08-28T15:36:19+08:00</lastmod>
+  </url><url>
+    <loc>https://xiaopengli89.github.io/tags/</loc>
+    <lastmod>2021-08-28T15:36:19+08:00</lastmod>
+  </url><url>
+    <loc>https://xiaopengli89.github.io/</loc>
+    <lastmod>2021-08-28T15:36:19+08:00</lastmod>
+  </url><url>
+    <loc>https://xiaopengli89.github.io/posts/window-compositor/</loc>
+    <lastmod>2021-08-28T15:36:19+08:00</lastmod>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/lazy/</loc>
     <lastmod>2020-08-18T00:50:39+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/posts/lazy-primitives/</loc>
     <lastmod>2020-08-18T00:50:39+08:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>https://xiaopengli89.github.io/posts/</loc>
-    <lastmod>2020-08-18T00:50:39+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/rust/</loc>
     <lastmod>2020-08-18T00:50:39+08:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>https://xiaopengli89.github.io/tags/</loc>
-    <lastmod>2020-08-18T00:50:39+08:00</lastmod>
-  </url>
-  
-  <url>
-    <loc>https://xiaopengli89.github.io/</loc>
-    <lastmod>2020-08-18T00:50:39+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/concurrency/</loc>
     <lastmod>2020-08-08T20:13:04+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/posts/crossbeam-channel/</loc>
     <lastmod>2020-08-08T20:13:04+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/goroutine/</loc>
     <lastmod>2020-08-05T14:11:03+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/posts/goroutine-rs/</loc>
     <lastmod>2020-08-05T14:11:03+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/heterogeneous/</loc>
     <lastmod>2020-07-27T17:49:22+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/posts/rust-trait-object/</loc>
     <lastmod>2020-07-27T17:49:22+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/trait/</loc>
     <lastmod>2020-07-27T17:49:22+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/lifetime/</loc>
     <lastmod>2020-07-24T15:03:06+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/posts/rust-lifetime-variance/</loc>
     <lastmod>2020-07-24T15:03:06+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/variance/</loc>
     <lastmod>2020-07-24T15:03:06+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/assembly/</loc>
     <lastmod>2020-07-22T12:58:16+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/posts/rust-asm-macro/</loc>
     <lastmod>2020-07-22T12:58:16+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/container/</loc>
     <lastmod>2020-07-20T19:42:00+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/namespace/</loc>
     <lastmod>2020-07-20T19:42:00+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/network/</loc>
     <lastmod>2020-07-20T19:42:00+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/oci/</loc>
     <lastmod>2020-07-20T19:42:00+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/posts/oci-ns-network/</loc>
     <lastmod>2020-07-20T19:42:00+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/posts/oci-ns-pid-mount-net/</loc>
     <lastmod>2020-07-18T22:15:35+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/pivot_root/</loc>
     <lastmod>2020-07-18T22:15:35+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/async/</loc>
     <lastmod>2020-07-10T19:23:16+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/posts/plain-rt/</loc>
     <lastmod>2020-07-10T19:23:16+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/hrtbs/</loc>
     <lastmod>2020-07-03T23:40:45+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/posts/rust-hrtbs/</loc>
     <lastmod>2020-07-03T23:40:45+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/alloc/</loc>
     <lastmod>2020-07-01T16:57:56+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/heap/</loc>
     <lastmod>2020-07-01T16:57:56+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/memory/</loc>
     <lastmod>2020-07-01T16:57:56+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/posts/rust-box-heap/</loc>
     <lastmod>2020-07-01T16:57:56+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/libc/</loc>
     <lastmod>2020-07-01T00:02:35+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/no_std/</loc>
     <lastmod>2020-07-01T00:02:35+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/panic/</loc>
     <lastmod>2020-07-01T00:02:35+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/posts/rust-no-std/</loc>
     <lastmod>2020-07-01T00:02:35+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/macro/</loc>
     <lastmod>2020-06-27T17:22:04+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/mataprogramming/</loc>
     <lastmod>2020-06-27T17:22:04+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/posts/rust-procedural-macro-1/</loc>
     <lastmod>2020-06-27T17:22:04+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/closure/</loc>
     <lastmod>2020-06-23T22:59:21+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/posts/rust-closure/</loc>
     <lastmod>2020-06-23T22:59:21+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/database/</loc>
     <lastmod>2020-05-24T14:50:06+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/golang/</loc>
     <lastmod>2020-05-24T14:50:06+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/mysql/</loc>
     <lastmod>2020-05-24T14:50:06+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/race/</loc>
     <lastmod>2020-05-24T14:50:06+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/posts/go-mysql-driver-race/</loc>
     <lastmod>2020-05-24T14:50:06+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/tcp/</loc>
     <lastmod>2020-05-23T11:55:30+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/posts/go-mysql-driver-eof/</loc>
     <lastmod>2020-05-23T11:55:30+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/socket/</loc>
     <lastmod>2020-05-21T21:58:01+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/posts/socket-optimize/</loc>
     <lastmod>2020-05-21T21:58:01+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/posts/two-queue/</loc>
     <lastmod>2020-05-19T00:00:00+00:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/cache/</loc>
     <lastmod>2020-05-19T00:00:00+00:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/lru/</loc>
     <lastmod>2020-05-19T00:00:00+00:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/kernel/</loc>
     <lastmod>2020-05-17T20:14:50+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/linux/</loc>
     <lastmod>2020-05-17T20:14:50+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/posts/sched-and-timer/</loc>
     <lastmod>2020-05-17T20:14:50+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/sched/</loc>
     <lastmod>2020-05-17T20:14:50+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/timer/</loc>
     <lastmod>2020-05-17T20:14:50+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/about/</loc>
     <lastmod>2020-05-16T18:39:29+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/posts/dma/</loc>
     <lastmod>2020-05-16T18:02:00+08:00</lastmod>
-  </url>
-  
-  <url>
+  </url><url>
     <loc>https://xiaopengli89.github.io/tags/zero-copy/</loc>
     <lastmod>2020-05-16T18:02:00+08:00</lastmod>
   </url>
-  
 </urlset>

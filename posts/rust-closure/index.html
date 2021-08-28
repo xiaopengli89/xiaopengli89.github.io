@@ -8,19 +8,16 @@
 	<meta name="theme-color" content="#494f5c">
 	<meta name="msapplication-TileColor" content="#494f5c">
 <meta itemprop="name" content="Rust闭包">
-<meta itemprop="description" content="Rust也可以函数式，像动态创建&#34;函数&#34;一样使用闭包。">
-<meta itemprop="datePublished" content="2020-06-23T22:59:21&#43;08:00" />
-<meta itemprop="dateModified" content="2020-06-23T22:59:21&#43;08:00" />
+<meta itemprop="description" content="Rust也可以函数式，像动态创建&#34;函数&#34;一样使用闭包。"><meta itemprop="datePublished" content="2020-06-23T22:59:21+08:00" />
+<meta itemprop="dateModified" content="2020-06-23T22:59:21+08:00" />
 <meta itemprop="wordCount" content="1372">
-
-
-
 <meta itemprop="keywords" content="rust,closure," /><meta property="og:title" content="Rust闭包" />
 <meta property="og:description" content="Rust也可以函数式，像动态创建&#34;函数&#34;一样使用闭包。" />
 <meta property="og:type" content="article" />
-<meta property="og:url" content="https://xiaopengli89.github.io/posts/rust-closure/" />
+<meta property="og:url" content="https://xiaopengli89.github.io/posts/rust-closure/" /><meta property="article:section" content="posts" />
 <meta property="article:published_time" content="2020-06-23T22:59:21+08:00" />
 <meta property="article:modified_time" content="2020-06-23T22:59:21+08:00" />
+
 <meta name="twitter:card" content="summary"/>
 <meta name="twitter:title" content="Rust闭包"/>
 <meta name="twitter:description" content="Rust也可以函数式，像动态创建&#34;函数&#34;一样使用闭包。"/>
@@ -33,7 +30,7 @@
 	<link rel="shortcut icon" href="/favicon.ico">
 
 	<title>Rust闭包</title>
-	<link rel="stylesheet" href="https://xiaopengli89.github.io/css/style.min.eac77496566fd7d5768fd650ddb0b2b181ca6a2d7c5fdd6fe6b8ba4bf47e566f.css" integrity="sha256-6sd0llZv19V2j9ZQ3bCysYHKai18X91v5ri6S/R+Vm8=" crossorigin="anonymous">
+	<link rel="stylesheet" href="https://xiaopengli89.github.io/css/style.min.037b6ee8f8c1baab6a3d0a9da11c3ff18a7552471f16c59fd98538d5ce99208b.css" integrity="sha256-A3tu6PjBuqtqPQqdoRw/8Yp1UkcfFsWf2YU41c6ZIIs=" crossorigin="anonymous">
 	
 	<link rel="stylesheet" href="https://atelierbram.github.io/syntax-highlighting/archive/assets/css/prism/prism-base16-railscasts.dark.css">
 	<link rel="stylesheet" href="https://xiaopengli89.github.io/css/site.css">
@@ -85,7 +82,7 @@
 </ol>
 <p>但是闭包可以捕获当前上下文环境中的变量，而函数不可以（访问全局静态变量除外，但是这和闭包的实现完全不一样）。</p>
 <p>闭包的创建和调用：</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="kd">let</span><span class="w"> </span><span class="n">env_var</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="kd">let</span><span class="w"> </span><span class="n">env_var</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w">
 </span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">fn1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">|</span><span class="n">x</span><span class="o">|</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">env_var</span><span class="p">;</span><span class="w">
 </span><span class="w">
 </span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">result1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fn1</span><span class="p">(</span><span class="mi">2</span><span class="p">);</span><span class="w">
@@ -95,7 +92,7 @@
 </span><span class="w"></span><span class="n">assert_eq</span><span class="o">!</span><span class="p">(</span><span class="n">result2</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="p">);</span><span class="w">
 </span></code></pre></div><p>编译器在编译过程中会创建对应的匿名结构，并根据需要实现三个 <code>trait</code>：<a href="https://doc.rust-lang.org/std/ops/trait.FnOnce.html">FnOnce</a>、<a href="https://doc.rust-lang.org/std/ops/trait.FnMut.html">FnMut</a>、<a href="https://doc.rust-lang.org/std/ops/trait.Fn.html">Fn</a> ，而闭包的创建就是该匿名结构的实例化，闭包调用则是3个 <code>trait</code> 的方法调用。</p>
 <p>以下是3个 <code>trait</code> 的定义：</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="nb">FnOnce</span><span class="o">&lt;</span><span class="n">Args</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="nb">FnOnce</span><span class="o">&lt;</span><span class="n">Args</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="sd">/// The returned type after the call operator is used.
 </span><span class="sd"></span><span class="w">    </span><span class="cp">#[stable(feature = </span><span class="s">&#34;fn_once_output&#34;</span><span class="cp">, since = </span><span class="s">&#34;1.12.0&#34;</span><span class="cp">)]</span><span class="w">
 </span><span class="w">    </span><span class="k">type</span> <span class="nc">Output</span><span class="p">;</span><span class="w">
@@ -121,7 +118,7 @@
 <p><em><strong>如果一个函数接收一个 <code>FnOnce</code> 参数，总可以传递一个 <code>FnMut</code></strong></em><br>
 <em><strong>如果一个函数接收一个 <code>FnMut</code>，总可以传递一个 <code>Fn</code></strong></em></p>
 <p>我们可以手动构造一个 <code>FnOnce</code> 闭包结构实现：</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#![feature(unboxed_closures)]</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#![feature(unboxed_closures)]</span><span class="w">
 </span><span class="w"></span><span class="cp">#![feature(fn_traits)]</span><span class="w">
 </span><span class="w">
 </span><span class="w"></span><span class="k">use</span><span class="w"> </span><span class="n">std</span>::<span class="n">ops</span>::<span class="p">{</span><span class="nb">Fn</span><span class="p">,</span><span class="w"> </span><span class="nb">FnMut</span><span class="p">,</span><span class="w"> </span><span class="nb">FnOnce</span><span class="p">};</span><span class="w">
@@ -149,7 +146,7 @@
 </span><span class="w">	</span><span class="kd">let</span><span class="w"> </span><span class="n">o2</span>: <span class="nb">String</span> <span class="o">=</span><span class="w"> </span><span class="n">my_fn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">);</span><span class="w"> </span><span class="c1">// 编译不过，因为 my_fn 变量已经被 move 掉了
 </span><span class="c1"></span><span class="p">}</span><span class="w">
 </span></code></pre></div><p>接着为 <code>MyFn</code> 实现 <code>FnMut</code>：</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// ...
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// ...
 </span><span class="c1"></span><span class="k">struct</span> <span class="nc">MyFn</span><span class="o">&lt;</span><span class="na">&#39;a</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="n">env_var</span>: <span class="kp">&amp;</span><span class="na">&#39;a</span><span class="w"> </span><span class="kt">str</span><span class="p">,</span><span class="w">
 </span><span class="w"></span><span class="p">}</span><span class="w">
@@ -180,7 +177,7 @@
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span></code></pre></div><p>这里可以看到，如果某个参数如果需要调用 <code>call_once</code> 方法的话，<code>call_once</code> 内部只要再次调用 <code>call_mut</code> 即可，因为一个 <code>Ownership</code> 总可以转成一个 <code>Mut Borrow</code>，同理 <code>Mut Borrow</code> 总可以转成 <code>Borrow</code> 。</p>
 <p>测试一个函数接受 <code>FnOnce</code>，传递一个 <code>FnMut</code>：</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// ...
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// ...
 </span><span class="c1"></span><span class="k">fn</span> <span class="nf">expect_fn_once</span><span class="o">&lt;</span><span class="n">F</span><span class="o">&gt;</span><span class="p">(</span><span class="n">f</span>: <span class="nc">F</span><span class="p">)</span><span class="w">
 </span><span class="w"></span><span class="k">where</span><span class="w">
 </span><span class="w">    </span><span class="n">F</span>: <span class="nb">FnOnce</span><span class="o">&lt;</span><span class="p">(</span><span class="kt">i32</span><span class="p">,</span><span class="w"> </span><span class="kt">i32</span><span class="p">),</span><span class="w"> </span><span class="n">Output</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">String</span><span class="o">&gt;</span><span class="p">,</span><span class="w">
@@ -197,7 +194,7 @@
 </span></code></pre></div><p>另外，<code>FnOnce</code> 、<code>FnMut</code> 、<code>Fn</code> 有3个语法糖表示：</p>
 <p><code>FnOnce(T1, T2) -&gt; T3</code> 可以用来表示 <code>FnOnce&lt;(T1, T2), Output = T3&gt;</code></p>
 <p>因此上面的 <code>expect_fn_once</code> 方法可以简写为：</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">fn</span> <span class="nf">expect_fn_once</span><span class="p">(</span><span class="n">f</span>: <span class="nc">impl</span><span class="w"> </span><span class="nb">FnOnce</span><span class="p">(</span><span class="kt">i32</span><span class="p">,</span><span class="w"> </span><span class="kt">i32</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nb">String</span><span class="p">)</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">fn</span> <span class="nf">expect_fn_once</span><span class="p">(</span><span class="n">f</span>: <span class="nc">impl</span><span class="w"> </span><span class="nb">FnOnce</span><span class="p">(</span><span class="kt">i32</span><span class="p">,</span><span class="w"> </span><span class="kt">i32</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nb">String</span><span class="p">)</span><span class="w">
 </span><span class="w"></span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">_</span>: <span class="nb">String</span> <span class="o">=</span><span class="w"> </span><span class="n">f</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">);</span><span class="w">
 </span><span class="w"></span><span class="p">}</span><span class="w">
@@ -206,7 +203,7 @@
 <ol>
 <li>如果闭包只需要上下文环境的 <code>Borrow</code> ，优先生成 <code>Fn</code> ，方法默认调用 <code>call</code> ，因为上下文环境可以被同时 <code>Borrow</code> 多次，例如：</li>
 </ol>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="kd">let</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="kd">let</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w">
 </span><span class="w">
 </span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">fn1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">	</span><span class="kd">let</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">a</span><span class="p">;</span><span class="w">
@@ -220,7 +217,7 @@
 </span></code></pre></div><ol start="2">
 <li>如果闭包需要上下文环境的 <code>Mut Borrow</code>，则生成 <code>FnMut</code>，方法默认调用 <code>call_mut</code>，因为不会丢失 <code>Ownership</code>，闭包可以被多次调用，上下文环境 <code>Mut Borrow</code> 进闭包结构，当闭包被 <code>drop</code> 掉后，外部才能再次使用被捕获的变量，例如：</li>
 </ol>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w">
 </span><span class="w">
 </span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">fn1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">	</span><span class="kd">let</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">a</span><span class="p">;</span><span class="w">
@@ -236,7 +233,7 @@
 </span></code></pre></div><ol start="3">
 <li>如果闭包需要上下文的 <code>Ownership</code>，则生成 <code>FnOnce</code>，方法调用 <code>call_once</code>，因为调用闭包会导致失去 <code>Ownership</code> ，所以闭包只能调用一次，上下文环境被 <code>move</code> 进闭包，外部不再能使用被捕获的变量，例如：</li>
 </ol>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="kd">let</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">String</span>::<span class="n">from</span><span class="p">(</span><span class="s">&#34;a&#34;</span><span class="p">);</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="kd">let</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">String</span>::<span class="n">from</span><span class="p">(</span><span class="s">&#34;a&#34;</span><span class="p">);</span><span class="w">
 </span><span class="w">
 </span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">fn1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">	</span><span class="kd">let</span><span class="w"> </span><span class="n">b</span>: <span class="nb">String</span> <span class="o">=</span><span class="w"> </span><span class="n">a</span><span class="p">;</span><span class="w">
@@ -273,7 +270,7 @@
 	</main>
 
 	<footer id="site-footer" class="section-inner thin animated fadeIn faster">
-		<p>&copy; 2020 <a href="https://xiaopengli89.github.io">Xiaopeng Li</a> &#183; <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a></p>
+		<p>&copy; 2021 <a href="https://xiaopengli89.github.io">Xiaopeng Li</a> &#183; <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a></p>
 		<p>
 			Made with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> &#183; Theme <a href="https://github.com/Track3/hermit" target="_blank" rel="noopener">Hermit</a> &#183; <a href="https://xiaopengli89.github.io/posts/index.xml" target="_blank" title="rss"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-rss"><path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle></svg></a>
 		</p>
@@ -281,7 +278,7 @@
 
 
 
-	<script src="https://xiaopengli89.github.io/js/bundle.min.4a9a0ac3d2217822c7865b4161e6c2a71de1d70492264337755427898dd718f6.js" integrity="sha256-SpoKw9IheCLHhltBYebCpx3h1wSSJkM3dVQniY3XGPY=" crossorigin="anonymous"></script>
+	<script src="https://xiaopengli89.github.io/js/bundle.min.7d8545daa55d62427355498dd8da13f98ff79a7938ce7d2a5e2ae1ec0de3beb8.js" integrity="sha256-fYVF2qVdYkJzVUmN2NoT+Y/3mnk4zn0qXirh7A3jvrg=" crossorigin="anonymous"></script>
 	
 <script src="https://cdn.bootcdn.net/ajax/libs/prism/1.20.0/prism.min.js"></script>
 <script src="https://cdn.bootcdn.net/ajax/libs/prism/1.20.0/plugins/autoloader/prism-autoloader.min.js"></script>

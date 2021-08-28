@@ -7,11 +7,7 @@
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright>
-    <lastBuildDate>Sun, 24 May 2020 14:50:06 +0800</lastBuildDate>
-    
-	<atom:link href="https://xiaopengli89.github.io/tags/mysql/index.xml" rel="self" type="application/rss+xml" />
-    
-    
+    <lastBuildDate>Sun, 24 May 2020 14:50:06 +0800</lastBuildDate><atom:link href="https://xiaopengli89.github.io/tags/mysql/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>关于Go Mysql Driver引入QueryContext带来的数据竞争</title>
       <link>https://xiaopengli89.github.io/posts/go-mysql-driver-race/</link>
@@ -20,7 +16,7 @@
       <guid>https://xiaopengli89.github.io/posts/go-mysql-driver-race/</guid>
       <description>&lt;p&gt;在&lt;a href=&#34;https://xiaopengli89.github.io/posts/go-mysql-driver-eof/&#34;&gt;关于Go Mysql Driver的unexpected EOF错误&lt;/a&gt;里提到了连接池，当连接&lt;strong&gt;使用完毕&lt;/strong&gt;后会放回连接池以便其他的操作可以复用这条连接。这里的&lt;strong&gt;使用完毕&lt;/strong&gt;有非常明确的定义：发送缓冲区中不再有未发送的指令，接收缓冲区不再有未接收的数据，下次能读取的数据必须是下一次发送的指令的响应。&lt;/p&gt;
 &lt;p&gt;通常情况下的SQL操作如下：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;pre class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span class=&#34;nx&#34;&gt;rows&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nx&#34;&gt;err&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;:=&lt;/span&gt; &lt;span class=&#34;nx&#34;&gt;db&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;nf&#34;&gt;Query&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;s&#34;&gt;&amp;#34;SELECT a, b FROM some_table&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;)&lt;/span&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span class=&#34;nx&#34;&gt;rows&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;nx&#34;&gt;err&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;:=&lt;/span&gt; &lt;span class=&#34;nx&#34;&gt;db&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;.&lt;/span&gt;&lt;span class=&#34;nf&#34;&gt;Query&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;s&#34;&gt;&amp;#34;SELECT a, b FROM some_table&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;)&lt;/span&gt;
 &lt;span class=&#34;k&#34;&gt;if&lt;/span&gt; &lt;span class=&#34;nx&#34;&gt;err&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;!=&lt;/span&gt; &lt;span class=&#34;kc&#34;&gt;nil&lt;/span&gt; &lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
     &lt;span class=&#34;k&#34;&gt;return&lt;/span&gt; &lt;span class=&#34;nx&#34;&gt;err&lt;/span&gt;
 &lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;

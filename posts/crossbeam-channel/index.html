@@ -10,21 +10,18 @@
 <meta itemprop="name" content="Crossbeam的无锁并发Channel解析">
 <meta itemprop="description" content="crossbeam是一个提供并发编程的工具库，实现了诸如原子Cell、工作窃取双端队列、分段队列、
 多生产者多消费者Channel等无锁并发数据结构，在运行时、调度器、线程同步等领域应用广泛。
-虽然Rust标准库中也提供了用于线程同步的mpsc::channel，不过内置的channel实现算法和crossbeam不同，也不支持多个消费者。">
-<meta itemprop="datePublished" content="2020-08-08T20:13:04&#43;08:00" />
-<meta itemprop="dateModified" content="2020-08-08T20:13:04&#43;08:00" />
-<meta itemprop="wordCount" content="7302">
-
-
-
+虽然Rust标准库中也提供了用于线程同步的mpsc::channel，不过内置的channel实现算法和crossbeam不同，也不支持多个消费者。"><meta itemprop="datePublished" content="2020-08-08T20:13:04+08:00" />
+<meta itemprop="dateModified" content="2020-08-08T20:13:04+08:00" />
+<meta itemprop="wordCount" content="7301">
 <meta itemprop="keywords" content="rust,concurrency," /><meta property="og:title" content="Crossbeam的无锁并发Channel解析" />
 <meta property="og:description" content="crossbeam是一个提供并发编程的工具库，实现了诸如原子Cell、工作窃取双端队列、分段队列、
 多生产者多消费者Channel等无锁并发数据结构，在运行时、调度器、线程同步等领域应用广泛。
 虽然Rust标准库中也提供了用于线程同步的mpsc::channel，不过内置的channel实现算法和crossbeam不同，也不支持多个消费者。" />
 <meta property="og:type" content="article" />
-<meta property="og:url" content="https://xiaopengli89.github.io/posts/crossbeam-channel/" />
+<meta property="og:url" content="https://xiaopengli89.github.io/posts/crossbeam-channel/" /><meta property="article:section" content="posts" />
 <meta property="article:published_time" content="2020-08-08T20:13:04+08:00" />
 <meta property="article:modified_time" content="2020-08-08T20:13:04+08:00" />
+
 <meta name="twitter:card" content="summary"/>
 <meta name="twitter:title" content="Crossbeam的无锁并发Channel解析"/>
 <meta name="twitter:description" content="crossbeam是一个提供并发编程的工具库，实现了诸如原子Cell、工作窃取双端队列、分段队列、
@@ -39,7 +36,7 @@
 	<link rel="shortcut icon" href="/favicon.ico">
 
 	<title>Crossbeam的无锁并发Channel解析</title>
-	<link rel="stylesheet" href="https://xiaopengli89.github.io/css/style.min.eac77496566fd7d5768fd650ddb0b2b181ca6a2d7c5fdd6fe6b8ba4bf47e566f.css" integrity="sha256-6sd0llZv19V2j9ZQ3bCysYHKai18X91v5ri6S/R+Vm8=" crossorigin="anonymous">
+	<link rel="stylesheet" href="https://xiaopengli89.github.io/css/style.min.037b6ee8f8c1baab6a3d0a9da11c3ff18a7552471f16c59fd98538d5ce99208b.css" integrity="sha256-A3tu6PjBuqtqPQqdoRw/8Yp1UkcfFsWf2YU41c6ZIIs=" crossorigin="anonymous">
 	
 	<link rel="stylesheet" href="https://atelierbram.github.io/syntax-highlighting/archive/assets/css/prism/prism-base16-railscasts.dark.css">
 	<link rel="stylesheet" href="https://xiaopengli89.github.io/css/site.css">
@@ -89,8 +86,7 @@
 <a href="http://www.1024cores.net/home/lock-free-algorithms/queues/non-intrusive-mpsc-node-based-queue">Non-intrusive MPSC node-based queue</a>
 算法，这个算法在多生产者单消费者的模型下性能非常高，下图对比了Rust内置channel、crossbeam的分段队列、Scala MSQ、Java ConcurrentLinkedQueue在
 多生产者单消费者模型下的基准测试：</p>
-<figure>
-    <img src="https://aturon.github.io/blog/public/bench-mpsc.png"/> 
+<figure><img src="https://aturon.github.io/blog/public/bench-mpsc.png"/>
 </figure>
 
 <p>可以发现Rust内置channel和crossbeam的分段队列在基准测试中的表现要明显优于Scala/Java的Jvm平台，原因在于Jvm平台使用了垃圾收集器（GC）。
@@ -100,8 +96,7 @@
 就在要实现无锁并发结构。如果使用标准库中的Arc自然就不会有内存回收的问题，但对Arc进行读写是需要锁的。关于基于代的内存回收也是一个比较大的话题，
 这篇文章不会深入讨论。</p>
 <p>而在多生产者多消费者的模型中，crossbeam同样具有相当的性能优势，以下是多生产者多消费者模型下的基准测试：</p>
-<figure>
-    <img src="https://aturon.github.io/blog/public/bench-mpmc.png"/> 
+<figure><img src="https://aturon.github.io/blog/public/bench-mpmc.png"/>
 </figure>
 
 <h2 id="无锁并发channel">无锁并发Channel<a href="#无锁并发channel" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h2>
@@ -114,7 +109,7 @@
 [N]----    [N]----
 </code></pre><p>在crossbeam的无锁并发Channel结构中，最核心的算法思想也是分段，每次需要分配额外的空间时，一次分配一个块（Block），一个Block内包含了多个Slot（槽）。
 而在进行读写数据时，先通过原子操作获取Slot的操作权限，并发操作不需要等数据完整地写入或读取，将竞争的临界区尽可能地缩小。</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="sd">/// Unbounded channel implemented as a linked list.
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="sd">/// Unbounded channel implemented as a linked list.
 </span><span class="sd">///
 </span><span class="sd">/// Each message sent into the channel is assigned a sequence number, i.e. an index. Indices are
 </span><span class="sd">/// represented as numbers of type `usize` and wrap on overflow.
@@ -139,7 +134,7 @@
 cache line的整数倍，同时足够容纳类型T，这样就可以避免2个对象同处于一个cache line内，带来的好处就是修改某个对象不会使其他对象所在的线程cache line失效。</p>
 <p>而receivers字段保存了当channel为空时阻塞的消费者线程，当写入新数据后，可以从中有条件地唤醒消费者线程，底层实现基于
 <a href="https://doc.rust-lang.org/std/sync/struct.Condvar.html">条件变量</a>。</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="sd">/// A position in a channel.
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="sd">/// A position in a channel.
 </span><span class="sd"></span><span class="cp">#[derive(Debug)]</span><span class="w">
 </span><span class="w"></span><span class="k">struct</span> <span class="nc">Position</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="sd">/// The index in the channel.
@@ -150,7 +145,7 @@ cache line的整数倍，同时足够容纳类型T，这样就可以避免2个�
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span></code></pre></div><p>Position结构中index保存了表头或表尾在整个Channel中的索引位置，block则是指向块的原子指针。</p>
 <p><strong>NOTE:</strong> 需要注意的是index需要去除低位的元信息后才是真正的索引位置。</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// Each block covers one &#34;lap&#34; of indices.
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// Each block covers one &#34;lap&#34; of indices.
 </span><span class="c1"></span><span class="k">const</span><span class="w"> </span><span class="n">LAP</span>: <span class="kt">usize</span> <span class="o">=</span><span class="w"> </span><span class="mi">32</span><span class="p">;</span><span class="w">
 </span><span class="w"></span><span class="c1">// The maximum number of messages a block can hold.
 </span><span class="c1"></span><span class="k">const</span><span class="w"> </span><span class="n">BLOCK_CAP</span>: <span class="kt">usize</span> <span class="o">=</span><span class="w"> </span><span class="n">LAP</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w">
@@ -169,7 +164,7 @@ cache line的整数倍，同时足够容纳类型T，这样就可以避免2个�
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span></code></pre></div><p>在Block结构中next保存了下一个Block的原子指针，slots则是当前Block的所有槽，每个槽可以保存一个数据，可以看到目前一个Block内有31个槽。</p>
 <p><strong>NOTE:</strong> 之所以BLOCK_CAP的值取2的幂次减1，是因为在通过index取模计算在Block中的偏移量时，可以利用位运算优化。</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="sd">/// A slot in a block.
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="sd">/// A slot in a block.
 </span><span class="sd"></span><span class="k">struct</span> <span class="nc">Slot</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="sd">/// The message.
 </span><span class="sd"></span><span class="w">    </span><span class="n">msg</span>: <span class="nc">UnsafeCell</span><span class="o">&lt;</span><span class="n">MaybeUninit</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span><span class="p">,</span><span class="w">
@@ -178,7 +173,7 @@ cache line的整数倍，同时足够容纳类型T，这样就可以避免2个�
 </span><span class="sd"></span><span class="w">    </span><span class="n">state</span>: <span class="nc">AtomicUsize</span><span class="p">,</span><span class="w">
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span></code></pre></div><p>在Slot结构中msg用于保存数据，state则是目前这个Slot的状态，这个状态也是非常关键的，基于这个状态才能实现最小化竞争临界区。</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="sd">/// Sends a message into the channel.
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="sd">/// Sends a message into the channel.
 </span><span class="sd"></span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">send</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">msg</span>: <span class="nc">T</span><span class="p">,</span><span class="w"> </span><span class="n">_deadline</span>: <span class="nb">Option</span><span class="o">&lt;</span><span class="n">Instant</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">SendTimeoutError</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">	</span><span class="kd">let</span><span class="w"> </span><span class="n">token</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">Token</span>::<span class="n">default</span><span class="p">();</span><span class="w">
 </span><span class="w">	</span><span class="n">assert</span><span class="o">!</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">start_send</span><span class="p">(</span><span class="n">token</span><span class="p">));</span><span class="w">
@@ -194,7 +189,7 @@ cache line的整数倍，同时足够容纳类型T，这样就可以避免2个�
 <li>设置已写入状态</li>
 </ol>
 <p>而只有第一步是会有竞争的，只要完成了第一步，其他线程的send操作就可以马上进行。</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="sd">/// The token type for the list flavor.
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="sd">/// The token type for the list flavor.
 </span><span class="sd"></span><span class="cp">#[derive(Debug)]</span><span class="w">
 </span><span class="w"></span><span class="k">pub</span><span class="w"> </span><span class="k">struct</span> <span class="nc">ListToken</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="sd">/// The block of slots.
@@ -205,10 +200,10 @@ cache line的整数倍，同时足够容纳类型T，这样就可以避免2个�
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span></code></pre></div><p>其中的Token主要是为第一步和第二步提供桥梁，获取到槽的操作权限后，相关信息会通过Token传递给write方法去写数据。</p>
 <p>在<code>start_send</code>方法中：</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// Calculate the offset of the index into the block.
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// Calculate the offset of the index into the block.
 </span><span class="c1"></span><span class="kd">let</span><span class="w"> </span><span class="n">offset</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">tail</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">SHIFT</span><span class="p">)</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="n">LAP</span><span class="p">;</span><span class="w">
 </span></code></pre></div><p>偏移量offset从index去除低位元信息后取模计算而来。</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// If we reached the end of the block, wait until the next one is installed.
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// If we reached the end of the block, wait until the next one is installed.
 </span><span class="c1"></span><span class="k">if</span><span class="w"> </span><span class="n">offset</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">BLOCK_CAP</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">	</span><span class="n">backoff</span><span class="p">.</span><span class="n">snooze</span><span class="p">();</span><span class="w">
 </span><span class="w">	</span><span class="n">tail</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">tail</span><span class="p">.</span><span class="n">index</span><span class="p">.</span><span class="n">load</span><span class="p">(</span><span class="n">Ordering</span>::<span class="n">Acquire</span><span class="p">);</span><span class="w">
@@ -216,7 +211,7 @@ cache line的整数倍，同时足够容纳类型T，这样就可以避免2个�
 </span><span class="w">	</span><span class="k">continue</span><span class="p">;</span><span class="w">
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span></code></pre></div><p>当offset等于Block的容量时，说明其他线程正在创建新的Block，因此这里会利用backoff来等待：</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[inline]</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[inline]</span><span class="w">
 </span><span class="w"></span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">snooze</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">	</span><span class="k">if</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">step</span><span class="p">.</span><span class="n">get</span><span class="p">()</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">SPIN_LIMIT</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">		</span><span class="k">for</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="mi">0</span><span class="p">..</span><span class="mi">1</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">step</span><span class="p">.</span><span class="n">get</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
@@ -242,13 +237,13 @@ cache line的整数倍，同时足够容纳类型T，这样就可以避免2个�
 <a href="https://github.com/crossbeam-rs/crossbeam-channel/pull/88">Move the tail pointer forward instead of only spinning #88</a>
 中提出了一种其他线程协助链接下一个Block的做法，不过这种做法在竞争的情况下会有多个next block被创建，而只有一个被链接上，
 这会导致额外的内存分配和回收开销。</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// If we&#39;re going to have to install the next block, allocate it in advance in order to
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// If we&#39;re going to have to install the next block, allocate it in advance in order to
 </span><span class="c1">// make the wait for other threads as short as possible.
 </span><span class="c1"></span><span class="k">if</span><span class="w"> </span><span class="n">offset</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">BLOCK_CAP</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">next_block</span><span class="p">.</span><span class="n">is_none</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">	</span><span class="n">next_block</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="nb">Box</span>::<span class="n">new</span><span class="p">(</span><span class="n">Block</span>::<span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span>::<span class="n">new</span><span class="p">()));</span><span class="w">
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span></code></pre></div><p>当offset + 1等于BLOCK_CAP，并且next_block为空时，此时需要创建下一个Block。（如果next_block不为空，说明之前创建过一次，但是链接时被抢先了）</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// If this is the first message to be sent into the channel, we need to allocate the
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// If this is the first message to be sent into the channel, we need to allocate the
 </span><span class="c1">// first block and install it.
 </span><span class="c1"></span><span class="k">if</span><span class="w"> </span><span class="n">block</span><span class="p">.</span><span class="n">is_null</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">	</span><span class="kd">let</span><span class="w"> </span><span class="n">new</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Box</span>::<span class="n">into_raw</span><span class="p">(</span><span class="nb">Box</span>::<span class="n">new</span><span class="p">(</span><span class="n">Block</span>::<span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span>::<span class="n">new</span><span class="p">()));</span><span class="w">
@@ -269,7 +264,7 @@ cache line的整数倍，同时足够容纳类型T，这样就可以避免2个�
 </span><span class="w">	</span><span class="p">}</span><span class="w">
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span></code></pre></div><p>而当block为空时，说明是第一次向Channel发送消息，因此需要先创建第一个Block，这里可以看到Channel的初始化是惰性的，从Channel的构造方法也可以看到这一点：</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="sd">/// Creates a new unbounded channel.
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="sd">/// Creates a new unbounded channel.
 </span><span class="sd"></span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">new</span><span class="p">()</span><span class="w"> </span>-&gt; <span class="nc">Self</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">	</span><span class="n">Channel</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">		</span><span class="n">head</span>: <span class="nc">CachePadded</span>::<span class="n">new</span><span class="p">(</span><span class="n">Position</span><span class="w"> </span><span class="p">{</span><span class="w">
@@ -284,7 +279,7 @@ cache line的整数倍，同时足够容纳类型T，这样就可以避免2个�
 </span><span class="w">		</span><span class="n">_marker</span>: <span class="nc">PhantomData</span><span class="p">,</span><span class="w">
 </span><span class="w">	</span><span class="p">}</span><span class="w">
 </span><span class="w"></span><span class="p">}</span><span class="w">
-</span></code></pre></div><div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="kd">let</span><span class="w"> </span><span class="n">new_tail</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tail</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="mi">1</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">SHIFT</span><span class="p">);</span><span class="w">
+</span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="kd">let</span><span class="w"> </span><span class="n">new_tail</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tail</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="mi">1</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">SHIFT</span><span class="p">);</span><span class="w">
 </span><span class="w">
 </span><span class="w"></span><span class="c1">// Try advancing the tail forward.
 </span><span class="c1"></span><span class="k">match</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">tail</span><span class="p">.</span><span class="n">index</span><span class="p">.</span><span class="n">compare_exchange_weak</span><span class="p">(</span><span class="w">
@@ -317,7 +312,7 @@ cache line的整数倍，同时足够容纳类型T，这样就可以避免2个�
 <a href="https://en.cppreference.com/w/cpp/atomic/atomic/compare_exchange">手册</a>和<a href="https://en.wikipedia.org/wiki/Load-link/store-conditional">维基百科</a>。</p>
 <p>当成功替换了index后，如果是新创建了Block则需要将这个Block链接到之前的尾端，而这时临界区已经完成，其他线程的操作可以进行下去，
 最后修改Token的block和offset信息。</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="sd">/// Writes a message into the channel.
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="sd">/// Writes a message into the channel.
 </span><span class="sd"></span><span class="k">pub</span><span class="w"> </span><span class="k">unsafe</span><span class="w"> </span><span class="k">fn</span> <span class="nf">write</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">token</span>: <span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Token</span><span class="p">,</span><span class="w"> </span><span class="n">msg</span>: <span class="nc">T</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">	</span><span class="c1">// If there is no slot, the channel is disconnected.
 </span><span class="c1"></span><span class="w">	</span><span class="k">if</span><span class="w"> </span><span class="n">token</span><span class="p">.</span><span class="n">list</span><span class="p">.</span><span class="n">block</span><span class="p">.</span><span class="n">is_null</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
@@ -336,7 +331,7 @@ cache line的整数倍，同时足够容纳类型T，这样就可以避免2个�
 </span><span class="w">	</span><span class="nb">Ok</span><span class="p">(())</span><span class="w">
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span></code></pre></div><p>而<code>write</code>方法就比较简单了，写入数据，设置已写入状态，最后通知被阻塞的消费者线程。</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="sd">/// Receives a message from the channel.
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="sd">/// Receives a message from the channel.
 </span><span class="sd"></span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">recv</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">deadline</span>: <span class="nb">Option</span><span class="o">&lt;</span><span class="n">Instant</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nb">Result</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="n">RecvTimeoutError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">	</span><span class="kd">let</span><span class="w"> </span><span class="n">token</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">Token</span>::<span class="n">default</span><span class="p">();</span><span class="w">
 </span><span class="w">	</span><span class="k">loop</span><span class="w"> </span><span class="p">{</span><span class="w">
@@ -395,7 +390,7 @@ cache line的整数倍，同时足够容纳类型T，这样就可以避免2个�
 </ol>
 <p>当Channel为空时，采取的策略是自旋、让出CPU、睡眠线程，这样的策略在高并发实践中也非常常见。</p>
 <p>在<code>start_recv</code>方法中：</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">if</span><span class="w"> </span><span class="n">new_head</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">MARK_BIT</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">if</span><span class="w"> </span><span class="n">new_head</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">MARK_BIT</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">	</span><span class="n">atomic</span>::<span class="n">fence</span><span class="p">(</span><span class="n">Ordering</span>::<span class="n">SeqCst</span><span class="p">);</span><span class="w">
 </span><span class="w">	</span><span class="kd">let</span><span class="w"> </span><span class="n">tail</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">tail</span><span class="p">.</span><span class="n">index</span><span class="p">.</span><span class="n">load</span><span class="p">(</span><span class="n">Ordering</span>::<span class="n">Relaxed</span><span class="p">);</span><span class="w">
 </span><span class="w">
@@ -420,7 +415,7 @@ cache line的整数倍，同时足够容纳类型T，这样就可以避免2个�
 </span></code></pre></div><p>head的MARK_BIT标记为0时，当前Block是最后一个Block，如果head与tail的index相同，则说明Channel为空。
 tail的MARK_BIT标记不为0时，说明Channel已disconnected（生产者数量为0），不会再有新消息，此时抛出一个错误。
 由于处于并发环境下，当此时的head和tail不处于同一个Block时，还需要设置head的MARK_BIT标记。</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// The block can be null here only if the first message is being sent into the channel.
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// The block can be null here only if the first message is being sent into the channel.
 </span><span class="c1">// In that case, just wait until it gets initialized.
 </span><span class="c1"></span><span class="k">if</span><span class="w"> </span><span class="n">block</span><span class="p">.</span><span class="n">is_null</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">	</span><span class="n">backoff</span><span class="p">.</span><span class="n">snooze</span><span class="p">();</span><span class="w">
@@ -429,7 +424,7 @@ tail的MARK_BIT标记不为0时，说明Channel已disconnected（生产者数量
 </span><span class="w">	</span><span class="k">continue</span><span class="p">;</span><span class="w">
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span></code></pre></div><p>当block为空时，说明第一条消息正在创建Block，这里就进行等待。</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// Try moving the head index forward.
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// Try moving the head index forward.
 </span><span class="c1"></span><span class="k">match</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">head</span><span class="p">.</span><span class="n">index</span><span class="p">.</span><span class="n">compare_exchange_weak</span><span class="p">(</span><span class="w">
 </span><span class="w">	</span><span class="n">head</span><span class="p">,</span><span class="w">
 </span><span class="w">	</span><span class="n">new_head</span><span class="p">,</span><span class="w">
@@ -460,7 +455,7 @@ tail的MARK_BIT标记不为0时，说明Channel已disconnected（生产者数量
 </span><span class="w">	</span><span class="p">}</span><span class="w">
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span></code></pre></div><p>然后替换head，成功替换后，如果已到达当前Block的末端，则移动到下一个Block。同样，如果下一个Block正在创建，则需要等待，同时MARK_BIT也需要做相应设置。</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="sd">/// Reads a message from the channel.
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="sd">/// Reads a message from the channel.
 </span><span class="sd"></span><span class="k">pub</span><span class="w"> </span><span class="k">unsafe</span><span class="w"> </span><span class="k">fn</span> <span class="nf">read</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">token</span>: <span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Token</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nb">Result</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="p">()</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">	</span><span class="k">if</span><span class="w"> </span><span class="n">token</span><span class="p">.</span><span class="n">list</span><span class="p">.</span><span class="n">block</span><span class="p">.</span><span class="n">is_null</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">		</span><span class="c1">// The channel is disconnected.
@@ -487,7 +482,7 @@ tail的MARK_BIT标记不为0时，说明Channel已disconnected（生产者数量
 </span></code></pre></div><p>在<code>read</code>方法中，如果对应的Slot正在写入，则需要等待其写入完成。而如果已到达当前Block的末端，则需要销毁这个Block。</p>
 <p>不过由于处于并发环境，当获取到Slot的操作权限后，其他线程的操作已经可以进行下去，那么就会出现上一个Block的Slot还在读取过程中的情况，这时候Slot的DESTROY位
 会被设置。这种情况下，读取完成的线程需要负责Block的销毁工作。</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="sd">/// Sets the `DESTROY` bit in slots starting from `start` and destroys the block.
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="sd">/// Sets the `DESTROY` bit in slots starting from `start` and destroys the block.
 </span><span class="sd"></span><span class="k">unsafe</span><span class="w"> </span><span class="k">fn</span> <span class="nf">destroy</span><span class="p">(</span><span class="n">this</span>: <span class="o">*</span><span class="k">mut</span><span class="w"> </span><span class="n">Block</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">start</span>: <span class="kt">usize</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">	</span><span class="c1">// It is not necessary to set the `DESTROY` bit in the last slot because that slot has
 </span><span class="c1"></span><span class="w">	</span><span class="c1">// begun destruction of the block.
@@ -512,7 +507,7 @@ tail的MARK_BIT标记不为0时，说明Channel已disconnected（生产者数量
 不再存在时，还需要执行清理、销毁Channel操作。</p>
 <p>当生产者或消费者一方不再存在时，我们称为disconnected；只有当生产者和消费者都不再存在时，才会完全销毁Channel。</p>
 <p>而crossbeam是通过Counter这个结构来记录生产者和消费者数量的：</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="sd">/// Reference counter internals.
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="sd">/// Reference counter internals.
 </span><span class="sd"></span><span class="k">struct</span> <span class="nc">Counter</span><span class="o">&lt;</span><span class="n">C</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="sd">/// The number of senders associated with the channel.
 </span><span class="sd"></span><span class="w">    </span><span class="n">senders</span>: <span class="nc">AtomicUsize</span><span class="p">,</span><span class="w">
@@ -540,7 +535,7 @@ tail的MARK_BIT标记不为0时，说明Channel已disconnected（生产者数量
 </span><span class="w">    </span><span class="p">(</span><span class="n">s</span><span class="p">,</span><span class="w"> </span><span class="n">r</span><span class="p">)</span><span class="w">
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span></code></pre></div><p>从构造方法中也能看到，Sender和Receiver共享了一个Counter的裸指针。</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">impl</span><span class="o">&lt;</span><span class="n">C</span><span class="o">&gt;</span><span class="w"> </span><span class="n">Sender</span><span class="o">&lt;</span><span class="n">C</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">impl</span><span class="o">&lt;</span><span class="n">C</span><span class="o">&gt;</span><span class="w"> </span><span class="n">Sender</span><span class="o">&lt;</span><span class="n">C</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="sd">/// Acquires another sender reference.
 </span><span class="sd"></span><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">acquire</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nc">Sender</span><span class="o">&lt;</span><span class="n">C</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">count</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">counter</span><span class="p">().</span><span class="n">senders</span><span class="p">.</span><span class="n">fetch_add</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">Ordering</span>::<span class="n">Relaxed</span><span class="p">);</span><span class="w">
@@ -576,7 +571,7 @@ tail的MARK_BIT标记不为0时，说明Channel已disconnected（生产者数量
 </span><span class="w">    </span><span class="p">}</span><span class="w">
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span></code></pre></div><p>Sender和Receiver的<code>acquire</code>方法分别用于增加生产者和消费者，实现方法则是通过增加原子计数。</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">impl</span><span class="o">&lt;</span><span class="n">C</span><span class="o">&gt;</span><span class="w"> </span><span class="n">Sender</span><span class="o">&lt;</span><span class="n">C</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">impl</span><span class="o">&lt;</span><span class="n">C</span><span class="o">&gt;</span><span class="w"> </span><span class="n">Sender</span><span class="o">&lt;</span><span class="n">C</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="sd">/// Releases the sender reference.
 </span><span class="sd"></span><span class="w">    </span><span class="sd">///
 </span><span class="sd"></span><span class="w">    </span><span class="sd">/// Function `disconnect` will be called if this is the last sender reference.
@@ -608,7 +603,7 @@ tail的MARK_BIT标记不为0时，说明Channel已disconnected（生产者数量
 </span></code></pre></div><p><code>release</code>方法分别用于释放生产者和消费者，并且当一方的计数归0时，需要执行<code>disconnect</code>方法用于唤醒所有处于等待中的消费者线程和设置disconneted位标记，
 这样当已经被disconnected标记后的生产者和消费者再进行操作时就会产生对应的错误。</p>
 <p>当生产者和消费者都设置过destroy字段后，销毁Counter并间接析构Channel：</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">impl</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="nb">Drop</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Channel</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">impl</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="nb">Drop</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Channel</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="k">fn</span> <span class="nf">drop</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">head</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">head</span><span class="p">.</span><span class="n">index</span><span class="p">.</span><span class="n">load</span><span class="p">(</span><span class="n">Ordering</span>::<span class="n">Relaxed</span><span class="p">);</span><span class="w">
 </span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">tail</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">tail</span><span class="p">.</span><span class="n">index</span><span class="p">.</span><span class="n">load</span><span class="p">(</span><span class="n">Ordering</span>::<span class="n">Relaxed</span><span class="p">);</span><span class="w">
@@ -660,7 +655,7 @@ tail的MARK_BIT标记不为0时，说明Channel已disconnected（生产者数量
 <hr>
 <ol>
 <li id="fn:1" role="doc-endnote">
-<p>Epoch-based memory reclamation - <a href="https://www.cl.cam.ac.uk/techreports/UCAM-CL-TR-579.pdf">Practical lock-freedom</a> <a href="#fnref:1" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
+<p>Epoch-based memory reclamation - <a href="https://www.cl.cam.ac.uk/techreports/UCAM-CL-TR-579.pdf">Practical lock-freedom</a>&#160;<a href="#fnref:1" class="footnote-backref" role="doc-backlink">&#x21a9;&#xfe0e;</a></p>
 </li>
 </ol>
 </section>
@@ -670,7 +665,7 @@ tail的MARK_BIT标记不为0时，说明Channel已disconnected（生产者数量
 				<p>
 					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-tag meta-icon"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7" y2="7"></line></svg><span class="tag"><a href="https://xiaopengli89.github.io/tags/rust">rust</a></span><span class="tag"><a href="https://xiaopengli89.github.io/tags/concurrency">concurrency</a></span>
 				</p>
-				<p><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-file-text"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>7302 Words</p>
+				<p><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-file-text"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>7301 Words</p>
 				<p><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-calendar"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>2020-08-08 20:13 &#43;0800</p>
 			</footer>
 		</article>
@@ -687,7 +682,7 @@ tail的MARK_BIT标记不为0时，说明Channel已disconnected（生产者数量
 	</main>
 
 	<footer id="site-footer" class="section-inner thin animated fadeIn faster">
-		<p>&copy; 2020 <a href="https://xiaopengli89.github.io">Xiaopeng Li</a> &#183; <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a></p>
+		<p>&copy; 2021 <a href="https://xiaopengli89.github.io">Xiaopeng Li</a> &#183; <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a></p>
 		<p>
 			Made with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> &#183; Theme <a href="https://github.com/Track3/hermit" target="_blank" rel="noopener">Hermit</a> &#183; <a href="https://xiaopengli89.github.io/posts/index.xml" target="_blank" title="rss"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-rss"><path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle></svg></a>
 		</p>
@@ -695,7 +690,7 @@ tail的MARK_BIT标记不为0时，说明Channel已disconnected（生产者数量
 
 
 
-	<script src="https://xiaopengli89.github.io/js/bundle.min.4a9a0ac3d2217822c7865b4161e6c2a71de1d70492264337755427898dd718f6.js" integrity="sha256-SpoKw9IheCLHhltBYebCpx3h1wSSJkM3dVQniY3XGPY=" crossorigin="anonymous"></script>
+	<script src="https://xiaopengli89.github.io/js/bundle.min.7d8545daa55d62427355498dd8da13f98ff79a7938ce7d2a5e2ae1ec0de3beb8.js" integrity="sha256-fYVF2qVdYkJzVUmN2NoT+Y/3mnk4zn0qXirh7A3jvrg=" crossorigin="anonymous"></script>
 	
 <script src="https://cdn.bootcdn.net/ajax/libs/prism/1.20.0/prism.min.js"></script>
 <script src="https://cdn.bootcdn.net/ajax/libs/prism/1.20.0/plugins/autoloader/prism-autoloader.min.js"></script>

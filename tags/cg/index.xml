@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>cg on Torigoth</title>
+    <link>https://xiaopengli89.github.io/tags/cg/</link>
+    <description>Recent content in cg on Torigoth</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright>
+    <lastBuildDate>Sat, 28 Aug 2021 15:36:19 +0800</lastBuildDate><atom:link href="https://xiaopengli89.github.io/tags/cg/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>窗口合成器 (Window Compositor)</title>
+      <link>https://xiaopengli89.github.io/posts/window-compositor/</link>
+      <pubDate>Sat, 28 Aug 2021 15:36:19 +0800</pubDate>
+      
+      <guid>https://xiaopengli89.github.io/posts/window-compositor/</guid>
+      <description>窗口合成器，顾名思义即用于合成并显示多个窗口的系统组件。虽然图形操作系统诞生之初，并没有窗口合成器，但其相关的技术在图形计算领域是逐步发展并</description>
+    </item>
+    
+  </channel>
+</rss>

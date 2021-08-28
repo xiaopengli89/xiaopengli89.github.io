@@ -17,13 +17,9 @@ const fn
 由于const fn同常量表达式一样，是在const context上下文中执行，即在编译时计算函数（或表达式）结果，因此在使用上有诸多限制，比如类型参数只能绑定
 生命周期和Sized（?Sized），只能调用其他const fn等。
 Lazy类型实现的是延迟初始化，因此不必受到const fn的限制，同时能加快某些组件的启动，未使用到的功能甚至可以不初始化。
-延迟初始化应用广泛，比如配置文件的读取，异步运行时需要初始化全局的Executor等，因此合并进标准库可以方便不少。">
-<meta itemprop="datePublished" content="2020-08-18T00:50:39&#43;08:00" />
-<meta itemprop="dateModified" content="2020-08-18T00:50:39&#43;08:00" />
+延迟初始化应用广泛，比如配置文件的读取，异步运行时需要初始化全局的Executor等，因此合并进标准库可以方便不少。"><meta itemprop="datePublished" content="2020-08-18T00:50:39+08:00" />
+<meta itemprop="dateModified" content="2020-08-18T00:50:39+08:00" />
 <meta itemprop="wordCount" content="2893">
-
-
-
 <meta itemprop="keywords" content="rust,lazy," /><meta property="og:title" content="Lazy原生类型" />
 <meta property="og:description" content="最近 Add lazy initialization primitives to std #72414 合并进标准库，以前为了实现全局变量的初始化，
 一般有2种方式：
@@ -36,9 +32,10 @@ const fn
 Lazy类型实现的是延迟初始化，因此不必受到const fn的限制，同时能加快某些组件的启动，未使用到的功能甚至可以不初始化。
 延迟初始化应用广泛，比如配置文件的读取，异步运行时需要初始化全局的Executor等，因此合并进标准库可以方便不少。" />
 <meta property="og:type" content="article" />
-<meta property="og:url" content="https://xiaopengli89.github.io/posts/lazy-primitives/" />
+<meta property="og:url" content="https://xiaopengli89.github.io/posts/lazy-primitives/" /><meta property="article:section" content="posts" />
 <meta property="article:published_time" content="2020-08-18T00:50:39+08:00" />
 <meta property="article:modified_time" content="2020-08-18T00:50:39+08:00" />
+
 <meta name="twitter:card" content="summary"/>
 <meta name="twitter:title" content="Lazy原生类型"/>
 <meta name="twitter:description" content="最近 Add lazy initialization primitives to std #72414 合并进标准库，以前为了实现全局变量的初始化，
@@ -60,7 +57,7 @@ Lazy类型实现的是延迟初始化，因此不必受到const fn的限制，�
 	<link rel="shortcut icon" href="/favicon.ico">
 
 	<title>Lazy原生类型</title>
-	<link rel="stylesheet" href="https://xiaopengli89.github.io/css/style.min.eac77496566fd7d5768fd650ddb0b2b181ca6a2d7c5fdd6fe6b8ba4bf47e566f.css" integrity="sha256-6sd0llZv19V2j9ZQ3bCysYHKai18X91v5ri6S/R+Vm8=" crossorigin="anonymous">
+	<link rel="stylesheet" href="https://xiaopengli89.github.io/css/style.min.037b6ee8f8c1baab6a3d0a9da11c3ff18a7552471f16c59fd98538d5ce99208b.css" integrity="sha256-A3tu6PjBuqtqPQqdoRw/8Yp1UkcfFsWf2YU41c6ZIIs=" crossorigin="anonymous">
 	
 	<link rel="stylesheet" href="https://atelierbram.github.io/syntax-highlighting/archive/assets/css/prism/prism-base16-railscasts.dark.css">
 	<link rel="stylesheet" href="https://xiaopengli89.github.io/css/site.css">
@@ -116,7 +113,7 @@ Lazy类型实现的是延迟初始化，因此不必受到const fn的限制，�
 <p>在<code>std::lazy</code>下有2个用于延迟初始化的类型：<code>Lazy</code>和<code>SyncLazy</code>。其中<code>Lazy</code>是非线程安全的，主要用于TLS或非多线程访问。<code>SyncLazy</code>则是<code>Lazy</code>的线程安全
 版本，多用于全局变量的初始化。</p>
 <p><code>Lazy</code>类型相对简单，因此这篇文章主要介绍<code>SyncLazy</code>的实现：</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[unstable(feature = </span><span class="s">&#34;once_cell&#34;</span><span class="cp">, issue = </span><span class="s">&#34;74465&#34;</span><span class="cp">)]</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[unstable(feature = </span><span class="s">&#34;once_cell&#34;</span><span class="cp">, issue = </span><span class="s">&#34;74465&#34;</span><span class="cp">)]</span><span class="w">
 </span><span class="w"></span><span class="k">pub</span><span class="w"> </span><span class="k">struct</span> <span class="nc">SyncLazy</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="n">F</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">fn</span><span class="p">()</span><span class="w"> </span>-&gt; <span class="nc">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="n">cell</span>: <span class="nc">SyncOnceCell</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">,</span><span class="w">
 </span><span class="w">    </span><span class="n">init</span>: <span class="nc">Cell</span><span class="o">&lt;</span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">F</span><span class="o">&gt;&gt;</span><span class="p">,</span><span class="w">
@@ -126,20 +123,20 @@ Lazy类型实现的是延迟初始化，因此不必受到const fn的限制，�
 </span><span class="w"></span><span class="k">unsafe</span><span class="w"> </span><span class="k">impl</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="n">F</span>: <span class="nb">Send</span><span class="o">&gt;</span><span class="w"> </span><span class="nb">Sync</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">SyncLazy</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="n">F</span><span class="o">&gt;</span><span class="w"> </span><span class="k">where</span><span class="w"> </span><span class="n">SyncOnceCell</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span>: <span class="nb">Sync</span> <span class="p">{}</span><span class="w">
 </span></code></pre></div><p>cell用于保存内部数据，init则用于保存初始化函数，当第一次访问数据时，init中保存的函数将会执行。</p>
 <p>由于<code>SyncLazy</code>需要支持多线程的共享访问，所以需要实现<code>Sync</code>。</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[unstable(feature = </span><span class="s">&#34;once_cell&#34;</span><span class="cp">, issue = </span><span class="s">&#34;74465&#34;</span><span class="cp">)]</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[unstable(feature = </span><span class="s">&#34;once_cell&#34;</span><span class="cp">, issue = </span><span class="s">&#34;74465&#34;</span><span class="cp">)]</span><span class="w">
 </span><span class="w"></span><span class="k">pub</span><span class="w"> </span><span class="k">struct</span> <span class="nc">SyncOnceCell</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="n">once</span>: <span class="nc">Once</span><span class="p">,</span><span class="w">
 </span><span class="w">    </span><span class="c1">// Whether or not the value is initialized is tracked by `state_and_queue`.
 </span><span class="c1"></span><span class="w">    </span><span class="n">value</span>: <span class="nc">UnsafeCell</span><span class="o">&lt;</span><span class="n">MaybeUninit</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span><span class="p">,</span><span class="w">
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span></code></pre></div><p>在<code>SyncOnceCell</code>内，value用于保存数据 ，once用于确保在多线程环境下，初始化函数只被执行一次，这也是和非线程安全版<code>Lazy</code>的最大区别：</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[unstable(feature = </span><span class="s">&#34;once_cell&#34;</span><span class="cp">, issue = </span><span class="s">&#34;74465&#34;</span><span class="cp">)]</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[unstable(feature = </span><span class="s">&#34;once_cell&#34;</span><span class="cp">, issue = </span><span class="s">&#34;74465&#34;</span><span class="cp">)]</span><span class="w">
 </span><span class="w"></span><span class="k">pub</span><span class="w"> </span><span class="k">struct</span> <span class="nc">OnceCell</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="c1">// Invariant: written to at most once.
 </span><span class="c1"></span><span class="w">    </span><span class="n">inner</span>: <span class="nc">UnsafeCell</span><span class="o">&lt;</span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span><span class="p">,</span><span class="w">
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span></code></pre></div><p>通过实现<code>Deref</code>，可以像智能指针那样使用内部类型：</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">impl</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="n">F</span>: <span class="nb">FnOnce</span><span class="p">()</span><span class="w"> </span>-&gt; <span class="nc">T</span><span class="o">&gt;</span><span class="w"> </span><span class="n">SyncLazy</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="n">F</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">impl</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="n">F</span>: <span class="nb">FnOnce</span><span class="p">()</span><span class="w"> </span>-&gt; <span class="nc">T</span><span class="o">&gt;</span><span class="w"> </span><span class="n">SyncLazy</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="n">F</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="cp">#[unstable(feature = </span><span class="s">&#34;once_cell&#34;</span><span class="cp">, issue = </span><span class="s">&#34;74465&#34;</span><span class="cp">)]</span><span class="w">
 </span><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">force</span><span class="p">(</span><span class="n">this</span>: <span class="kp">&amp;</span><span class="nc">SyncLazy</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="n">F</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="kp">&amp;</span><span class="nc">T</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">        </span><span class="n">this</span><span class="p">.</span><span class="n">cell</span><span class="p">.</span><span class="n">get_or_init</span><span class="p">(</span><span class="o">||</span><span class="w"> </span><span class="k">match</span><span class="w"> </span><span class="n">this</span><span class="p">.</span><span class="n">init</span><span class="p">.</span><span class="n">take</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w">
@@ -157,7 +154,7 @@ Lazy类型实现的是延迟初始化，因此不必受到const fn的限制，�
 </span><span class="w">    </span><span class="p">}</span><span class="w">
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span></code></pre></div><p>在<code>deref</code>方法内调用了<code>force</code>方法，因此关键的部分就是<code>SyncOnceCell</code>的<code>get_or_init</code>方法实现了：</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[unstable(feature = </span><span class="s">&#34;once_cell&#34;</span><span class="cp">, issue = </span><span class="s">&#34;74465&#34;</span><span class="cp">)]</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[unstable(feature = </span><span class="s">&#34;once_cell&#34;</span><span class="cp">, issue = </span><span class="s">&#34;74465&#34;</span><span class="cp">)]</span><span class="w">
 </span><span class="w"></span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">get_or_init</span><span class="o">&lt;</span><span class="n">F</span><span class="o">&gt;</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">f</span>: <span class="nc">F</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="kp">&amp;</span><span class="nc">T</span><span class="w">
 </span><span class="w"></span><span class="k">where</span><span class="w">
 </span><span class="w">	</span><span class="n">F</span>: <span class="nb">FnOnce</span><span class="p">()</span><span class="w"> </span>-&gt; <span class="nc">T</span><span class="p">,</span><span class="w">
@@ -188,7 +185,7 @@ Lazy类型实现的是延迟初始化，因此不必受到const fn的限制，�
 </span><span class="c1"></span><span class="w">	</span><span class="nb">Ok</span><span class="p">(</span><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="bp">self</span><span class="p">.</span><span class="n">get_unchecked</span><span class="p">()</span><span class="w"> </span><span class="p">})</span><span class="w">
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span></code></pre></div><p>到这里还是比较常规的操作，先看数据是否已经初始化，如果是就直接返回，否则执行初始化。</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[cold]</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[cold]</span><span class="w">
 </span><span class="w"></span><span class="k">fn</span> <span class="nf">initialize</span><span class="o">&lt;</span><span class="n">F</span><span class="p">,</span><span class="w"> </span><span class="n">E</span><span class="o">&gt;</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">f</span>: <span class="nc">F</span><span class="p">)</span><span class="w"> </span>-&gt; <span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">E</span><span class="o">&gt;</span><span class="w">
 </span><span class="w"></span><span class="k">where</span><span class="w">
 </span><span class="w">	</span><span class="n">F</span>: <span class="nb">FnOnce</span><span class="p">()</span><span class="w"> </span>-&gt; <span class="nb">Result</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="n">E</span><span class="o">&gt;</span><span class="p">,</span><span class="w">
@@ -219,7 +216,7 @@ Lazy类型实现的是延迟初始化，因此不必受到const fn的限制，�
 <p><strong>NOTE:</strong> 不过从<code>get_or_init</code>方法中可以看到，闭包f的Err类型为<code>never</code>（<code>!</code>），因此永远不会失败。但是<code>OnceState</code>的状态在初始化线程panic后也会置为
 <code>POISONED</code>，可以从后面的代码里看到。</p>
 <p><strong>NOTE:</strong> <code>#[cold]</code>这个attr告诉编译器这个方法会很少调用（因为一旦初始化完成，后面就不会再执行了），这个参数会传递给llvm用于代码优化。</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[unstable(feature = </span><span class="s">&#34;once_poison&#34;</span><span class="cp">, issue = </span><span class="s">&#34;33577&#34;</span><span class="cp">)]</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[unstable(feature = </span><span class="s">&#34;once_poison&#34;</span><span class="cp">, issue = </span><span class="s">&#34;33577&#34;</span><span class="cp">)]</span><span class="w">
 </span><span class="w"></span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">call_once_force</span><span class="o">&lt;</span><span class="n">F</span><span class="o">&gt;</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">f</span>: <span class="nc">F</span><span class="p">)</span><span class="w">
 </span><span class="w"></span><span class="k">where</span><span class="w">
 </span><span class="w">	</span><span class="n">F</span>: <span class="nb">FnOnce</span><span class="p">(</span><span class="o">&amp;</span><span class="n">OnceState</span><span class="p">),</span><span class="w">
@@ -282,7 +279,7 @@ Lazy类型实现的是延迟初始化，因此不必受到const fn的限制，�
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span></code></pre></div><p><code>call_once_force</code>方法又会调用<code>call_inner</code>，而这个<code>call_inner</code>就是once最核心的方法了。</p>
 <p>这个方法首先会先获取<code>state_and_queue</code>属性，这个类型本身看定义的话是个<code>AtomicUsize</code>：</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[stable(feature = </span><span class="s">&#34;rust1&#34;</span><span class="cp">, since = </span><span class="s">&#34;1.0.0&#34;</span><span class="cp">)]</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[stable(feature = </span><span class="s">&#34;rust1&#34;</span><span class="cp">, since = </span><span class="s">&#34;1.0.0&#34;</span><span class="cp">)]</span><span class="w">
 </span><span class="w"></span><span class="k">pub</span><span class="w"> </span><span class="k">struct</span> <span class="nc">Once</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="c1">// `state_and_queue` is actually an a pointer to a `Waiter` with extra state
 </span><span class="c1"></span><span class="w">    </span><span class="c1">// bits, so we add the `PhantomData` appropriately.
@@ -290,7 +287,7 @@ Lazy类型实现的是延迟初始化，因此不必受到const fn的限制，�
 </span><span class="w">    </span><span class="n">_marker</span>: <span class="nc">marker</span>::<span class="n">PhantomData</span><span class="o">&lt;*</span><span class="k">const</span><span class="w"> </span><span class="n">Waiter</span><span class="o">&gt;</span><span class="p">,</span><span class="w">
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span></code></pre></div><p>但其实<code>state_and_queue</code>是一个<code>Waiter</code>链表指针和初始化状态的复合，其中低2bit为状态位。之所以能这么实现，是因为<code>Waiter</code>类型的对齐属性：</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[repr(align(4))]</span><span class="w"> </span><span class="c1">// Ensure the two lower bits are free to use as state bits.
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="cp">#[repr(align(4))]</span><span class="w"> </span><span class="c1">// Ensure the two lower bits are free to use as state bits.
 </span><span class="c1"></span><span class="k">struct</span> <span class="nc">Waiter</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="n">thread</span>: <span class="nc">Cell</span><span class="o">&lt;</span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">Thread</span><span class="o">&gt;&gt;</span><span class="p">,</span><span class="w">
 </span><span class="w">    </span><span class="n">signaled</span>: <span class="nc">AtomicBool</span><span class="p">,</span><span class="w">
@@ -300,7 +297,7 @@ Lazy类型实现的是延迟初始化，因此不必受到const fn的限制，�
 <p>在<code>call_inner</code>中最重要的2个分支是<code>POISONED | INCOMPLETE</code>和<code>_</code>，其中<code>POISONED | INCOMPLETE</code>分支说明初始化还未执行过或者执行了初始化函数的线程panic了，
 导致数据依然是不可用的，因此这个分支需要执行初始化函数。而<code>_</code>分支说明另一个线程正在执行初始化函数的过程中，因此这个分支需要将当前线程注册到
 等待队列里，等待被唤醒。</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">fn</span> <span class="nf">wait</span><span class="p">(</span><span class="n">state_and_queue</span>: <span class="kp">&amp;</span><span class="nc">AtomicUsize</span><span class="p">,</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">current_state</span>: <span class="kt">usize</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">fn</span> <span class="nf">wait</span><span class="p">(</span><span class="n">state_and_queue</span>: <span class="kp">&amp;</span><span class="nc">AtomicUsize</span><span class="p">,</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">current_state</span>: <span class="kt">usize</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="c1">// Note: the following code was carefully written to avoid creating a
 </span><span class="c1"></span><span class="w">    </span><span class="c1">// mutable reference to `node` that gets aliased.
 </span><span class="c1"></span><span class="w">    </span><span class="k">loop</span><span class="w"> </span><span class="p">{</span><span class="w">
@@ -347,7 +344,7 @@ Lazy类型实现的是延迟初始化，因此不必受到const fn的限制，�
 <code>POISONED</code>。当初始化函数执行完，则<code>set_state_on_drop_to</code>会设置为<code>init_state</code>中的<code>set_state_on_drop_to</code>。而<code>init_state</code>会作为参数传递到初始化函数中，
 也就是说初始化函数中可以修改<code>set_state_on_drop_to</code>。</p>
 <p><strong>NOTE:</strong> 上面所说的初始化函数是指被包装过的，而不是用户的初始化函数。</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">impl</span><span class="w"> </span><span class="nb">Drop</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">WaiterQueue</span><span class="o">&lt;</span><span class="na">&#39;_</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">impl</span><span class="w"> </span><span class="nb">Drop</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">WaiterQueue</span><span class="o">&lt;</span><span class="na">&#39;_</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="k">fn</span> <span class="nf">drop</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">        </span><span class="c1">// Swap out our state with however we finished.
 </span><span class="c1"></span><span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">state_and_queue</span><span class="w"> </span><span class="o">=</span><span class="w">
@@ -392,6 +389,9 @@ Lazy类型实现的是延迟初始化，因此不必受到const fn的限制，�
 			</footer>
 		</article>
 		<div class="post-nav thin">
+			<a class="next-post" href="https://xiaopengli89.github.io/posts/window-compositor/">
+				<span class="post-nav-label"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-left"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>&nbsp;Newer</span><br><span>窗口合成器 (Window Compositor)</span>
+			</a>
 			<a class="prev-post" href="https://xiaopengli89.github.io/posts/crossbeam-channel/">
 				<span class="post-nav-label">Older&nbsp;<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-right"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></span><br><span>Crossbeam的无锁并发Channel解析</span>
 			</a>
@@ -401,7 +401,7 @@ Lazy类型实现的是延迟初始化，因此不必受到const fn的限制，�
 	</main>
 
 	<footer id="site-footer" class="section-inner thin animated fadeIn faster">
-		<p>&copy; 2020 <a href="https://xiaopengli89.github.io">Xiaopeng Li</a> &#183; <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a></p>
+		<p>&copy; 2021 <a href="https://xiaopengli89.github.io">Xiaopeng Li</a> &#183; <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a></p>
 		<p>
 			Made with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> &#183; Theme <a href="https://github.com/Track3/hermit" target="_blank" rel="noopener">Hermit</a> &#183; <a href="https://xiaopengli89.github.io/posts/index.xml" target="_blank" title="rss"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-rss"><path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle></svg></a>
 		</p>
@@ -409,7 +409,7 @@ Lazy类型实现的是延迟初始化，因此不必受到const fn的限制，�
 
 
 
-	<script src="https://xiaopengli89.github.io/js/bundle.min.4a9a0ac3d2217822c7865b4161e6c2a71de1d70492264337755427898dd718f6.js" integrity="sha256-SpoKw9IheCLHhltBYebCpx3h1wSSJkM3dVQniY3XGPY=" crossorigin="anonymous"></script>
+	<script src="https://xiaopengli89.github.io/js/bundle.min.7d8545daa55d62427355498dd8da13f98ff79a7938ce7d2a5e2ae1ec0de3beb8.js" integrity="sha256-fYVF2qVdYkJzVUmN2NoT+Y/3mnk4zn0qXirh7A3jvrg=" crossorigin="anonymous"></script>
 	
 <script src="https://cdn.bootcdn.net/ajax/libs/prism/1.20.0/prism.min.js"></script>
 <script src="https://cdn.bootcdn.net/ajax/libs/prism/1.20.0/plugins/autoloader/prism-autoloader.min.js"></script>

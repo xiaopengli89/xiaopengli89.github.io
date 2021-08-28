@@ -14,13 +14,9 @@ NAMESPACES - 实现资源的隔离
 CGROUPS - 实现资源的限制
 PIVOT_ROOT - 实现独立的根文件系统
 
-本文将实现一个简易的 进程、根文件系统、网络 隔离的容器运行时。">
-<meta itemprop="datePublished" content="2020-07-18T22:15:35&#43;08:00" />
-<meta itemprop="dateModified" content="2020-07-18T22:15:35&#43;08:00" />
+本文将实现一个简易的 进程、根文件系统、网络 隔离的容器运行时。"><meta itemprop="datePublished" content="2020-07-18T22:15:35+08:00" />
+<meta itemprop="dateModified" content="2020-07-18T22:15:35+08:00" />
 <meta itemprop="wordCount" content="1634">
-
-
-
 <meta itemprop="keywords" content="rust,oci,container,namespace,pivot_root," /><meta property="og:title" content="OCI容器运行时实现（一）" />
 <meta property="og:description" content="一个OCI容器运行时有3个组成部分：
 
@@ -30,9 +26,10 @@ PIVOT_ROOT - 实现独立的根文件系统
 
 本文将实现一个简易的 进程、根文件系统、网络 隔离的容器运行时。" />
 <meta property="og:type" content="article" />
-<meta property="og:url" content="https://xiaopengli89.github.io/posts/oci-ns-pid-mount-net/" />
+<meta property="og:url" content="https://xiaopengli89.github.io/posts/oci-ns-pid-mount-net/" /><meta property="article:section" content="posts" />
 <meta property="article:published_time" content="2020-07-18T22:15:35+08:00" />
 <meta property="article:modified_time" content="2020-07-18T22:15:35+08:00" />
+
 <meta name="twitter:card" content="summary"/>
 <meta name="twitter:title" content="OCI容器运行时实现（一）"/>
 <meta name="twitter:description" content="一个OCI容器运行时有3个组成部分：
@@ -51,7 +48,7 @@ PIVOT_ROOT - 实现独立的根文件系统
 	<link rel="shortcut icon" href="/favicon.ico">
 
 	<title>OCI容器运行时实现（一）</title>
-	<link rel="stylesheet" href="https://xiaopengli89.github.io/css/style.min.eac77496566fd7d5768fd650ddb0b2b181ca6a2d7c5fdd6fe6b8ba4bf47e566f.css" integrity="sha256-6sd0llZv19V2j9ZQ3bCysYHKai18X91v5ri6S/R+Vm8=" crossorigin="anonymous">
+	<link rel="stylesheet" href="https://xiaopengli89.github.io/css/style.min.037b6ee8f8c1baab6a3d0a9da11c3ff18a7552471f16c59fd98538d5ce99208b.css" integrity="sha256-A3tu6PjBuqtqPQqdoRw/8Yp1UkcfFsWf2YU41c6ZIIs=" crossorigin="anonymous">
 	
 	<link rel="stylesheet" href="https://atelierbram.github.io/syntax-highlighting/archive/assets/css/prism/prism-base16-railscasts.dark.css">
 	<link rel="stylesheet" href="https://xiaopengli89.github.io/css/site.css">
@@ -112,18 +109,18 @@ PIVOT_ROOT - 实现独立的根文件系统
 </ol>
 <h3 id="准备镜像文件系统">准备镜像文件系统<a href="#准备镜像文件系统" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
 <p>新建工作目录，需要注意的是，镜像文件系统的父目录挂载类型需要 <code>private</code>：</p>
-<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">$ mkdir workspace
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash">$ mkdir workspace
 $ mount --bind --make-private workspace workspace
 $ <span class="nb">cd</span> workspace
 $ mkdir alpine
 </code></pre></div><p>测试使用 <a href="http://dl-cdn.alpinelinux.org/alpine/v3.12/releases/x86_64/alpine-minirootfs-3.12.0-x86_64.tar.gz">alpine-minirootfs-3.12.0-x86_64.tar.gz</a> 镜像，下载后解压：</p>
-<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">$ tar -C alpine -xf alpine-minirootfs-3.12.0-x86_64.tar.gz
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash">$ tar -C alpine -xf alpine-minirootfs-3.12.0-x86_64.tar.gz
 </code></pre></div><h3 id="依赖">依赖<a href="#依赖" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
 <p>添加 <a href="https://crates.io/crates/libc">libc</a> 依赖</p>
-<div class="highlight"><pre class="chroma"><code class="language-toml" data-lang="toml"><span class="p">[</span><span class="nx">dependencies</span><span class="p">]</span>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-toml" data-lang="toml"><span class="p">[</span><span class="nx">dependencies</span><span class="p">]</span>
 <span class="nx">libc</span> <span class="p">=</span> <span class="s2">&#34;0.2.72&#34;</span>
 </code></pre></div><h3 id="参数解析">参数解析<a href="#参数解析" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">use</span><span class="w"> </span><span class="n">std</span>::<span class="n">ffi</span>::<span class="n">CString</span><span class="p">;</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">use</span><span class="w"> </span><span class="n">std</span>::<span class="n">ffi</span>::<span class="n">CString</span><span class="p">;</span><span class="w">
 </span><span class="w"></span><span class="k">use</span><span class="w"> </span><span class="n">std</span>::<span class="n">ptr</span><span class="p">;</span><span class="w">
 </span><span class="w">
 </span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">args</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span>::<span class="n">env</span>::<span class="n">args</span><span class="p">();</span><span class="w">
@@ -154,7 +151,7 @@ $ mkdir alpine
 </span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">old_root</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CString</span>::<span class="n">new</span><span class="p">(</span><span class="n">image_fs</span><span class="p">.</span><span class="n">join</span><span class="p">(</span><span class="s">&#34;.old_root&#34;</span><span class="p">).</span><span class="n">to_str</span><span class="p">().</span><span class="n">unwrap</span><span class="p">()).</span><span class="n">unwrap</span><span class="p">();</span><span class="w">
 </span></code></pre></div><h3 id="声明-pivot_root-系统调用">声明 <code>pivot_root</code> 系统调用<a href="#声明-pivot_root-系统调用" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
 <p>由于 <a href="https://crates.io/crates/libc">libc</a> 没有封装 <code>pivot_root</code> 系统调用，可以手动声明FFI：</p>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">mod</span> <span class="nn">ffi</span><span class="w"> </span><span class="p">{</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">mod</span> <span class="nn">ffi</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">    </span><span class="k">extern</span><span class="w"> </span><span class="s">&#34;C&#34;</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">        </span><span class="k">pub</span><span class="w"> </span><span class="k">fn</span> <span class="nf">pivot_root</span><span class="p">(</span><span class="w">
 </span><span class="w">            </span><span class="n">new_root</span>: <span class="o">*</span><span class="k">const</span><span class="w"> </span><span class="n">libc</span>::<span class="n">c_char</span><span class="p">,</span><span class="w">
@@ -163,7 +160,7 @@ $ mkdir alpine
 </span><span class="w">    </span><span class="p">}</span><span class="w">
 </span><span class="w"></span><span class="p">}</span><span class="w">
 </span></code></pre></div><h3 id="创建子进程">创建子进程<a href="#创建子进程" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="k">unsafe</span><span class="w"> </span><span class="p">{</span><span class="w">
 </span><span class="w">	</span><span class="kd">let</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">libc</span>::<span class="n">unshare</span><span class="p">(</span><span class="n">libc</span>::<span class="n">CLONE_NEWPID</span><span class="p">);</span><span class="w">
 </span><span class="w">	</span><span class="n">assert_eq</span><span class="o">!</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span><span class="w">
 </span><span class="w">
@@ -202,11 +199,11 @@ $ mkdir alpine
 </span><span class="w">
 </span></code></pre></div><p><code>new_root</code> 目录同样需要挂载成 <code>private</code>，以及在 <code>new_root</code> 目录下创建 <code>.old_root</code> 目录用于放旧的文件系统。</p>
 <h3 id="切换命名空间">切换命名空间<a href="#切换命名空间" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// unshare新命名空间
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// unshare新命名空间
 </span><span class="c1"></span><span class="kd">let</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">libc</span>::<span class="n">unshare</span><span class="p">(</span><span class="n">libc</span>::<span class="n">CLONE_NEWNS</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">libc</span>::<span class="n">CLONE_NEWNET</span><span class="p">);</span><span class="w">
 </span><span class="w"></span><span class="n">assert_eq</span><span class="o">!</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span><span class="w">
 </span></code></pre></div><h3 id="切换文件系统">切换文件系统<a href="#切换文件系统" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// 切换根文件系统
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// 切换根文件系统
 </span><span class="c1"></span><span class="kd">let</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ffi</span>::<span class="n">pivot_root</span><span class="p">(</span><span class="n">new_root</span><span class="p">.</span><span class="n">as_ptr</span><span class="p">(),</span><span class="w"> </span><span class="n">old_root</span><span class="p">.</span><span class="n">as_ptr</span><span class="p">());</span><span class="w">
 </span><span class="w"></span><span class="n">assert_eq</span><span class="o">!</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span><span class="w">
 </span><span class="w">
@@ -243,7 +240,7 @@ $ mkdir alpine
 </span><span class="w"></span><span class="p">);</span><span class="w">
 </span><span class="w"></span><span class="n">assert_eq</span><span class="o">!</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span><span class="w">
 </span></code></pre></div><h3 id="卸载旧文件系统">卸载旧文件系统<a href="#卸载旧文件系统" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// 防止umount事件扩散到宿主环境
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="c1">// 防止umount事件扩散到宿主环境
 </span><span class="c1"></span><span class="kd">let</span><span class="w"> </span><span class="n">old_root_2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CString</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;/.old_root&#34;</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span><span class="w">
 </span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">libc</span>::<span class="n">mount</span><span class="p">(</span><span class="w">
 </span><span class="w">	</span><span class="n">CString</span>::<span class="n">new</span><span class="p">(</span><span class="s">&#34;&#34;</span><span class="p">).</span><span class="n">unwrap</span><span class="p">().</span><span class="n">as_ptr</span><span class="p">(),</span><span class="w">
@@ -260,7 +257,7 @@ $ mkdir alpine
 </span><span class="w">
 </span><span class="w"></span><span class="n">libc</span>::<span class="n">rmdir</span><span class="p">(</span><span class="n">old_root_2</span><span class="p">.</span><span class="n">as_ptr</span><span class="p">());</span><span class="w">
 </span></code></pre></div><h3 id="执行容器内程序">执行容器内程序<a href="#执行容器内程序" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
-<div class="highlight"><pre class="chroma"><code class="language-rust" data-lang="rust"><span class="kd">let</span><span class="w"> </span><span class="n">prog</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CString</span>::<span class="n">new</span><span class="p">(</span><span class="n">command</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span><span class="w">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-rust" data-lang="rust"><span class="kd">let</span><span class="w"> </span><span class="n">prog</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CString</span>::<span class="n">new</span><span class="p">(</span><span class="n">command</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span><span class="w">
 </span><span class="w"></span><span class="kd">let</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">libc</span>::<span class="n">execve</span><span class="p">(</span><span class="w">
 </span><span class="w">	</span><span class="n">prog</span><span class="p">.</span><span class="n">as_ptr</span><span class="p">(),</span><span class="w">
 </span><span class="w">	</span><span class="n">command_args</span><span class="p">.</span><span class="n">as_ptr</span><span class="p">(),</span><span class="w">
@@ -268,7 +265,7 @@ $ mkdir alpine
 </span><span class="w"></span><span class="p">);</span><span class="w">
 </span><span class="w"></span><span class="n">unreachable</span><span class="o">!</span><span class="p">();</span><span class="w">
 </span></code></pre></div><h3 id="编译运行">编译运行<a href="#编译运行" class="anchor" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg></a></h3>
-<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">$ cargo build
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash">$ cargo build
 $ ./target/debug/<span class="k">$(</span>program<span class="k">)</span> <span class="k">$(</span>workspace<span class="k">)</span>/alpine /bin/sh
 </code></pre></div><p>查看根文件系统：</p>
 <pre><code class="language-none" data-lang="none">/ # ls -la
@@ -329,7 +326,7 @@ PID   USER     TIME  COMMAND
 	</main>
 
 	<footer id="site-footer" class="section-inner thin animated fadeIn faster">
-		<p>&copy; 2020 <a href="https://xiaopengli89.github.io">Xiaopeng Li</a> &#183; <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a></p>
+		<p>&copy; 2021 <a href="https://xiaopengli89.github.io">Xiaopeng Li</a> &#183; <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a></p>
 		<p>
 			Made with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> &#183; Theme <a href="https://github.com/Track3/hermit" target="_blank" rel="noopener">Hermit</a> &#183; <a href="https://xiaopengli89.github.io/posts/index.xml" target="_blank" title="rss"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-rss"><path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle></svg></a>
 		</p>
@@ -337,7 +334,7 @@ PID   USER     TIME  COMMAND
 
 
 
-	<script src="https://xiaopengli89.github.io/js/bundle.min.4a9a0ac3d2217822c7865b4161e6c2a71de1d70492264337755427898dd718f6.js" integrity="sha256-SpoKw9IheCLHhltBYebCpx3h1wSSJkM3dVQniY3XGPY=" crossorigin="anonymous"></script>
+	<script src="https://xiaopengli89.github.io/js/bundle.min.7d8545daa55d62427355498dd8da13f98ff79a7938ce7d2a5e2ae1ec0de3beb8.js" integrity="sha256-fYVF2qVdYkJzVUmN2NoT+Y/3mnk4zn0qXirh7A3jvrg=" crossorigin="anonymous"></script>
 	
 <script src="https://cdn.bootcdn.net/ajax/libs/prism/1.20.0/prism.min.js"></script>
 <script src="https://cdn.bootcdn.net/ajax/libs/prism/1.20.0/plugins/autoloader/prism-autoloader.min.js"></script>
